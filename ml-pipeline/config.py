@@ -81,7 +81,7 @@ FRED_SERIES = {
     "sp500":              "SP500",              # S&P 500 Index
     "nasdaq":             "NASDAQCOM",          # NASDAQ Composite
     "m2_money_supply":    "M2SL",               # M2 Money Stock
-    "gold_price":         "GOLDAMGBD228NLBM",   # Gold Fixing Price (London, USD)
+    "gold_price":         "GOLDPMGBD228NLBM",   # Gold Fixing Price PM (London, USD)
     "vix":                "VIXCLS",             # CBOE Volatility Index
     "breakeven_5y":       "T5YIE",              # 5-Year Breakeven Inflation Rate
 }
@@ -134,7 +134,6 @@ XGBOOST_PARAMS = {
     "reg_lambda": 1.0,
     "objective": "multi:softprob",
     "eval_metric": "mlogloss",
-    "use_label_encoder": False,
     "random_state": 42,
     "n_jobs": -1,
 }

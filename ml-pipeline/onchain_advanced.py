@@ -77,7 +77,7 @@ def _write_cache(key: str, data) -> None:
         "data": data,
     }
     with open(path, "w") as f:
-        json.dump(payload, f)
+        json.dump(payload, f, default=str)
 
 
 def _safe_get(url: str, params: dict = None, headers: dict = None,

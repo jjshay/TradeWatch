@@ -130,16 +130,26 @@ def fetch_fred_csv(series_id: str, start_date: str = "2020-01-01") -> pd.DataFra
 
     df = pd.read_csv(
         io.StringIO(resp.text),
-        parse_dates=["DATE"],
-        index_col="DATE",
         na_values=["."],
     )
-    # The CSV column is named after the series ID
+    # FRED CSV uses 'observation_date' or 'DATE' as the date column
+    date_col = None
+    for candidate in ["observation_date", "DATE", "date"]:
+        if candidate in df.columns:
+            date_col = candidate
+            break
+    if date_col is None:
+        # Assume first column is the date
+        date_col = df.columns[0]
+
+    df[date_col] = pd.to_datetime(df[date_col])
+    df = df.set_index(date_col)
     df.index.name = "date"
+
     if series_id in df.columns:
         df = df[[series_id]].rename(columns={series_id: "value"})
     else:
-        # Some CSVs have a generic column name
+        # Use the first non-date column
         df.columns = ["value"]
 
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
