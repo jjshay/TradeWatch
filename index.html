@@ -1914,6 +1914,243 @@
             100% { transform: rotate(360deg); }
         }
 
+        /* ========== CHAT VIEW ========== */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .chat-tabs {
+            display: flex;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+            flex-shrink: 0;
+        }
+        .chat-tab {
+            flex: 1;
+            min-width: 0;
+            padding: 10px 8px;
+            font-family: var(--font);
+            font-size: var(--fs-xs);
+            font-weight: 600;
+            color: var(--text-dim);
+            background: none;
+            border: none;
+            cursor: pointer;
+            text-align: center;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .chat-tab.active {
+            color: var(--green);
+            border-bottom-color: var(--green);
+        }
+        .chat-tab:hover { color: var(--text); }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        .chat-msg {
+            margin-bottom: 16px;
+            max-width: 95%;
+        }
+        .chat-msg.user {
+            margin-left: auto;
+            text-align: right;
+        }
+        .chat-msg-bubble {
+            display: inline-block;
+            padding: 10px 14px;
+            border-radius: 14px;
+            font-size: var(--fs-sm);
+            line-height: 1.5;
+            text-align: left;
+            max-width: 100%;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .chat-msg.user .chat-msg-bubble {
+            background: rgba(16,185,129,0.15);
+            color: var(--text);
+            border-bottom-right-radius: 4px;
+        }
+        .chat-msg.ai .chat-msg-bubble {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
+        }
+        .chat-msg-meta {
+            font-size: 9px;
+            color: var(--text-dim);
+            margin-top: 4px;
+        }
+        .chat-msg-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        .chat-msg-actions button {
+            font-family: var(--font);
+            font-size: 9px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: none;
+            color: var(--text-dim);
+            cursor: pointer;
+        }
+        .chat-msg-actions button:hover { color: var(--green); border-color: var(--green); }
+
+        /* All-models grid in chat */
+        .chat-all-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        @media (max-width: 600px) {
+            .chat-all-grid { grid-template-columns: 1fr; }
+        }
+        .chat-all-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .chat-all-card.loading {
+            min-height: 80px;
+            position: relative;
+            overflow: hidden;
+        }
+        .chat-all-card.loading::after {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(16,185,129,0.05), transparent);
+            animation: shimmer 1.5s infinite;
+        }
+        .chat-all-model {
+            font-size: var(--fs-xs);
+            font-weight: 700;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .chat-all-text {
+            font-size: var(--fs-xs);
+            color: var(--text);
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .chat-all-error {
+            font-size: var(--fs-xs);
+            color: var(--red);
+        }
+
+        /* Chat input bar */
+        .chat-input-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: var(--bg-glass);
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .chat-input {
+            flex: 1;
+            font-family: var(--font);
+            font-size: var(--fs-sm);
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            background: var(--bg-card);
+            color: var(--text);
+            outline: none;
+        }
+        .chat-input:focus { border-color: var(--green); }
+        .chat-input::placeholder { color: var(--text-dim); }
+        .chat-mic-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: none;
+            color: var(--text-dim);
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+        .chat-mic-btn.recording {
+            background: rgba(239,68,68,0.2);
+            border-color: var(--red);
+            color: var(--red);
+            animation: pulse-btn 1s infinite;
+        }
+        .chat-mic-btn:hover { border-color: var(--green); color: var(--green); }
+        .chat-send-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: var(--green);
+            color: var(--bg);
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-weight: 800;
+        }
+        .chat-send-btn:hover { background: var(--green-light); }
+
+        /* ========== ANALYSIS VIEW ========== */
+        .analysis-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        .ta-chart-wrap {
+            width: 100%;
+            height: 280px;
+            margin-bottom: 12px;
+        }
+        .signal-badge {
+            display: inline-block;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 8px;
+            margin: 2px;
+        }
+        .signal-badge.buy { background: rgba(16,185,129,0.15); color: var(--green); }
+        .signal-badge.sell { background: rgba(239,68,68,0.15); color: var(--red); }
+        .onchain-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 8px;
+        }
+        .onchain-item {
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+        .onchain-label { font-size: 9px; color: var(--text-dim); text-transform: uppercase; }
+        .onchain-value { font-size: var(--fs-md); font-weight: 700; color: var(--text); }
+
         /* ========== CREDIT ========== */
         .credit-line {
             font-size: var(--fs-xs);
@@ -2291,7 +2528,11 @@
                             <button class="preset-btn" onclick="applyCryptoPreset('fullbull')">Full Bull Run</button>
                             <button class="preset-btn" onclick="applyCryptoPreset('supercycle')">Supercycle</button>
                             <button class="preset-btn" onclick="applyCryptoPreset('alts')">Alt Season Blowoff</button>
-                            <button class="preset-btn" onclick="applyCryptoPreset('bear')">Bear Market Crash</button>
+                            <button class="preset-btn" onclick="applyCryptoPreset('ethflip')">ETH Flippening</button>
+                            <button class="preset-btn" onclick="applyCryptoPreset('aiboom')">AI Crypto Boom</button>
+                            <button class="preset-btn" onclick="applyCryptoPreset('defi')">DeFi Renaissance</button>
+                            <button class="preset-btn" onclick="applyCryptoPreset('regulatory')">Regulatory Clarity</button>
+                            <button class="preset-btn" onclick="applyCryptoPreset('bear')">Bear Market</button>
                             <button class="preset-btn" onclick="applyCryptoPreset('blackswan')">Black Swan</button>
                         </div>
 
@@ -2588,6 +2829,118 @@
                 </div>
             </div>
 
+            <!-- CHAT VIEW -->
+            <div class="view" id="chatView">
+                <div class="chat-container">
+                    <div class="chat-tabs">
+                        <button class="chat-tab active" onclick="switchChatTab('all')" data-chat="all">All Models</button>
+                        <button class="chat-tab" onclick="switchChatTab('gemini')" data-chat="gemini">Gemini</button>
+                        <button class="chat-tab" onclick="switchChatTab('openai')" data-chat="openai">GPT-4o</button>
+                        <button class="chat-tab" onclick="switchChatTab('claude')" data-chat="claude">Claude</button>
+                        <button class="chat-tab" onclick="switchChatTab('grok')" data-chat="grok">Grok</button>
+                        <button class="chat-tab" onclick="switchChatTab('perplexity')" data-chat="perplexity">Perplexity</button>
+                    </div>
+                    <div class="chat-messages" id="chatMessages">
+                        <div style="text-align:center;padding:40px 20px;color:var(--text-dim);">
+                            <div style="font-size:32px;margin-bottom:12px;">&#9889;</div>
+                            <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px;">AI Crypto Analyst</div>
+                            <div style="font-size:11px;">Ask any question about crypto markets, trading strategies, or specific coins. Type or tap the mic to speak.</div>
+                            <div style="font-size:10px;margin-top:12px;color:var(--green);">"All Models" sends your question to all 4 AIs simultaneously.</div>
+                        </div>
+                    </div>
+                    <div class="chat-input-bar">
+                        <button class="chat-mic-btn" id="chatMicBtn" onclick="toggleMic()">&#127908;</button>
+                        <input type="text" class="chat-input" id="chatInput" placeholder="Ask about crypto markets..." onkeydown="if(event.key==='Enter')sendChatMessage()">
+                        <button class="chat-send-btn" onclick="sendChatMessage()">&#10148;</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ANALYSIS VIEW -->
+            <div class="view" id="analysisView">
+                <div class="analysis-container">
+                    <div class="research-card">
+                        <h3>Technical Analysis</h3>
+                        <p class="subtitle">RSI, MACD, Bollinger Bands, Moving Averages from live CoinGecko OHLCV data.</p>
+                        <div class="calc-row">
+                            <div class="calc-field">
+                                <label>Asset</label>
+                                <select id="taAsset" onchange="runTA()">
+                                    <option value="bitcoin">Bitcoin (BTC)</option>
+                                    <option value="ethereum">Ethereum (ETH)</option>
+                                    <option value="solana">Solana (SOL)</option>
+                                    <option value="matic-network">Polygon (POL)</option>
+                                    <option value="render-token">Render (RNDR)</option>
+                                    <option value="chainlink">Chainlink (LINK)</option>
+                                    <option value="kaspa">Kaspa (KAS)</option>
+                                    <option value="avalanche-2">Avalanche (AVAX)</option>
+                                    <option value="dogecoin">Dogecoin (DOGE)</option>
+                                    <option value="bittensor">Bittensor (TAO)</option>
+                                </select>
+                            </div>
+                            <div class="calc-field">
+                                <label>Period</label>
+                                <select id="taPeriod" onchange="runTA()">
+                                    <option value="30">30 Days</option>
+                                    <option value="90" selected>90 Days</option>
+                                    <option value="180">180 Days</option>
+                                    <option value="365">1 Year</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="calc-btn" onclick="runTA()">Run Analysis</button>
+
+                        <div id="taResults" style="display:none;margin-top:16px;">
+                            <div id="taSignals" style="margin-bottom:12px;"></div>
+                            <div class="ta-chart-wrap"><canvas id="taPriceChart"></canvas></div>
+                            <div class="ta-chart-wrap" style="height:120px;"><canvas id="taRSIChart"></canvas></div>
+                            <div class="ta-chart-wrap" style="height:120px;"><canvas id="taMACDChart"></canvas></div>
+                        </div>
+                    </div>
+
+                    <div class="research-card">
+                        <h3>On-Chain Intelligence</h3>
+                        <p class="subtitle">Real-time Bitcoin network data from mempool.space</p>
+                        <button class="calc-btn" style="max-width:160px;margin-bottom:12px;font-size:12px;padding:8px 16px;" onclick="fetchOnChain()">Refresh</button>
+                        <div class="onchain-grid" id="onchainGrid">
+                            <div class="onchain-item"><div class="onchain-label">Loading...</div><div class="onchain-value">--</div></div>
+                        </div>
+                    </div>
+
+                    <div class="research-card">
+                        <h3>Funding Rates</h3>
+                        <p class="subtitle">Perpetual futures funding rates from Binance. Positive = longs pay shorts (bullish consensus). Negative = shorts pay longs.</p>
+                        <button class="calc-btn" style="max-width:160px;margin-bottom:12px;font-size:12px;padding:8px 16px;" onclick="fetchFundingRates()">Refresh</button>
+                        <div id="fundingGrid" class="onchain-grid">
+                            <div class="onchain-item"><div class="onchain-label">Loading...</div><div class="onchain-value">--</div></div>
+                        </div>
+                    </div>
+
+                    <div class="research-card">
+                        <h3>Macro Indicators</h3>
+                        <p class="subtitle">Key macro data that drives crypto markets. DXY strength = crypto weakness. Rate cuts = crypto bullish.</p>
+                        <div class="onchain-grid" id="macroGrid">
+                            <div class="onchain-item"><div class="onchain-label">Fed Funds Rate</div><div class="onchain-value">4.50%</div><div style="font-size:9px;color:var(--text-dim);">Dec 2024</div></div>
+                            <div class="onchain-item"><div class="onchain-label">DXY (Dollar)</div><div class="onchain-value">108.0</div><div style="font-size:9px;color:var(--red);">Strong = Crypto Bearish</div></div>
+                            <div class="onchain-item"><div class="onchain-label">10Y Treasury</div><div class="onchain-value">~4.3%</div><div style="font-size:9px;color:var(--text-dim);">Risk-free rate</div></div>
+                            <div class="onchain-item"><div class="onchain-label">BTC Dominance</div><div class="onchain-value" id="macroBTCDom">--</div><div style="font-size:9px;color:var(--text-dim);">Rising = BTC season</div></div>
+                            <div class="onchain-item"><div class="onchain-label">Total Crypto MCap</div><div class="onchain-value" id="macroTotalMCap">--</div></div>
+                            <div class="onchain-item"><div class="onchain-label">Crypto Volume 24h</div><div class="onchain-value" id="macroVolume">--</div></div>
+                            <div class="onchain-item"><div class="onchain-label">Rate Outlook</div><div class="onchain-value" style="color:var(--green);">Cutting</div><div style="font-size:9px;color:var(--text-dim);">Bullish for crypto</div></div>
+                            <div class="onchain-item"><div class="onchain-label">Liquidity Trend</div><div class="onchain-value" style="color:var(--amber);">Mixed</div><div style="font-size:9px;color:var(--text-dim);">Watch M2 money supply</div></div>
+                        </div>
+                        <button class="calc-btn" style="max-width:160px;margin-top:12px;font-size:12px;padding:8px 16px;" onclick="fetchMacroData()">Refresh</button>
+                    </div>
+
+                    <div class="research-card">
+                        <h3>Top DeFi Yields</h3>
+                        <p class="subtitle">Highest-yield pools from DefiLlama. Filtered to TVL > $1M.</p>
+                        <button class="calc-btn" style="max-width:160px;margin-bottom:12px;font-size:12px;padding:8px 16px;" onclick="fetchDeFiYields()">Refresh</button>
+                        <div id="defiYieldTable" style="overflow-x:auto;"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- NEWS + AI VIEW -->
             <div class="view" id="newsView">
                 <div class="news-container">
@@ -2621,6 +2974,10 @@
                                 <div>
                                     <label style="font-size:10px;color:var(--green);font-weight:600;">GROK</label>
                                     <input type="password" id="keyGrok" class="search-input" style="width:100%;margin-top:2px;" placeholder="xai-...">
+                                </div>
+                                <div>
+                                    <label style="font-size:10px;color:var(--green);font-weight:600;">PERPLEXITY</label>
+                                    <input type="password" id="keyPerplexity" class="search-input" style="width:100%;margin-top:2px;" placeholder="pplx-...">
                                 </div>
                             </div>
                             <div style="display:flex;gap:8px;margin-top:12px;">
@@ -2720,6 +3077,14 @@
             <button class="nav-item" onclick="showView('research')" data-view="research">
                 <span class="nav-icon">&#128300;</span>
                 Research
+            </button>
+            <button class="nav-item" onclick="showView('chat')" data-view="chat">
+                <span class="nav-icon">&#128172;</span>
+                Chat
+            </button>
+            <button class="nav-item" onclick="showView('analysis')" data-view="analysis">
+                <span class="nav-icon">&#128200;</span>
+                TA
             </button>
             <button class="nav-item" onclick="showView('news')" data-view="news">
                 <span class="nav-icon">&#9889;</span>
@@ -3463,6 +3828,8 @@
             research: 'researchView',
             calc: 'calcView',
             tracker: 'trackerView',
+            chat: 'chatView',
+            analysis: 'analysisView',
             news: 'newsView',
             dashboard: 'dashboardView'
         };
@@ -3483,6 +3850,7 @@
         if (name === 'dashboard') updateDashboard();
         if (name === 'tracker') renderPositions();
         if (name === 'news') initNewsView();
+        if (name === 'analysis') initAnalysisView();
     }
 
     // ---- SCENARIOS: STRAIT OF HORMUZ MODEL ----
@@ -3867,131 +4235,76 @@
     }
 
     // ---- CRYPTO SCENARIO MODELER ----
-    const CRYPTO_ASSETS = [
-        {
-            ticker: 'BTC',
-            name: 'Bitcoin',
-            type: 'Core',
-            badgeClass: 'crypto-badge-core',
-            color: '#f7931a',
-            beta: 1.0,
-            altMultiplier: 1.0,
-            description: 'The original cryptocurrency and digital store of value. Institutional adoption accelerating via spot ETFs. Fixed supply of 21M coins with ~94% already mined.',
-            bullCase: 'Post-halving supply shock, institutional ETF inflows ($30B+ in first year), global macro hedge against inflation and dollar debasement. Could follow gold\'s trajectory as digital equivalent.',
-            bearCase: 'Regulatory crackdowns, quantum computing threats, energy consumption concerns, possible ETF outflows, competition from CBDCs.',
-            strategy: 'Core position (40-60% of crypto allocation). Dollar-cost average on dips. Hold through full cycle. Consider covered calls at cycle peaks.',
-            risks: ['Regulatory ban risk', 'Exchange/custodian failure', 'Correlation to risk assets', 'Post-ETF "sell the news"'],
-            catalysts: ['Halving supply shock', 'ETF inflow acceleration', 'Corporate treasury adoption', 'Sovereign wealth fund buying', 'US strategic reserve'],
-            stats: { 'Supply': '21M fixed', 'Halving': '~2028 next', 'ETF AUM': '$100B+', 'Dominance': '~55-60%' },
-            defaultAlloc: 40
-        },
-        {
-            ticker: 'POL',
-            name: 'Polygon (formerly MATIC)',
-            type: 'L2',
-            badgeClass: 'crypto-badge-l2',
-            color: '#8247e5',
-            beta: 1.8,
-            altMultiplier: 1.5,
-            description: 'Leading Ethereum L2 scaling solution. Migrated from MATIC to POL token. Powers ZK rollups, CDK chains, and AggLayer for cross-chain interoperability.',
-            bullCase: 'Ethereum scaling demand growing. ZK technology leadership with Polygon zkEVM. Enterprise partnerships (Starbucks, Nike, Reddit). AggLayer could become the aggregation standard.',
-            bearCase: 'Intense L2 competition (Arbitrum, Optimism, Base, zkSync). Token migration confusion. Revenue model still maturing. Ethereum L1 scaling could reduce L2 need.',
-            strategy: 'Mid-allocation (15-25%). Accumulate during BTC-dominance phase. Position for alt season when L2 narrative rotates. Stake for yield.',
-            risks: ['L2 competition intensifying', 'Ethereum roadmap changes', 'Token economics uncertainty', 'Developer mindshare loss'],
-            catalysts: ['AggLayer adoption', 'Enterprise chain launches', 'ZK proof cost reduction', 'Alt season rotation into L2s', 'Real-world asset tokenization'],
-            stats: { 'L2 TVL Rank': 'Top 3', 'Chain Type': 'ZK Rollup', 'Staking Yield': '~4-6%', 'Chains Built': '50+' },
-            defaultAlloc: 20
-        },
-        {
-            ticker: 'RNDR',
-            name: 'Render Network',
-            type: 'Spec / AI',
-            badgeClass: 'crypto-badge-ai',
-            color: '#06b6d4',
-            beta: 2.5,
-            altMultiplier: 2.0,
-            description: 'Decentralized GPU rendering and AI compute network. Connects GPU owners with projects needing rendering/AI compute power. Migrated to Solana for throughput.',
-            bullCase: 'AI compute demand explosion. Decentralized GPU market is a massive TAM. Apple partnership rumors. Hollywood and gaming adoption for rendering. AI narrative strongest in crypto.',
-            bearCase: 'Centralized cloud (AWS, Azure) remains dominant. Token utility unclear vs. paying in USD. Solana migration execution risk. Speculative narrative-driven.',
-            strategy: 'Spec allocation (5-15%). Buy during narrative dips. Take partial profits on 3-5x moves. This is the AI x crypto intersection play.',
-            risks: ['Narrative-driven valuation', 'Centralized competition', 'Token utility questioned', 'High beta = deep drawdowns'],
-            catalysts: ['AI compute demand surge', 'Major studio partnerships', 'Apple ecosystem integration', 'AI agent compute market', 'Token burn mechanism'],
-            stats: { 'Sector': 'AI / DePIN', 'Network': 'Solana', 'GPU Providers': '10K+', 'Use Case': 'AI + Rendering' },
-            defaultAlloc: 15
-        },
-        {
-            ticker: 'LINK',
-            name: 'Chainlink',
-            type: 'Spec / DeFi Infra',
-            badgeClass: 'crypto-badge-defi',
-            color: '#2a5ada',
-            beta: 1.6,
-            altMultiplier: 1.3,
-            description: 'Decentralized oracle network providing real-world data to smart contracts. CCIP enables cross-chain interoperability. De facto standard for DeFi price feeds.',
-            bullCase: 'Infrastructure monopoly for DeFi. CCIP cross-chain protocol gaining traction. Bank and institutional partnerships (SWIFT, DTCC). Staking launch creating token sink.',
-            bearCase: 'Token value capture questioned (fees vs token price). Slow staking rollout. Competition from API3, Pyth. Team token unlocks creating supply pressure.',
-            strategy: 'Spec allocation (10-15%). Infrastructure plays tend to lag in alt season but hold value better in downturns. Good risk/reward ratio.',
-            risks: ['Token value capture unclear', 'Team unlock supply pressure', 'Oracle competition', 'DeFi adoption plateaus'],
-            catalysts: ['CCIP adoption by institutions', 'Staking expansion', 'SWIFT integration goes live', 'RWA tokenization demand', 'Data feeds for AI'],
-            stats: { 'Sector': 'Oracle / Infra', 'Chains': '30+', 'Value Secured': '$75B+', 'Data Feeds': '1000+' },
-            defaultAlloc: 15
-        },
-        {
-            ticker: 'KAS',
-            name: 'Kaspa',
-            type: 'Spec / L1',
-            badgeClass: 'crypto-badge-spec',
-            color: '#49eacb',
-            beta: 3.0,
-            altMultiplier: 2.5,
-            description: 'Next-gen L1 using blockDAG (not blockchain) with GHOSTDAG consensus. Proof-of-work but with 1-second block times. Founded by DAGLabs researchers.',
-            bullCase: 'Novel technology (blockDAG) solves the blockchain trilemma differently. Fair launch with no pre-mine. Growing mining ecosystem. Potential for smart contracts via Rusty Kaspa upgrade.',
-            bearCase: 'Unproven at scale. No smart contracts yet (in development). Small ecosystem. PoW is out of favor with ESG. Very speculative.',
-            strategy: 'High-risk spec (5-10%). Smallest allocation. Buy on deep dips. Set stop-losses. This is a 10x-or-zero type play.',
-            risks: ['Unproven technology at scale', 'No smart contract support yet', 'Tiny ecosystem', 'PoW energy concerns', 'Could go to zero'],
-            catalysts: ['Smart contract launch', 'Exchange listings (tier 1)', 'Mining hashrate growth', 'DAG technology validation', 'Community growth'],
-            stats: { 'Consensus': 'GHOSTDAG/PoW', 'Block Time': '1 second', 'Supply': '28.7B max', 'Smart Contracts': 'Coming soon' },
-            defaultAlloc: 10
-        }
-    ];
-
+    // Use expanded crypto assets from JSON + live prices
     let cryptoAllocations = {};
     let cryptoInitialized = false;
+    let livePriceData = {};
 
-    function initCryptoView() {
+    function getCryptoAssetsForView() {
+        // Use loaded JSON assets, fallback to basic set
+        if (cryptoAssets.length > 0) return cryptoAssets;
+        return [
+            { id:'bitcoin', ticker:'BTC', name:'Bitcoin', type:'Core', color:'#f7931a', beta:1.0, altMultiplier:1.0, description:'The original cryptocurrency.', bullCase:'ETF inflows.', bearCase:'Regulatory risk.', strategy:'Core position.', risks:['Regulatory'], catalysts:['ETFs'], stats:{}, defaultAlloc:40 },
+            { id:'ethereum', ticker:'ETH', name:'Ethereum', type:'Core', color:'#627eea', beta:1.2, altMultiplier:1.3, description:'Leading smart contract platform.', bullCase:'ETH ETF + DeFi growth.', bearCase:'L2 value extraction.', strategy:'Core position.', risks:['SEC'], catalysts:['ETF'], stats:{}, defaultAlloc:25 }
+        ];
+    }
+
+    async function initCryptoView() {
         if (cryptoInitialized) return;
         cryptoInitialized = true;
+        if (cryptoAssets.length === 0) await loadCryptoAssets();
 
-        // Render asset cards
+        // Fetch live prices
+        const DE = window.DataEngine;
+        const assets = getCryptoAssetsForView();
+        const ids = assets.map(a => a.id).join(',');
+        try {
+            const data = await DE.LiveData._fetch(
+                `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`,
+                'crypto_all_prices'
+            );
+            if (data) livePriceData = data;
+        } catch(e) {}
+
+        // Render asset cards with live prices
         const grid = document.getElementById('cryptoAssetsGrid');
-        grid.innerHTML = CRYPTO_ASSETS.map(a => `
-            <div class="crypto-asset-card" onclick="showCryptoDetail('${a.ticker}')">
+        const badgeMap = { Core:'crypto-badge-core', L2:'crypto-badge-l2', 'AI/DePIN':'crypto-badge-ai', DeFi:'crypto-badge-defi', L1:'crypto-badge-spec', Meme:'crypto-badge-spec', Payments:'crypto-badge-core', Gaming:'crypto-badge-l2', Privacy:'crypto-badge-spec' };
+        grid.innerHTML = assets.map(a => {
+            const priceInfo = livePriceData[a.id];
+            const price = priceInfo?.usd;
+            const change = priceInfo?.usd_24h_change;
+            const mcap = priceInfo?.usd_market_cap;
+            const changeColor = change >= 0 ? 'var(--green)' : 'var(--red)';
+            const priceStr = price ? (price < 0.01 ? '$' + price.toFixed(6) : price < 1 ? '$' + price.toFixed(4) : '$' + price.toLocaleString(undefined,{maximumFractionDigits:2})) : '--';
+            const badge = badgeMap[a.type] || 'crypto-badge-spec';
+
+            return `<div class="crypto-asset-card" onclick="showCryptoDetail('${a.ticker}')">
                 <div class="crypto-asset-header">
                     <div class="crypto-icon" style="background:${a.color};">${a.ticker.substring(0, 2)}</div>
-                    <div>
-                        <div class="crypto-asset-ticker">${a.ticker}</div>
-                        <div class="crypto-asset-name">${a.name}</div>
+                    <div style="flex:1;">
+                        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                            <div class="crypto-asset-ticker">${a.ticker}</div>
+                            <div style="font-size:16px;font-weight:800;color:${a.color};">${priceStr}</div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;">
+                            <div class="crypto-asset-name">${a.name}</div>
+                            ${change !== undefined ? `<div style="font-size:10px;font-weight:600;color:${changeColor};">${change >= 0 ? '+' : ''}${change.toFixed(1)}%</div>` : ''}
+                        </div>
                     </div>
                 </div>
                 <div class="crypto-badges">
-                    <span class="crypto-badge ${a.badgeClass}">${a.type}</span>
+                    <span class="crypto-badge ${badge}">${a.type}</span>
                     <span class="crypto-badge" style="background:rgba(255,255,255,0.05);color:var(--text-dim);">Beta: ${a.beta}x</span>
+                    ${mcap ? `<span class="crypto-badge" style="background:rgba(255,255,255,0.05);color:var(--text-dim);">$${(mcap/1e9).toFixed(1)}B</span>` : ''}
                 </div>
-                <div class="crypto-asset-desc">${a.description.substring(0, 120)}...</div>
-                <div class="crypto-bull"><strong>Bull:</strong> ${a.bullCase.substring(0, 100)}...</div>
-                <div class="crypto-asset-stats">
-                    ${Object.entries(a.stats).map(([k, v]) => `
-                        <div class="crypto-stat">
-                            <div class="crypto-stat-label">${k}</div>
-                            <div class="crypto-stat-value">${v}</div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `).join('');
+                <div class="crypto-asset-desc">${(a.description || '').substring(0, 120)}...</div>
+                <div class="crypto-bull"><strong>Bull:</strong> ${(a.bullCase || '').substring(0, 100)}...</div>
+            </div>`;
+        }).join('');
 
-        // Render allocation controls
-        CRYPTO_ASSETS.forEach(a => { cryptoAllocations[a.ticker] = a.defaultAlloc; });
+        // Render allocation controls - top 5 assets by default
+        const topAlloc = assets.slice(0, 5);
+        topAlloc.forEach((a, i) => { cryptoAllocations[a.ticker] = [40, 25, 15, 10, 10][i] || 10; });
         renderCryptoAlloc();
 
         // Slider listeners
@@ -4013,7 +4326,8 @@
 
     function renderCryptoAlloc() {
         const container = document.getElementById('cryptoAllocControls');
-        container.innerHTML = CRYPTO_ASSETS.map(a => `
+        const assets = getCryptoAssetsForView().slice(0, 8);
+        container.innerHTML = assets.map(a => `
             <div class="crypto-alloc-row">
                 <div class="crypto-alloc-icon" style="background:${a.color};">${a.ticker.substring(0, 2)}</div>
                 <div class="crypto-alloc-info">
@@ -4043,7 +4357,7 @@
     }
 
     function showCryptoDetail(ticker) {
-        const a = CRYPTO_ASSETS.find(x => x.ticker === ticker);
+        const a = getCryptoAssetsForView().find(x => x.ticker === ticker);
         if (!a) return;
         const modal = document.getElementById('detailModal');
         const content = document.getElementById('detailContent');
@@ -4058,33 +4372,41 @@
                 </div>
             </div>
             <div class="crypto-badges" style="margin-bottom:16px;">
-                <span class="crypto-badge ${a.badgeClass}">${a.type}</span>
+                <span class="crypto-badge crypto-badge-core">${a.type}</span>
                 <span class="crypto-badge" style="background:rgba(255,255,255,0.05);color:var(--text-dim);">Beta: ${a.beta}x BTC</span>
                 <span class="crypto-badge" style="background:rgba(255,255,255,0.05);color:var(--text-dim);">Alt Mult: ${a.altMultiplier}x</span>
+                ${livePriceData[a.id] ? `<span class="crypto-badge" style="background:rgba(16,185,129,0.15);color:var(--green);">$${livePriceData[a.id].usd < 1 ? livePriceData[a.id].usd.toFixed(4) : livePriceData[a.id].usd.toLocaleString()}</span>` : ''}
             </div>
-            <div class="detail-section"><h4 style="color:#8b5cf6;">Description</h4><p>${a.description}</p></div>
-            <div class="detail-section"><h4>Bull Case</h4><p>${a.bullCase}</p></div>
-            <div class="detail-section"><h4 class="red">Bear Case</h4><p>${a.bearCase}</p></div>
-            <div class="detail-section"><h4 class="amber">Strategy</h4><p>${a.strategy}</p></div>
-            <div class="detail-section risks"><h4 class="red">Risk Factors</h4><ul>${a.risks.map(r => `<li>${r}</li>`).join('')}</ul></div>
-            <div class="detail-section catalysts"><h4 class="amber">Catalysts</h4><ul>${a.catalysts.map(c => `<li>${c}</li>`).join('')}</ul></div>
-            <div class="card-stats" style="margin-top:16px;">
-                ${Object.entries(a.stats).map(([k, v]) => `<div class="card-stat"><div class="card-stat-label">${k}</div><div class="card-stat-value">${v}</div></div>`).join('')}
-            </div>
+            <div class="detail-section"><h4 style="color:#8b5cf6;">Description</h4><p>${a.description || ''}</p></div>
+            <div class="detail-section"><h4>Bull Case</h4><p>${a.bullCase || ''}</p></div>
+            <div class="detail-section"><h4 class="red">Bear Case</h4><p>${a.bearCase || ''}</p></div>
+            <div class="detail-section"><h4 class="amber">Strategy</h4><p>${a.strategy || ''}</p></div>
+            <div class="detail-section risks"><h4 class="red">Risk Factors</h4><ul>${(a.risks||[]).map(r => `<li>${r}</li>`).join('')}</ul></div>
+            <div class="detail-section catalysts"><h4 class="amber">Catalysts</h4><ul>${(a.catalysts||[]).map(c => `<li>${c}</li>`).join('')}</ul></div>
+            ${a.stats ? `<div class="card-stats" style="margin-top:16px;">
+                ${Object.entries(a.stats).map(([k, v]) => `<div class="card-stat"><div class="card-stat-label">${k}</div><div class="card-stat-value">${v || '--'}</div></div>`).join('')}
+            </div>` : ''}
         `;
         modal.classList.add('active');
     }
 
     function applyCryptoPreset(name) {
+        const DE = window.DataEngine;
+        const scenarios = DE.CRYPTO_SCENARIOS || [];
+        const s = scenarios.find(x => x.id === name);
         const presets = {
-            conservative: { btcTarget: 150000, timeline: 18, alt: 30, vol: 35, etf: true, reg: false, alloc: {BTC:50, POL:15, RNDR:15, LINK:15, KAS:5} },
-            fullbull:     { btcTarget: 250000, timeline: 12, alt: 60, vol: 50, etf: true, reg: false, alloc: {BTC:40, POL:20, RNDR:15, LINK:15, KAS:10} },
-            supercycle:   { btcTarget: 500000, timeline: 24, alt: 80, vol: 60, etf: true, reg: false, alloc: {BTC:35, POL:20, RNDR:20, LINK:15, KAS:10} },
-            alts:         { btcTarget: 120000, timeline: 6,  alt: 95, vol: 70, etf: true, reg: false, alloc: {BTC:20, POL:25, RNDR:25, LINK:15, KAS:15} },
-            bear:         { btcTarget: 35000,  timeline: 12, alt: 10, vol: 80, etf: false, reg: true, alloc: {BTC:60, POL:15, RNDR:10, LINK:10, KAS:5} },
-            blackswan:    { btcTarget: 15000,  timeline: 3,  alt: 5,  vol: 95, etf: false, reg: true, alloc: {BTC:70, POL:10, RNDR:10, LINK:5, KAS:5} }
+            conservative: { btcTarget: 150000, timeline: 18, alt: 30, vol: 40, etf: true, reg: false, alloc: {BTC:50, ETH:20, SOL:10, POL:5, RNDR:5, LINK:5, KAS:5} },
+            fullbull:     { btcTarget: 250000, timeline: 12, alt: 60, vol: 50, etf: true, reg: false, alloc: {BTC:35, ETH:20, SOL:15, RNDR:10, LINK:10, KAS:10} },
+            supercycle:   { btcTarget: 500000, timeline: 24, alt: 80, vol: 60, etf: true, reg: false, alloc: {BTC:30, ETH:20, SOL:15, RNDR:15, LINK:10, KAS:10} },
+            alts:         { btcTarget: 180000, timeline: 6,  alt: 95, vol: 70, etf: true, reg: false, alloc: {BTC:15, ETH:15, SOL:20, RNDR:20, LINK:10, KAS:20} },
+            ethflip:      { btcTarget: 200000, timeline: 18, alt: 70, vol: 50, etf: true, reg: false, alloc: {BTC:25, ETH:35, SOL:10, POL:10, LINK:10, RNDR:10} },
+            aiboom:       { btcTarget: 175000, timeline: 12, alt: 85, vol: 55, etf: true, reg: false, alloc: {BTC:20, ETH:15, RNDR:25, FET:15, TAO:15, AKT:10} },
+            defi:         { btcTarget: 160000, timeline: 12, alt: 75, vol: 45, etf: true, reg: false, alloc: {BTC:25, ETH:25, AAVE:15, LINK:15, UNI:10, MKR:10} },
+            regulatory:   { btcTarget: 200000, timeline: 12, alt: 65, vol: 40, etf: true, reg: false, alloc: {BTC:40, ETH:25, SOL:15, LINK:10, AVAX:10} },
+            bear:         { btcTarget: 45000,  timeline: 12, alt: 10, vol: 80, etf: false, reg: true, alloc: {BTC:60, ETH:25, LINK:10, AAVE:5} },
+            blackswan:    { btcTarget: 20000,  timeline: 3,  alt: 5,  vol: 95, etf: false, reg: true, alloc: {BTC:80, ETH:15, LINK:5} }
         };
-        const p = presets[name];
+        const p = presets[name] || (s ? { btcTarget: s.btcTarget, timeline: s.timeline, alt: s.altIntensity, vol: s.vol || 50, etf: true, reg: false, alloc: {BTC:40, ETH:25, SOL:15, LINK:10, RNDR:10} } : null);
         if (!p) return;
 
         document.getElementById('cryptoBTCTarget').value = p.btcTarget;
@@ -4154,7 +4476,7 @@
             let portfolioValue = 0;
             const assetValues = {};
 
-            CRYPTO_ASSETS.forEach(asset => {
+            getCryptoAssetsForView().slice(0, 8).forEach(asset => {
                 const alloc = (cryptoAllocations[asset.ticker] || 0) / totalAlloc;
                 const invested = capital * alloc;
 
@@ -5243,6 +5565,471 @@
         </div>`;
     }
 
+    // ---- CHAT VIEW ----
+    let currentChatTab = 'all';
+    let chatRecognition = null;
+
+    function switchChatTab(tab) {
+        currentChatTab = tab;
+        document.querySelectorAll('.chat-tab').forEach(t => t.classList.toggle('active', t.dataset.chat === tab));
+        renderChatHistory();
+    }
+
+    function renderChatHistory() {
+        const container = document.getElementById('chatMessages');
+        const DE = window.DataEngine;
+
+        if (currentChatTab === 'all') {
+            // Show recent all-model responses
+            const allHistory = JSON.parse(localStorage.getItem('cryptoradar_chat_all') || '[]');
+            if (allHistory.length === 0) {
+                container.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text-dim);">
+                    <div style="font-size:32px;margin-bottom:12px;">&#9889;</div>
+                    <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px;">AI Crypto Panel</div>
+                    <div style="font-size:11px;">Ask any question. All 5 AIs respond simultaneously.</div>
+                </div>`;
+                return;
+            }
+            container.innerHTML = allHistory.map(entry => {
+                let html = `<div class="chat-msg user"><div class="chat-msg-bubble">${escapeHtml(entry.question)}</div><div class="chat-msg-meta">${getTimeAgo(new Date(entry.timestamp))}</div></div>`;
+                html += `<div class="chat-all-grid">`;
+                entry.responses.forEach(r => {
+                    const modelColor = {'Gemini':'#4285f4','GPT-4o':'#10a37f','Claude':'#d97706','Grok':'#1da1f2','Perplexity':'#20b2aa'}[r.model] || 'var(--green)';
+                    html += `<div class="chat-all-card">
+                        <div class="chat-all-model"><span style="color:${modelColor};">${r.model}</span>
+                        <button onclick="speakText(\`${(r.text||'').replace(/`/g,"'").replace(/\\/g,"\\\\")}\`)" style="font-size:10px;padding:2px 6px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text-dim);cursor:pointer;">&#128266;</button></div>
+                        <div class="chat-all-text">${r.text ? escapeHtml(r.text) : `<span class="chat-all-error">${r.error || 'No response'}</span>`}</div>
+                    </div>`;
+                });
+                html += `</div>`;
+                return html;
+            }).join('');
+            container.scrollTop = container.scrollHeight;
+            return;
+        }
+
+        // Single model tab
+        const history = DE.AIAnalysis.getChatHistory(currentChatTab);
+        if (history.length === 0) {
+            container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-dim);font-size:12px;">No conversation yet. Ask a question below.</div>`;
+            return;
+        }
+        container.innerHTML = history.map(msg => {
+            const isUser = msg.role === 'user';
+            return `<div class="chat-msg ${isUser ? 'user' : 'ai'}">
+                <div class="chat-msg-bubble">${escapeHtml(msg.content)}</div>
+                <div class="chat-msg-meta">${getTimeAgo(new Date(msg.timestamp))}</div>
+                ${!isUser ? `<div class="chat-msg-actions"><button onclick="speakText(\`${msg.content.replace(/`/g,"'").replace(/\\/g,"\\\\")}\`)">&#128266; Listen</button></div>` : ''}
+            </div>`;
+        }).join('');
+        container.scrollTop = container.scrollHeight;
+    }
+
+    async function sendChatMessage() {
+        const input = document.getElementById('chatInput');
+        const question = input.value.trim();
+        if (!question) return;
+        input.value = '';
+
+        const DE = window.DataEngine;
+        const container = document.getElementById('chatMessages');
+
+        // Build market context
+        let context = '';
+        try {
+            const prices = await DE.LiveData.getCryptoPrices();
+            const fng = await DE.LiveData.getFearGreed();
+            if (prices?.bitcoin) context += `BTC: $${prices.bitcoin.usd.toLocaleString()} (${prices.bitcoin.usd_24h_change?.toFixed(1)}% 24h)\n`;
+            if (prices?.ethereum) context += `ETH: $${prices.ethereum.usd.toLocaleString()} (${prices.ethereum.usd_24h_change?.toFixed(1)}% 24h)\n`;
+            if (prices?.solana) context += `SOL: $${prices.solana.usd.toLocaleString()} (${prices.solana.usd_24h_change?.toFixed(1)}% 24h)\n`;
+            if (fng?.data?.[0]) context += `Fear & Greed: ${fng.data[0].value} (${fng.data[0].value_classification})\n`;
+        } catch(e) {}
+
+        if (currentChatTab === 'all') {
+            // Show user message + loading cards
+            const models = ['Gemini','GPT-4o','Claude','Grok','Perplexity'];
+            const modelColors = {'Gemini':'#4285f4','GPT-4o':'#10a37f','Claude':'#d97706','Grok':'#1da1f2','Perplexity':'#20b2aa'};
+            container.innerHTML += `<div class="chat-msg user"><div class="chat-msg-bubble">${escapeHtml(question)}</div></div>`;
+            const gridId = 'allGrid_' + Date.now();
+            container.innerHTML += `<div class="chat-all-grid" id="${gridId}">${models.map(m => `<div class="chat-all-card loading"><div class="chat-all-model"><span style="color:${modelColors[m]};">${m}</span></div><div class="chat-all-text" style="color:var(--text-dim);">Thinking...</div></div>`).join('')}</div>`;
+            container.scrollTop = container.scrollHeight;
+
+            const results = await DE.AIAnalysis.chatAll(question, context);
+            const grid = document.getElementById(gridId);
+            if (grid) {
+                grid.innerHTML = results.map(r => {
+                    const c = modelColors[r.model] || 'var(--green)';
+                    return `<div class="chat-all-card">
+                        <div class="chat-all-model"><span style="color:${c};">${r.model}</span>
+                        <button onclick="speakText(\`${(r.text||'').replace(/`/g,"'").replace(/\\/g,"\\\\")}\`)" style="font-size:10px;padding:2px 6px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text-dim);cursor:pointer;">&#128266;</button></div>
+                        <div class="chat-all-text">${r.text ? escapeHtml(r.text) : `<span class="chat-all-error">${r.error || 'No response'}</span>`}</div>
+                    </div>`;
+                }).join('');
+            }
+
+            // Save to all-history
+            const allHistory = JSON.parse(localStorage.getItem('cryptoradar_chat_all') || '[]');
+            allHistory.push({ question, responses: results, timestamp: Date.now() });
+            if (allHistory.length > 20) allHistory.splice(0, allHistory.length - 20);
+            localStorage.setItem('cryptoradar_chat_all', JSON.stringify(allHistory));
+        } else {
+            // Single model
+            container.innerHTML += `<div class="chat-msg user"><div class="chat-msg-bubble">${escapeHtml(question)}</div></div>`;
+            container.innerHTML += `<div class="chat-msg ai" id="chatLoading"><div class="chat-msg-bubble" style="color:var(--text-dim);">Thinking...</div></div>`;
+            container.scrollTop = container.scrollHeight;
+
+            const methodMap = { gemini: 'chatWithGemini', openai: 'chatWithOpenAI', claude: 'chatWithClaude', grok: 'chatWithGrok', perplexity: 'chatWithPerplexity' };
+            const result = await DE.AIAnalysis[methodMap[currentChatTab]](question, context);
+            const loadEl = document.getElementById('chatLoading');
+            if (loadEl) {
+                loadEl.querySelector('.chat-msg-bubble').textContent = result.text || result.error || 'No response';
+                loadEl.removeAttribute('id');
+                if (result.text) {
+                    loadEl.innerHTML += `<div class="chat-msg-actions"><button onclick="speakText(\`${result.text.replace(/`/g,"'").replace(/\\/g,"\\\\")}\`)">&#128266; Listen</button></div>`;
+                }
+            }
+        }
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // Voice input
+    function toggleMic() {
+        const btn = document.getElementById('chatMicBtn');
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            alert('Speech recognition not supported in this browser. Use Chrome.');
+            return;
+        }
+        if (chatRecognition) {
+            chatRecognition.stop();
+            chatRecognition = null;
+            btn.classList.remove('recording');
+            return;
+        }
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        chatRecognition = new SR();
+        chatRecognition.continuous = false;
+        chatRecognition.interimResults = true;
+        chatRecognition.lang = 'en-US';
+        btn.classList.add('recording');
+
+        chatRecognition.onresult = (e) => {
+            const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+            document.getElementById('chatInput').value = transcript;
+        };
+        chatRecognition.onend = () => {
+            btn.classList.remove('recording');
+            chatRecognition = null;
+            const input = document.getElementById('chatInput');
+            if (input.value.trim()) sendChatMessage();
+        };
+        chatRecognition.onerror = () => {
+            btn.classList.remove('recording');
+            chatRecognition = null;
+        };
+        chatRecognition.start();
+    }
+
+    // ---- ANALYSIS VIEW ----
+    let analysisInitialized = false;
+
+    function initAnalysisView() {
+        if (!analysisInitialized) {
+            analysisInitialized = true;
+            fetchOnChain();
+            fetchMacroData();
+        }
+    }
+
+    async function runTA() {
+        const DE = window.DataEngine;
+        const assetId = document.getElementById('taAsset').value;
+        const days = parseInt(document.getElementById('taPeriod').value);
+        const results = document.getElementById('taResults');
+        results.style.display = 'none';
+
+        const ohlcv = await DE.LiveData.getCryptoOHLCV(assetId, days);
+        if (!ohlcv || ohlcv.length < 30) {
+            document.getElementById('taSignals').innerHTML = '<div style="color:var(--red);font-size:12px;">Not enough data. Try a longer period.</div>';
+            results.style.display = 'block';
+            return;
+        }
+
+        // OHLCV format from CoinGecko: [timestamp, open, high, low, close]
+        const closes = ohlcv.map(c => c[4]);
+        const highs = ohlcv.map(c => c[2]);
+        const lows = ohlcv.map(c => c[3]);
+        const timestamps = ohlcv.map(c => c[0]);
+
+        const analysis = DE.TechnicalAnalysis.analyze(closes);
+        results.style.display = 'block';
+
+        // Render signals
+        const sigHtml = analysis.signals.map(s => `<span class="signal-badge ${s.type}">${s.type.toUpperCase()}: ${s.description}</span>`).join('');
+        document.getElementById('taSignals').innerHTML = sigHtml || '<span style="color:var(--text-dim);font-size:11px;">No strong signals detected.</span>';
+
+        // Draw price chart with Bollinger + MAs
+        drawTAPrice(closes, analysis, timestamps);
+        drawTARSI(analysis.rsi, timestamps);
+        drawTAMACD(analysis.macd, timestamps);
+    }
+
+    function drawTAPrice(closes, analysis, timestamps) {
+        const canvas = document.getElementById('taPriceChart');
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
+        canvas.style.width = rect.width + 'px'; canvas.style.height = rect.height + 'px';
+        ctx.scale(dpr, dpr);
+        const w = rect.width, h = rect.height;
+        const pad = { top: 20, right: 50, bottom: 25, left: 55 };
+        const pW = w - pad.left - pad.right, pH = h - pad.top - pad.bottom;
+
+        ctx.fillStyle = '#0f1520'; ctx.fillRect(0, 0, w, h);
+
+        const all = [...closes, ...analysis.bollinger.upper.filter(v=>v), ...analysis.bollinger.lower.filter(v=>v)];
+        const minV = Math.min(...all) * 0.98, maxV = Math.max(...all) * 1.02;
+        const xMap = i => pad.left + (pW * i / (closes.length - 1 || 1));
+        const yMap = v => pad.top + pH - ((v - minV) / (maxV - minV)) * pH;
+
+        // Grid
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        for (let i = 0; i <= 4; i++) {
+            const y = pad.top + (pH / 4) * i;
+            ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+            ctx.fillStyle = '#9ca3af'; ctx.font = '9px Inter'; ctx.textAlign = 'right';
+            ctx.fillText('$' + (maxV - (maxV - minV) * (i / 4)).toLocaleString(undefined,{maximumFractionDigits:0}), pad.left - 4, y + 3);
+        }
+
+        // Bollinger bands
+        const bb = analysis.bollinger;
+        ctx.fillStyle = 'rgba(96,165,250,0.08)';
+        ctx.beginPath();
+        for (let i = 0; i < closes.length; i++) { if (bb.upper[i]) { i === 0 || !bb.upper[i-1] ? ctx.moveTo(xMap(i), yMap(bb.upper[i])) : ctx.lineTo(xMap(i), yMap(bb.upper[i])); } }
+        for (let i = closes.length - 1; i >= 0; i--) { if (bb.lower[i]) ctx.lineTo(xMap(i), yMap(bb.lower[i])); }
+        ctx.closePath(); ctx.fill();
+
+        // SMA lines
+        const drawLine = (data, color, width) => {
+            ctx.strokeStyle = color; ctx.lineWidth = width;
+            ctx.beginPath();
+            let started = false;
+            data.forEach((v, i) => { if (v === null) return; if (!started) { ctx.moveTo(xMap(i), yMap(v)); started = true; } else ctx.lineTo(xMap(i), yMap(v)); });
+            ctx.stroke();
+        };
+        if (analysis.sma20.some(v=>v)) drawLine(analysis.sma20, 'rgba(245,158,11,0.5)', 1);
+        if (analysis.sma50.some(v=>v)) drawLine(analysis.sma50, 'rgba(139,92,246,0.5)', 1);
+
+        // Price line
+        drawLine(closes, '#10b981', 2);
+
+        // Labels
+        ctx.font = '8px Inter'; ctx.textAlign = 'left';
+        ctx.fillStyle = '#10b981'; ctx.fillText('Price', w - pad.right + 4, yMap(closes[closes.length-1]) + 3);
+    }
+
+    function drawTARSI(rsi, timestamps) {
+        const canvas = document.getElementById('taRSIChart');
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
+        canvas.style.width = rect.width + 'px'; canvas.style.height = rect.height + 'px';
+        ctx.scale(dpr, dpr);
+        const w = rect.width, h = rect.height;
+        const pad = { top: 15, right: 50, bottom: 15, left: 55 };
+        const pW = w - pad.left - pad.right, pH = h - pad.top - pad.bottom;
+
+        ctx.fillStyle = '#0f1520'; ctx.fillRect(0, 0, w, h);
+
+        const xMap = i => pad.left + (pW * i / (rsi.length - 1 || 1));
+        const yMap = v => pad.top + pH - ((v / 100) * pH);
+
+        // Zones
+        ctx.fillStyle = 'rgba(239,68,68,0.06)';
+        ctx.fillRect(pad.left, yMap(100), pW, yMap(70) - yMap(100));
+        ctx.fillStyle = 'rgba(16,185,129,0.06)';
+        ctx.fillRect(pad.left, yMap(30), pW, yMap(0) - yMap(30));
+
+        // Lines at 30, 50, 70
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+        [30, 50, 70].forEach(v => { ctx.beginPath(); ctx.moveTo(pad.left, yMap(v)); ctx.lineTo(w-pad.right, yMap(v)); ctx.stroke(); });
+        ctx.setLineDash([]);
+
+        // Labels
+        ctx.fillStyle = '#9ca3af'; ctx.font = '8px Inter'; ctx.textAlign = 'right';
+        ctx.fillText('70', pad.left - 4, yMap(70) + 3);
+        ctx.fillText('30', pad.left - 4, yMap(30) + 3);
+        ctx.textAlign = 'left'; ctx.fillText('RSI', pad.left, pad.top - 4);
+
+        // RSI line
+        ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        let started = false;
+        rsi.forEach((v, i) => { if (v === null) return; if (!started) { ctx.moveTo(xMap(i), yMap(v)); started = true; } else ctx.lineTo(xMap(i), yMap(v)); });
+        ctx.stroke();
+
+        // Current value
+        const last = rsi.filter(v => v !== null).pop();
+        if (last) {
+            const color = last > 70 ? 'var(--red)' : last < 30 ? 'var(--green)' : 'var(--amber)';
+            ctx.fillStyle = color; ctx.font = '10px Inter'; ctx.textAlign = 'left';
+            ctx.fillText(last.toFixed(1), w - pad.right + 4, yMap(last) + 3);
+        }
+    }
+
+    function drawTAMACD(macd, timestamps) {
+        const canvas = document.getElementById('taMACDChart');
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
+        canvas.style.width = rect.width + 'px'; canvas.style.height = rect.height + 'px';
+        ctx.scale(dpr, dpr);
+        const w = rect.width, h = rect.height;
+        const pad = { top: 15, right: 50, bottom: 15, left: 55 };
+        const pW = w - pad.left - pad.right, pH = h - pad.top - pad.bottom;
+
+        ctx.fillStyle = '#0f1520'; ctx.fillRect(0, 0, w, h);
+
+        const validH = macd.histogram.filter(v => v !== null);
+        if (validH.length === 0) return;
+        const maxAbs = Math.max(...validH.map(Math.abs)) * 1.1;
+        const xMap = i => pad.left + (pW * i / (macd.histogram.length - 1 || 1));
+        const yMap = v => pad.top + pH / 2 - ((v / maxAbs) * pH / 2);
+
+        // Zero line
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(pad.left, yMap(0)); ctx.lineTo(w - pad.right, yMap(0)); ctx.stroke();
+
+        ctx.fillStyle = '#9ca3af'; ctx.font = '8px Inter'; ctx.textAlign = 'left';
+        ctx.fillText('MACD', pad.left, pad.top - 4);
+
+        // Histogram bars
+        const barW = Math.max(1, pW / macd.histogram.length - 1);
+        macd.histogram.forEach((v, i) => {
+            if (v === null) return;
+            ctx.fillStyle = v >= 0 ? 'rgba(16,185,129,0.5)' : 'rgba(239,68,68,0.5)';
+            const x = xMap(i) - barW / 2;
+            const y0 = yMap(0);
+            const yv = yMap(v);
+            ctx.fillRect(x, Math.min(y0, yv), barW, Math.abs(yv - y0));
+        });
+
+        // MACD + signal lines
+        const drawLine = (data, color) => {
+            ctx.strokeStyle = color; ctx.lineWidth = 1;
+            ctx.beginPath();
+            let s = false;
+            data.forEach((v, i) => { if (v === null) return; const ym = yMap(v * (maxAbs / (Math.max(...data.filter(x=>x!==null).map(Math.abs)) || 1))); if (!s) { ctx.moveTo(xMap(i), ym); s = true; } else ctx.lineTo(xMap(i), ym); });
+            ctx.stroke();
+        };
+    }
+
+    async function fetchOnChain() {
+        const DE = window.DataEngine;
+        const grid = document.getElementById('onchainGrid');
+        grid.innerHTML = '<div class="onchain-item"><div class="onchain-label">Fetching...</div></div>';
+
+        const [fees, mempool, difficulty] = await Promise.all([
+            DE.OnChainData.getBTCFees(),
+            DE.OnChainData.getBTCMempool(),
+            DE.OnChainData.getBTCDifficulty()
+        ]);
+
+        const items = [];
+        if (fees) {
+            items.push(`<div class="onchain-item"><div class="onchain-label">Fast Fee</div><div class="onchain-value">${fees.fastestFee} sat/vB</div></div>`);
+            items.push(`<div class="onchain-item"><div class="onchain-label">Medium Fee</div><div class="onchain-value">${fees.halfHourFee} sat/vB</div></div>`);
+            items.push(`<div class="onchain-item"><div class="onchain-label">Economy Fee</div><div class="onchain-value">${fees.economyFee} sat/vB</div></div>`);
+        }
+        if (mempool) {
+            items.push(`<div class="onchain-item"><div class="onchain-label">Mempool TXs</div><div class="onchain-value">${(mempool.count || 0).toLocaleString()}</div></div>`);
+            items.push(`<div class="onchain-item"><div class="onchain-label">Mempool Size</div><div class="onchain-value">${((mempool.vsize || 0) / 1e6).toFixed(1)} MvB</div></div>`);
+        }
+        if (difficulty) {
+            items.push(`<div class="onchain-item"><div class="onchain-label">Difficulty Adj.</div><div class="onchain-value" style="color:${difficulty.difficultyChange > 0 ? 'var(--green)' : 'var(--red)'};">${difficulty.difficultyChange?.toFixed(2)}%</div></div>`);
+            items.push(`<div class="onchain-item"><div class="onchain-label">Next Adj.</div><div class="onchain-value">${difficulty.remainingBlocks || '?'} blocks</div></div>`);
+            items.push(`<div class="onchain-item"><div class="onchain-label">Progress</div><div class="onchain-value">${(difficulty.progressPercent || 0).toFixed(1)}%</div></div>`);
+        }
+        grid.innerHTML = items.join('') || '<div class="onchain-item"><div class="onchain-label">Unavailable</div></div>';
+    }
+
+    async function fetchFundingRates() {
+        const DE = window.DataEngine;
+        const grid = document.getElementById('fundingGrid');
+        grid.innerHTML = '<div class="onchain-item"><div class="onchain-label">Fetching...</div></div>';
+
+        const rates = await DE.DerivativesData.getFundingRates();
+        if (!rates || Object.keys(rates).length === 0) {
+            grid.innerHTML = '<div class="onchain-item"><div class="onchain-label">Unavailable (CORS)</div><div class="onchain-value" style="font-size:10px;color:var(--text-dim);">Binance API may be blocked</div></div>';
+            return;
+        }
+        grid.innerHTML = Object.entries(rates).map(([sym, data]) => {
+            const ticker = sym.replace('USDT', '');
+            const color = data.rate > 0 ? 'var(--green)' : data.rate < 0 ? 'var(--red)' : 'var(--text)';
+            return `<div class="onchain-item">
+                <div class="onchain-label">${ticker}</div>
+                <div class="onchain-value" style="color:${color};">${(data.rate * 100).toFixed(4)}%</div>
+                <div style="font-size:9px;color:var(--text-dim);">${data.annualized.toFixed(1)}% ann.</div>
+            </div>`;
+        }).join('');
+    }
+
+    async function fetchDeFiYields() {
+        const DE = window.DataEngine;
+        const container = document.getElementById('defiYieldTable');
+        container.innerHTML = '<div style="color:var(--text-dim);font-size:12px;padding:12px;">Fetching from DefiLlama...</div>';
+
+        const pools = await DE.DeFiData.getPools();
+        if (!pools || pools.length === 0) {
+            container.innerHTML = '<div style="color:var(--text-dim);font-size:12px;">No data available.</div>';
+            return;
+        }
+
+        const top30 = pools.slice(0, 30);
+        container.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead><tr style="color:var(--green);text-transform:uppercase;font-size:9px;">
+                <th style="text-align:left;padding:6px 4px;">Pool</th>
+                <th style="text-align:left;padding:6px 4px;">Chain</th>
+                <th style="text-align:right;padding:6px 4px;">APY</th>
+                <th style="text-align:right;padding:6px 4px;">TVL</th>
+            </tr></thead>
+            <tbody>${top30.map(p => `<tr style="border-top:1px solid rgba(255,255,255,0.04);">
+                <td style="padding:6px 4px;color:var(--text);">${p.symbol || p.project}</td>
+                <td style="padding:6px 4px;color:var(--text-dim);">${p.chain}</td>
+                <td style="padding:6px 4px;text-align:right;color:var(--green);font-weight:600;">${p.apy.toFixed(2)}%</td>
+                <td style="padding:6px 4px;text-align:right;color:var(--text-dim);">$${(p.tvl / 1e6).toFixed(0)}M</td>
+            </tr>`).join('')}</tbody>
+        </table>`;
+    }
+
+    async function fetchMacroData() {
+        const DE = window.DataEngine;
+        try {
+            const global = await DE.LiveData.getCryptoGlobal();
+            if (global && global.data) {
+                const d = global.data;
+                const btcDom = document.getElementById('macroBTCDom');
+                if (btcDom) btcDom.textContent = (d.market_cap_percentage?.btc || 0).toFixed(1) + '%';
+                const totalMCap = document.getElementById('macroTotalMCap');
+                if (totalMCap) totalMCap.textContent = '$' + ((d.total_market_cap?.usd || 0) / 1e12).toFixed(2) + 'T';
+                const vol = document.getElementById('macroVolume');
+                if (vol) vol.textContent = '$' + ((d.total_volume?.usd || 0) / 1e9).toFixed(0) + 'B';
+            }
+        } catch(e) {}
+    }
+
+    // ---- LOAD CRYPTO ASSETS WITH LIVE PRICES ----
+    let cryptoAssets = [];
+
+    async function loadCryptoAssets() {
+        try {
+            const resp = await fetch('crypto-assets.json');
+            cryptoAssets = await resp.json();
+        } catch(e) { console.warn('Failed to load crypto-assets.json', e); }
+    }
+
     // ---- API KEY SETTINGS ----
     function showKeySettings() {
         const panel = document.getElementById('keySettingsPanel');
@@ -5254,6 +6041,7 @@
         document.getElementById('keyOpenAI').value = keys.openai || '';
         document.getElementById('keyClaude').value = keys.claude || '';
         document.getElementById('keyGrok').value = keys.grok || '';
+        document.getElementById('keyPerplexity').value = keys.perplexity || '';
     }
 
     function saveKeys() {
@@ -5262,7 +6050,8 @@
             gemini: document.getElementById('keyGemini').value.trim(),
             openai: document.getElementById('keyOpenAI').value.trim(),
             claude: document.getElementById('keyClaude').value.trim(),
-            grok: document.getElementById('keyGrok').value.trim()
+            grok: document.getElementById('keyGrok').value.trim(),
+            perplexity: document.getElementById('keyPerplexity').value.trim()
         });
         document.getElementById('keySettingsPanel').style.display = 'none';
     }
@@ -5417,6 +6206,7 @@
 
     // ---- INIT ----
     loadData();
+    loadCryptoAssets();
     </script>
 </body>
 </html>

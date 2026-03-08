@@ -421,6 +421,17 @@ const LiveData = {
         const url = 'https://api.coinbase.com/v2/prices/BTC-USD/spot';
         const data = await this._fetch(url, 'btc_spot');
         return data?.data?.amount ? parseFloat(data.data.amount) : null;
+    },
+
+    // CoinGecko: OHLCV candles (for TA)
+    async getCryptoOHLCV(coinId, days = 90) {
+        const url = `https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=usd&days=${days}`;
+        return this._fetch(url, `crypto_ohlcv_${coinId}_${days}`);
+    },
+
+    // CoinGecko: trending coins
+    async getTrending() {
+        return this._fetch('https://api.coingecko.com/api/v3/search/trending', 'crypto_trending');
     }
 };
 
@@ -1044,8 +1055,500 @@ Write the briefing as natural spoken text (no JSON, no bullet points, no markdow
         } catch (e) {
             return null;
         }
+    },
+
+    // Chat conversation management
+    chatHistory: {},
+
+    getChatHistory(model) {
+        if (!this.chatHistory[model]) {
+            try {
+                this.chatHistory[model] = JSON.parse(localStorage.getItem(`cryptoradar_chat_${model}`) || '[]');
+            } catch { this.chatHistory[model] = []; }
+        }
+        return this.chatHistory[model];
+    },
+
+    saveChatHistory(model) {
+        const history = this.chatHistory[model] || [];
+        // Keep last 50 messages
+        const trimmed = history.slice(-50);
+        localStorage.setItem(`cryptoradar_chat_${model}`, JSON.stringify(trimmed));
+    },
+
+    addMessage(model, role, content) {
+        if (!this.chatHistory[model]) this.chatHistory[model] = [];
+        this.chatHistory[model].push({ role, content, timestamp: Date.now() });
+        this.saveChatHistory(model);
+    },
+
+    clearChatHistory(model) {
+        this.chatHistory[model] = [];
+        localStorage.removeItem(`cryptoradar_chat_${model}`);
+    },
+
+    _buildChatPrompt(question, context) {
+        return `You are a crypto market analyst. The user is asking about crypto markets.
+
+CURRENT MARKET CONTEXT:
+${context || 'No market data available.'}
+
+Answer the user's question concisely and actionably. Focus on specific assets, entry/exit points, and risk levels. If relevant, reference historical events and technical levels.
+
+User's question: ${question}`;
+    },
+
+    async chatWithGemini(question, context) {
+        const keys = this.getKeys();
+        if (!keys.gemini) return { model: 'Gemini', text: null, error: 'No API key set' };
+        const history = this.getChatHistory('gemini').slice(-6);
+        const messages = history.map(m => ({ parts: [{ text: m.content }], role: m.role === 'user' ? 'user' : 'model' }));
+        messages.push({ parts: [{ text: this._buildChatPrompt(question, context) }], role: 'user' });
+        try {
+            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gemini}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: messages, generationConfig: { temperature: 0.5, maxOutputTokens: 2000 } })
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+            if (text) { this.addMessage('gemini', 'user', question); this.addMessage('gemini', 'assistant', text); }
+            return { model: 'Gemini', text, error: null };
+        } catch (e) { return { model: 'Gemini', text: null, error: e.message }; }
+    },
+
+    async chatWithOpenAI(question, context) {
+        const keys = this.getKeys();
+        if (!keys.openai) return { model: 'GPT-4o', text: null, error: 'No API key set' };
+        const history = this.getChatHistory('openai').slice(-6);
+        const messages = [{ role: 'system', content: 'You are a crypto market analyst. Be concise and actionable.' }];
+        history.forEach(m => messages.push({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }));
+        messages.push({ role: 'user', content: this._buildChatPrompt(question, context) });
+        try {
+            const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${keys.openai}` },
+                body: JSON.stringify({ model: 'gpt-4o-mini', messages, temperature: 0.5, max_tokens: 2000 })
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            const text = data.choices?.[0]?.message?.content || null;
+            if (text) { this.addMessage('openai', 'user', question); this.addMessage('openai', 'assistant', text); }
+            return { model: 'GPT-4o', text, error: null };
+        } catch (e) { return { model: 'GPT-4o', text: null, error: e.message }; }
+    },
+
+    async chatWithClaude(question, context) {
+        const keys = this.getKeys();
+        if (!keys.claude) return { model: 'Claude', text: null, error: 'No API key set' };
+        const history = this.getChatHistory('claude').slice(-6);
+        const messages = history.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }));
+        messages.push({ role: 'user', content: this._buildChatPrompt(question, context) });
+        try {
+            const resp = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-api-key': keys.claude, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+                body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 2000, messages })
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            const text = data.content?.[0]?.text || null;
+            if (text) { this.addMessage('claude', 'user', question); this.addMessage('claude', 'assistant', text); }
+            return { model: 'Claude', text, error: null };
+        } catch (e) { return { model: 'Claude', text: null, error: e.message }; }
+    },
+
+    async chatWithGrok(question, context) {
+        const keys = this.getKeys();
+        if (!keys.grok) return { model: 'Grok', text: null, error: 'No API key set' };
+        const history = this.getChatHistory('grok').slice(-6);
+        const messages = [{ role: 'system', content: 'You are a crypto market analyst. Be concise and actionable.' }];
+        history.forEach(m => messages.push({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }));
+        messages.push({ role: 'user', content: this._buildChatPrompt(question, context) });
+        try {
+            const resp = await fetch('https://api.x.ai/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${keys.grok}` },
+                body: JSON.stringify({ model: 'grok-3-mini-fast', messages, temperature: 0.5, max_tokens: 2000 })
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            const text = data.choices?.[0]?.message?.content || null;
+            if (text) { this.addMessage('grok', 'user', question); this.addMessage('grok', 'assistant', text); }
+            return { model: 'Grok', text, error: null };
+        } catch (e) { return { model: 'Grok', text: null, error: e.message }; }
+    },
+
+    async chatWithPerplexity(question, context) {
+        const keys = this.getKeys();
+        if (!keys.perplexity) return { model: 'Perplexity', text: null, error: 'No API key set' };
+        const history = this.getChatHistory('perplexity').slice(-6);
+        const messages = [{ role: 'system', content: 'You are a crypto market analyst with real-time web search capabilities. Be concise and actionable. Cite sources when possible.' }];
+        history.forEach(m => messages.push({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }));
+        messages.push({ role: 'user', content: this._buildChatPrompt(question, context) });
+        try {
+            const resp = await fetch('https://api.perplexity.ai/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${keys.perplexity}` },
+                body: JSON.stringify({ model: 'sonar', messages, temperature: 0.5, max_tokens: 2000 })
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            const text = data.choices?.[0]?.message?.content || null;
+            if (text) { this.addMessage('perplexity', 'user', question); this.addMessage('perplexity', 'assistant', text); }
+            return { model: 'Perplexity', text, error: null };
+        } catch (e) { return { model: 'Perplexity', text: null, error: e.message }; }
+    },
+
+    async chatAll(question, context) {
+        return Promise.allSettled([
+            this.chatWithGemini(question, context),
+            this.chatWithOpenAI(question, context),
+            this.chatWithClaude(question, context),
+            this.chatWithGrok(question, context),
+            this.chatWithPerplexity(question, context)
+        ]).then(results => results.map(r => r.status === 'fulfilled' ? r.value : { model: 'Unknown', text: null, error: r.reason?.message }));
     }
 };
+
+// ========== TECHNICAL ANALYSIS ==========
+const TechnicalAnalysis = {
+    // Simple Moving Average
+    sma(data, period) {
+        const result = [];
+        for (let i = 0; i < data.length; i++) {
+            if (i < period - 1) {
+                result.push(null);
+            } else {
+                let sum = 0;
+                for (let j = i - period + 1; j <= i; j++) sum += data[j];
+                result.push(sum / period);
+            }
+        }
+        return result;
+    },
+
+    // Exponential Moving Average
+    ema(data, period) {
+        const result = [];
+        const k = 2 / (period + 1);
+        let ema = null;
+        for (let i = 0; i < data.length; i++) {
+            if (i < period - 1) {
+                result.push(null);
+            } else if (i === period - 1) {
+                let sum = 0;
+                for (let j = 0; j < period; j++) sum += data[j];
+                ema = sum / period;
+                result.push(ema);
+            } else {
+                ema = data[i] * k + ema * (1 - k);
+                result.push(ema);
+            }
+        }
+        return result;
+    },
+
+    // RSI (Wilder's smoothing, period=14 default)
+    rsi(closes, period = 14) {
+        const result = [];
+        let avgGain = 0, avgLoss = 0;
+        for (let i = 0; i < closes.length; i++) {
+            if (i === 0) {
+                result.push(null);
+                continue;
+            }
+            const change = closes[i] - closes[i - 1];
+            const gain = change > 0 ? change : 0;
+            const loss = change < 0 ? -change : 0;
+            if (i <= period) {
+                avgGain += gain;
+                avgLoss += loss;
+                if (i < period) {
+                    result.push(null);
+                } else {
+                    avgGain /= period;
+                    avgLoss /= period;
+                    const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+                    result.push(100 - 100 / (1 + rs));
+                }
+            } else {
+                avgGain = (avgGain * (period - 1) + gain) / period;
+                avgLoss = (avgLoss * (period - 1) + loss) / period;
+                const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+                result.push(100 - 100 / (1 + rs));
+            }
+        }
+        return result;
+    },
+
+    // MACD (12, 26, 9 default)
+    macd(closes, fast = 12, slow = 26, signal = 9) {
+        const emaFast = this.ema(closes, fast);
+        const emaSlow = this.ema(closes, slow);
+        const macdLine = [];
+        for (let i = 0; i < closes.length; i++) {
+            if (emaFast[i] === null || emaSlow[i] === null) {
+                macdLine.push(null);
+            } else {
+                macdLine.push(emaFast[i] - emaSlow[i]);
+            }
+        }
+        // Filter out nulls for signal line calculation
+        const macdValues = macdLine.filter(v => v !== null);
+        const signalLine = this.ema(macdValues, signal);
+        // Map signal line back to full length
+        const fullSignal = [];
+        let idx = 0;
+        for (let i = 0; i < closes.length; i++) {
+            if (macdLine[i] === null) {
+                fullSignal.push(null);
+            } else {
+                fullSignal.push(signalLine[idx] || null);
+                idx++;
+            }
+        }
+        const histogram = [];
+        for (let i = 0; i < closes.length; i++) {
+            if (macdLine[i] === null || fullSignal[i] === null) {
+                histogram.push(null);
+            } else {
+                histogram.push(macdLine[i] - fullSignal[i]);
+            }
+        }
+        return { macdLine, signalLine: fullSignal, histogram };
+    },
+
+    // Bollinger Bands (period=20, stdDev=2)
+    bollingerBands(closes, period = 20, mult = 2) {
+        const middle = this.sma(closes, period);
+        const upper = [], lower = [], bandwidth = [];
+        for (let i = 0; i < closes.length; i++) {
+            if (middle[i] === null) {
+                upper.push(null);
+                lower.push(null);
+                bandwidth.push(null);
+            } else {
+                let sumSq = 0;
+                for (let j = i - period + 1; j <= i; j++) {
+                    sumSq += (closes[j] - middle[i]) ** 2;
+                }
+                const std = Math.sqrt(sumSq / period);
+                upper.push(middle[i] + mult * std);
+                lower.push(middle[i] - mult * std);
+                bandwidth.push(middle[i] !== 0 ? (mult * std * 2) / middle[i] : 0);
+            }
+        }
+        return { upper, middle, lower, bandwidth };
+    },
+
+    // All indicators at once for a given close array
+    analyze(closes) {
+        const rsi = this.rsi(closes);
+        const macd = this.macd(closes);
+        const bollinger = this.bollingerBands(closes);
+        const sma20 = this.sma(closes, 20);
+        const sma50 = this.sma(closes, 50);
+        const sma200 = this.sma(closes, 200);
+        const ema12 = this.ema(closes, 12);
+        const ema26 = this.ema(closes, 26);
+
+        // Generate signals based on latest values
+        const signals = [];
+        const last = closes.length - 1;
+        const price = closes[last];
+
+        // RSI signals
+        const lastRsi = rsi[last];
+        if (lastRsi !== null) {
+            if (lastRsi < 30) signals.push({ type: 'buy', indicator: 'RSI', description: `RSI oversold at ${lastRsi.toFixed(1)}` });
+            if (lastRsi > 70) signals.push({ type: 'sell', indicator: 'RSI', description: `RSI overbought at ${lastRsi.toFixed(1)}` });
+        }
+
+        // MACD signals
+        if (macd.histogram[last] !== null && macd.histogram[last - 1] !== null) {
+            if (macd.histogram[last] > 0 && macd.histogram[last - 1] <= 0) signals.push({ type: 'buy', indicator: 'MACD', description: 'MACD bullish crossover' });
+            if (macd.histogram[last] < 0 && macd.histogram[last - 1] >= 0) signals.push({ type: 'sell', indicator: 'MACD', description: 'MACD bearish crossover' });
+        }
+
+        // Bollinger Band signals
+        if (bollinger.lower[last] !== null) {
+            if (price <= bollinger.lower[last]) signals.push({ type: 'buy', indicator: 'Bollinger', description: 'Price at lower Bollinger Band' });
+            if (price >= bollinger.upper[last]) signals.push({ type: 'sell', indicator: 'Bollinger', description: 'Price at upper Bollinger Band' });
+        }
+
+        // SMA signals
+        if (sma20[last] !== null && sma50[last] !== null) {
+            if (sma20[last] > sma50[last] && sma20[last - 1] <= sma50[last - 1]) signals.push({ type: 'buy', indicator: 'SMA', description: 'SMA 20/50 golden cross' });
+            if (sma20[last] < sma50[last] && sma20[last - 1] >= sma50[last - 1]) signals.push({ type: 'sell', indicator: 'SMA', description: 'SMA 20/50 death cross' });
+        }
+        if (sma50[last] !== null && sma200[last] !== null) {
+            if (sma50[last] > sma200[last] && sma50[last - 1] <= sma200[last - 1]) signals.push({ type: 'buy', indicator: 'SMA', description: 'SMA 50/200 golden cross' });
+            if (sma50[last] < sma200[last] && sma50[last - 1] >= sma200[last - 1]) signals.push({ type: 'sell', indicator: 'SMA', description: 'SMA 50/200 death cross' });
+        }
+
+        return { rsi, macd, bollinger, sma20, sma50, sma200, ema12, ema26, signals };
+    }
+};
+
+// ========== ON-CHAIN DATA ==========
+const OnChainData = {
+    cache: {},
+    cacheExpiry: 15 * 60 * 1000, // 15 min
+
+    // BTC mempool fees (mempool.space - free, CORS-friendly)
+    async getBTCFees() {
+        return this._fetch('https://mempool.space/api/v1/fees/recommended', 'btc_fees');
+    },
+
+    // BTC mempool stats
+    async getBTCMempool() {
+        return this._fetch('https://mempool.space/api/mempool', 'btc_mempool');
+    },
+
+    // BTC blocks
+    async getBTCBlocks() {
+        return this._fetch('https://mempool.space/api/v1/blocks', 'btc_blocks');
+    },
+
+    // BTC difficulty adjustment
+    async getBTCDifficulty() {
+        return this._fetch('https://mempool.space/api/v1/difficulty-adjustment', 'btc_difficulty');
+    },
+
+    // Internal fetch with caching
+    async _fetch(url, key) {
+        if (this.cache[key] && Date.now() - this.cache[key].time < this.cacheExpiry) {
+            return this.cache[key].data;
+        }
+        try {
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            this.cache[key] = { data, time: Date.now() };
+            return data;
+        } catch (e) {
+            console.warn('OnChain fetch failed:', key, e.message);
+            return null;
+        }
+    }
+};
+
+// ========== DEFI DATA (DefiLlama) ==========
+const DeFiData = {
+    cache: {},
+    cacheExpiry: 15 * 60 * 1000,
+
+    // Get top yield pools
+    async getPools() {
+        const data = await this._fetch('https://yields.llama.fi/pools', 'defi_pools');
+        if (!data?.data) return [];
+        // Return top 100 pools sorted by TVL
+        return data.data
+            .filter(p => p.tvlUsd > 1000000 && p.apy > 0)
+            .sort((a, b) => b.tvlUsd - a.tvlUsd)
+            .slice(0, 100)
+            .map(p => ({
+                pool: p.pool,
+                chain: p.chain,
+                project: p.project,
+                symbol: p.symbol,
+                tvl: p.tvlUsd,
+                apy: p.apy,
+                apyBase: p.apyBase,
+                apyReward: p.apyReward
+            }));
+    },
+
+    // Get protocol TVL
+    async getProtocolTVL(protocol) {
+        return this._fetch(`https://api.llama.fi/protocol/${protocol}`, `defi_tvl_${protocol}`);
+    },
+
+    // Get total DeFi TVL
+    async getTotalTVL() {
+        return this._fetch('https://api.llama.fi/v2/historicalChainTvl', 'defi_total_tvl');
+    },
+
+    async _fetch(url, key) {
+        if (this.cache[key] && Date.now() - this.cache[key].time < this.cacheExpiry) {
+            return this.cache[key].data;
+        }
+        try {
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            this.cache[key] = { data, time: Date.now() };
+            return data;
+        } catch (e) {
+            console.warn('DeFi fetch failed:', key, e.message);
+            return null;
+        }
+    }
+};
+
+// ========== DERIVATIVES DATA (Binance via CORS proxy) ==========
+const DerivativesData = {
+    cache: {},
+    cacheExpiry: 15 * 60 * 1000,
+    proxyBase: 'https://api.allorigins.win/get?url=',
+
+    // Get funding rates for top perpetuals
+    async getFundingRates() {
+        const symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'ADAUSDT', 'MATICUSDT'];
+        const results = {};
+        for (const sym of symbols) {
+            const url = encodeURIComponent(`https://fapi.binance.com/fapi/v1/fundingRate?symbol=${sym}&limit=1`);
+            const data = await this._fetchProxy(url, `funding_${sym}`);
+            if (data && data[0]) {
+                results[sym] = {
+                    rate: parseFloat(data[0].fundingRate),
+                    time: data[0].fundingTime,
+                    annualized: parseFloat(data[0].fundingRate) * 3 * 365 * 100 // 3x daily, annualized %
+                };
+            }
+        }
+        return results;
+    },
+
+    // Get open interest
+    async getOpenInterest(symbol = 'BTCUSDT') {
+        const url = encodeURIComponent(`https://fapi.binance.com/fapi/v1/openInterest?symbol=${symbol}`);
+        return this._fetchProxy(url, `oi_${symbol}`);
+    },
+
+    async _fetchProxy(encodedUrl, key) {
+        if (this.cache[key] && Date.now() - this.cache[key].time < this.cacheExpiry) {
+            return this.cache[key].data;
+        }
+        try {
+            const resp = await fetch(this.proxyBase + encodedUrl);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const wrapper = await resp.json();
+            const data = JSON.parse(wrapper.contents);
+            this.cache[key] = { data, time: Date.now() };
+            return data;
+        } catch (e) {
+            console.warn('Derivatives fetch failed:', key, e.message);
+            return null;
+        }
+    }
+};
+
+// ========== CRYPTO SCENARIOS ==========
+const CRYPTO_SCENARIOS = [
+    { name: 'Conservative Bull', btcTarget: 150000, timeline: 18, altIntensity: 30, description: 'Gradual institutional adoption. BTC leads, alts follow modestly.' },
+    { name: 'Full Bull Run', btcTarget: 250000, timeline: 12, altIntensity: 60, description: 'ETF inflows accelerate. Alt season kicks in mid-cycle.' },
+    { name: 'Supercycle', btcTarget: 500000, timeline: 24, altIntensity: 80, description: 'Global liquidity surge + institutional FOMO. Historic cycle.' },
+    { name: 'Alt Season Blowoff', btcTarget: 180000, timeline: 6, altIntensity: 95, description: 'BTC consolidates while alts explode 5-20x. Retail mania.' },
+    { name: 'ETH Flippening', btcTarget: 200000, timeline: 18, altIntensity: 70, description: 'ETH gains ground. L2s and DeFi surge. ETH/BTC ratio climbs.' },
+    { name: 'AI Crypto Boom', btcTarget: 175000, timeline: 12, altIntensity: 85, description: 'AI narrative dominates. RNDR, FET, TAO, AKT lead the market.' },
+    { name: 'DeFi Renaissance', btcTarget: 160000, timeline: 12, altIntensity: 75, description: 'Real yield narratives. AAVE, MKR, UNI lead. TVL hits new ATH.' },
+    { name: 'Bear Market', btcTarget: 45000, timeline: 12, altIntensity: 10, description: 'Macro tightening. BTC drops 50%+. Alts bleed 80-95%.' },
+    { name: 'Black Swan', btcTarget: 20000, timeline: 3, altIntensity: 5, description: 'Exchange collapse / regulatory ban. Cascading liquidations.' },
+    { name: 'Regulatory Clarity', btcTarget: 200000, timeline: 12, altIntensity: 65, description: 'Clear US crypto framework. Institutional floodgates open.' }
+];
 
 // ========== EXPORT FOR HTML ==========
 window.DataEngine = {
@@ -1059,5 +1562,10 @@ window.DataEngine = {
     CORRELATION_REF,
     Backtester,
     NewsFeed,
-    AIAnalysis
+    AIAnalysis,
+    TechnicalAnalysis,
+    OnChainData,
+    DeFiData,
+    DerivativesData,
+    CRYPTO_SCENARIOS
 };
