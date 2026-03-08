@@ -1145,6 +1145,218 @@
             color: var(--green);
         }
 
+        /* ========== SCENARIOS VIEW ========== */
+        .scenario-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        .scenario-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .scenario-card h3 {
+            color: var(--green);
+            font-size: var(--fs-md);
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .scenario-card .subtitle {
+            color: var(--text-dim);
+            font-size: var(--fs-xs);
+            margin-bottom: 16px;
+        }
+        .scenario-presets {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .preset-btn {
+            font-family: var(--font);
+            font-size: var(--fs-xs);
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .preset-btn:hover, .preset-btn.active {
+            border-color: var(--amber);
+            color: var(--amber);
+            background: rgba(245, 158, 11, 0.1);
+        }
+        .slider-group {
+            margin-bottom: 16px;
+        }
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .slider-label span {
+            font-size: var(--fs-xs);
+            color: var(--text-dim);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        .slider-value {
+            font-size: var(--fs-base);
+            font-weight: 800;
+            color: var(--amber);
+        }
+        .slider-input {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.1);
+            outline: none;
+        }
+        .slider-input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--amber);
+            cursor: pointer;
+            border: 2px solid var(--bg);
+        }
+        .slider-input::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--amber);
+            cursor: pointer;
+            border: 2px solid var(--bg);
+        }
+        .scenario-toggle-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .scenario-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+        .scenario-toggle input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--green);
+        }
+        .scenario-toggle label {
+            font-size: var(--fs-sm);
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        /* Chart canvas */
+        .chart-canvas-wrap {
+            position: relative;
+            width: 100%;
+            height: 280px;
+            margin-bottom: 8px;
+        }
+        .chart-canvas-wrap canvas {
+            width: 100%;
+            height: 100%;
+        }
+        .chart-legend {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        .chart-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: var(--fs-xs);
+            color: var(--text-dim);
+        }
+        .chart-legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+        }
+
+        /* Scenario results */
+        .scenario-results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .scenario-result-item {
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+        }
+        .scenario-result-label {
+            font-size: var(--fs-xs);
+            color: var(--text-dim);
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+        .scenario-result-value {
+            font-size: var(--fs-lg);
+            font-weight: 800;
+        }
+        .scenario-result-note {
+            font-size: 9px;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        .impact-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .impact-table th {
+            font-size: var(--fs-xs);
+            font-weight: 700;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+        }
+        .impact-table td {
+            font-size: var(--fs-sm);
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .impact-table .impact-ticker {
+            font-weight: 800;
+            color: var(--green);
+        }
+        .impact-table .impact-positive { color: var(--green); font-weight: 700; }
+        .impact-table .impact-negative { color: var(--red); font-weight: 700; }
+
+        .scenario-note {
+            font-size: var(--fs-xs);
+            color: var(--text-dim);
+            line-height: 1.6;
+            margin-top: 12px;
+            padding: 12px;
+            background: rgba(255,255,255,0.02);
+            border-radius: 8px;
+            border-left: 3px solid var(--amber);
+        }
+
         /* ========== CREDIT ========== */
         .credit-line {
             font-size: var(--fs-xs);
@@ -1203,6 +1415,135 @@
                         </thead>
                         <tbody id="scannerBody"></tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- SCENARIOS VIEW -->
+            <div class="view" id="scenariosView">
+                <div class="scenario-container">
+                    <div class="scenario-card">
+                        <h3>Strait of Hormuz Closure Model</h3>
+                        <p class="subtitle">~21M barrels/day (21% of global supply) flow through the Strait. Model the price impact of a partial or full closure.</p>
+
+                        <div class="scenario-presets">
+                            <button class="preset-btn" onclick="applyPreset('brief')">Brief Closure (3d, 100%)</button>
+                            <button class="preset-btn" onclick="applyPreset('partial')">Partial Blockade (30d, 50%)</button>
+                            <button class="preset-btn" onclick="applyPreset('extended')">Extended Closure (30d, 100%)</button>
+                            <button class="preset-btn" onclick="applyPreset('crisis')">Full Crisis (90d, 100%)</button>
+                            <button class="preset-btn" onclick="applyPreset('escalation')">Gradual Escalation (60d, 25-100%)</button>
+                        </div>
+
+                        <div class="calc-row">
+                            <div class="calc-field">
+                                <label>Base WTI Price ($)</label>
+                                <input type="number" id="scenBasePrice" value="70" step="1" min="20" max="200">
+                            </div>
+                            <div class="calc-field">
+                                <label>Your Capital ($)</label>
+                                <input type="number" id="scenCapital" value="10000" step="100" min="100">
+                            </div>
+                        </div>
+
+                        <div class="slider-group">
+                            <div class="slider-label">
+                                <span>Strait Blockage</span>
+                                <span class="slider-value" id="blockageVal">100%</span>
+                            </div>
+                            <input type="range" class="slider-input" id="blockageSlider" min="0" max="100" value="100" step="5">
+                        </div>
+
+                        <div class="slider-group">
+                            <div class="slider-label">
+                                <span>Duration (Days)</span>
+                                <span class="slider-value" id="durationVal">30</span>
+                            </div>
+                            <input type="range" class="slider-input" id="durationSlider" min="1" max="180" value="30" step="1">
+                        </div>
+
+                        <div class="slider-group">
+                            <div class="slider-label">
+                                <span>Alternative Route Utilization</span>
+                                <span class="slider-value" id="altRouteVal">50%</span>
+                            </div>
+                            <input type="range" class="slider-input" id="altRouteSlider" min="0" max="100" value="50" step="5">
+                            <div style="font-size:10px;color:var(--text-dim);margin-top:4px;">Max bypass capacity: ~6.5M bbl/d (Saudi East-West Pipeline, UAE ADCOP, Iraq-Turkey)</div>
+                        </div>
+
+                        <div class="scenario-toggle-row">
+                            <div class="scenario-toggle">
+                                <input type="checkbox" id="scenSPR" checked>
+                                <label for="scenSPR">SPR Release (~4M bbl/d coordinated)</label>
+                            </div>
+                            <div class="scenario-toggle">
+                                <input type="checkbox" id="scenDemandDest" checked>
+                                <label for="scenDemandDest">Demand Destruction (kicks in ~week 2)</label>
+                            </div>
+                        </div>
+
+                        <button class="calc-btn" onclick="runScenario()">Run Scenario Model</button>
+                    </div>
+
+                    <div id="scenarioResults" style="display:none;">
+                        <div class="scenario-card">
+                            <h3>Price Trajectory</h3>
+                            <div class="chart-canvas-wrap">
+                                <canvas id="priceChart"></canvas>
+                            </div>
+                            <div class="chart-legend">
+                                <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--amber);"></div> WTI Price</div>
+                                <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--red);"></div> Supply Deficit (M bbl/d)</div>
+                                <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--green);"></div> Inventories Remaining (days)</div>
+                            </div>
+                        </div>
+
+                        <div class="scenario-card">
+                            <h3>Key Outputs</h3>
+                            <div class="scenario-results-grid" id="scenarioOutputs"></div>
+                        </div>
+
+                        <div class="scenario-card">
+                            <h3>Day-by-Day Breakdown</h3>
+                            <p class="subtitle">Showing key milestones during the closure period.</p>
+                            <div style="overflow-x:auto;">
+                                <table class="impact-table" id="dayByDayTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Day</th>
+                                            <th>WTI Price</th>
+                                            <th>Change</th>
+                                            <th>Supply Deficit</th>
+                                            <th>Cumul. Lost (M bbl)</th>
+                                            <th>Inventory (days)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="scenario-card">
+                            <h3>Portfolio Impact</h3>
+                            <p class="subtitle">Estimated returns by instrument type based on peak oil price move. Assumes proportional response (actual results will vary).</p>
+                            <div style="overflow-x:auto;">
+                                <table class="impact-table" id="portfolioImpact">
+                                    <thead>
+                                        <tr>
+                                            <th>Ticker</th>
+                                            <th>Type</th>
+                                            <th>Lev.</th>
+                                            <th>Est. Return</th>
+                                            <th>$10K Becomes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="scenario-note">
+                            <strong>Disclaimer:</strong> This is a simplified model for educational/planning purposes only. Actual market reactions involve complex dynamics including futures curve structure, options volatility crush/expansion, margin calls, circuit breakers, government interventions, and behavioral factors. Historical precedents (1990 Kuwait invasion, 2019 Abqaiq attack) show markets can overshoot or undershoot models significantly. Do not use this as sole basis for investment decisions.
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1425,9 +1766,9 @@
                 <span class="nav-icon">&#9878;</span>
                 Compare
             </button>
-            <button class="nav-item" onclick="showView('scanner')" data-view="scanner">
-                <span class="nav-icon">&#9776;</span>
-                Scanner
+            <button class="nav-item" onclick="showView('scenarios')" data-view="scenarios">
+                <span class="nav-icon">&#9888;</span>
+                Hormuz
             </button>
             <button class="nav-item" onclick="showView('calc')" data-view="calc">
                 <span class="nav-icon">&#128200;</span>
@@ -2164,6 +2505,7 @@
         const views = {
             cards: 'cardsView',
             compare: 'compareView',
+            scenarios: 'scenariosView',
             scanner: 'scannerView',
             calc: 'calcView',
             tracker: 'trackerView',
@@ -2183,6 +2525,387 @@
         if (name === 'compare') renderCompare();
         if (name === 'dashboard') updateDashboard();
         if (name === 'tracker') renderPositions();
+    }
+
+    // ---- SCENARIOS: STRAIT OF HORMUZ MODEL ----
+    const HORMUZ_CONSTANTS = {
+        hormuzFlow: 21,         // million barrels/day through Strait
+        globalDemand: 102,      // million barrels/day global demand
+        globalInventory: 4300,  // million barrels OECD commercial stocks
+        sprTotal: 1200,         // million barrels global strategic reserves
+        sprReleaseRate: 4,      // million barrels/day max coordinated SPR release
+        altRouteCapacity: 6.5,  // million barrels/day max bypass pipeline capacity
+        priceSensitivity: 6,    // 1% supply loss -> ~6% price gain (short-term)
+        fearPremiumPeak: 1.6,   // fear multiplier peak (first 3 days)
+        fearDecayRate: 0.05,    // fear premium decays by this per day after day 3
+        demandDestructionRate: 0.015, // demand destruction ramps 1.5%/week after week 2
+        demandDestructionCap: 0.35    // max 35% demand reduction at extreme prices
+    };
+
+    // Slider live updates
+    document.getElementById('blockageSlider').addEventListener('input', (e) => {
+        document.getElementById('blockageVal').textContent = e.target.value + '%';
+    });
+    document.getElementById('durationSlider').addEventListener('input', (e) => {
+        document.getElementById('durationVal').textContent = e.target.value;
+    });
+    document.getElementById('altRouteSlider').addEventListener('input', (e) => {
+        document.getElementById('altRouteVal').textContent = e.target.value + '%';
+    });
+
+    function applyPreset(name) {
+        const presets = {
+            brief:      { blockage: 100, duration: 3,   altRoute: 20, spr: true,  demandDest: false, base: 70 },
+            partial:    { blockage: 50,  duration: 30,  altRoute: 60, spr: true,  demandDest: true,  base: 70 },
+            extended:   { blockage: 100, duration: 30,  altRoute: 50, spr: true,  demandDest: true,  base: 70 },
+            crisis:     { blockage: 100, duration: 90,  altRoute: 50, spr: true,  demandDest: true,  base: 70 },
+            escalation: { blockage: 75,  duration: 60,  altRoute: 40, spr: true,  demandDest: true,  base: 70 }
+        };
+        const p = presets[name];
+        if (!p) return;
+
+        document.getElementById('blockageSlider').value = p.blockage;
+        document.getElementById('blockageVal').textContent = p.blockage + '%';
+        document.getElementById('durationSlider').value = p.duration;
+        document.getElementById('durationVal').textContent = p.duration;
+        document.getElementById('altRouteSlider').value = p.altRoute;
+        document.getElementById('altRouteVal').textContent = p.altRoute + '%';
+        document.getElementById('scenSPR').checked = p.spr;
+        document.getElementById('scenDemandDest').checked = p.demandDest;
+        document.getElementById('scenBasePrice').value = p.base;
+
+        document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+
+        runScenario();
+    }
+
+    function runScenario() {
+        const C = HORMUZ_CONSTANTS;
+        const blockagePct = parseInt(document.getElementById('blockageSlider').value) / 100;
+        const duration = parseInt(document.getElementById('durationSlider').value);
+        const altRoutePct = parseInt(document.getElementById('altRouteSlider').value) / 100;
+        const useSPR = document.getElementById('scenSPR').checked;
+        const useDemandDest = document.getElementById('scenDemandDest').checked;
+        const basePrice = parseFloat(document.getElementById('scenBasePrice').value) || 70;
+        const capital = parseFloat(document.getElementById('scenCapital').value) || 10000;
+
+        // Run day-by-day simulation
+        const days = [];
+        let cumulativeLost = 0;
+        let peakPrice = basePrice;
+        let peakDay = 0;
+        let sprUsed = 0;
+
+        for (let d = 1; d <= duration; d++) {
+            // Gross disruption
+            const grossDisruption = C.hormuzFlow * blockagePct;
+
+            // Alternative routes offset
+            const altOffset = Math.min(C.altRouteCapacity * altRoutePct, grossDisruption);
+
+            // SPR offset (depletes over time)
+            let sprOffset = 0;
+            if (useSPR) {
+                const sprRemaining = C.sprTotal - sprUsed;
+                sprOffset = Math.min(C.sprReleaseRate, sprRemaining, grossDisruption - altOffset);
+                sprUsed += sprOffset;
+            }
+
+            // Net supply deficit
+            const netDeficit = Math.max(0, grossDisruption - altOffset - sprOffset);
+            cumulativeLost += netDeficit;
+
+            // Supply deficit as % of global demand
+            const deficitPct = (netDeficit / C.globalDemand) * 100;
+
+            // Remaining inventory in days of consumption
+            const inventoryRemaining = Math.max(0, C.globalInventory - cumulativeLost);
+            const inventoryDays = inventoryRemaining / C.globalDemand;
+
+            // Fear premium: peaks in first 3 days, then decays
+            let fearMultiplier;
+            if (d <= 3) {
+                fearMultiplier = C.fearPremiumPeak;
+            } else {
+                fearMultiplier = Math.max(1.0, C.fearPremiumPeak - C.fearDecayRate * (d - 3));
+            }
+
+            // Demand destruction: starts after day 14, ramps gradually
+            let demandReduction = 0;
+            if (useDemandDest && d > 14) {
+                demandReduction = Math.min(C.demandDestructionCap, C.demandDestructionRate * (d - 14));
+            }
+
+            // Price calculation
+            const priceImpactPct = deficitPct * C.priceSensitivity * fearMultiplier * (1 - demandReduction);
+            const price = basePrice * (1 + priceImpactPct / 100);
+
+            if (price > peakPrice) {
+                peakPrice = price;
+                peakDay = d;
+            }
+
+            days.push({
+                day: d,
+                price: price,
+                changePct: ((price - basePrice) / basePrice) * 100,
+                netDeficit: netDeficit,
+                cumulativeLost: cumulativeLost,
+                inventoryDays: inventoryDays,
+                fearMultiplier: fearMultiplier,
+                demandReduction: demandReduction * 100,
+                sprUsed: sprUsed
+            });
+        }
+
+        // Render results
+        document.getElementById('scenarioResults').style.display = 'block';
+
+        const lastDay = days[days.length - 1];
+        const avgPrice = days.reduce((s, d) => s + d.price, 0) / days.length;
+        const peakChangePct = ((peakPrice - basePrice) / basePrice) * 100;
+
+        // Key outputs
+        document.getElementById('scenarioOutputs').innerHTML = `
+            <div class="scenario-result-item">
+                <div class="scenario-result-label">Peak Price</div>
+                <div class="scenario-result-value" style="color:var(--red);">$${peakPrice.toFixed(0)}</div>
+                <div class="scenario-result-note">Day ${peakDay}</div>
+            </div>
+            <div class="scenario-result-item">
+                <div class="scenario-result-label">Peak Change</div>
+                <div class="scenario-result-value" style="color:var(--amber);">+${peakChangePct.toFixed(0)}%</div>
+                <div class="scenario-result-note">From $${basePrice}</div>
+            </div>
+            <div class="scenario-result-item">
+                <div class="scenario-result-label">Avg Price</div>
+                <div class="scenario-result-value" style="color:var(--amber);">$${avgPrice.toFixed(0)}</div>
+                <div class="scenario-result-note">Over ${duration} days</div>
+            </div>
+            <div class="scenario-result-item">
+                <div class="scenario-result-label">Supply Lost</div>
+                <div class="scenario-result-value" style="color:var(--red);">${lastDay.cumulativeLost.toFixed(0)}M</div>
+                <div class="scenario-result-note">Barrels total</div>
+            </div>
+            <div class="scenario-result-item">
+                <div class="scenario-result-label">Inventory Left</div>
+                <div class="scenario-result-value" style="color:${lastDay.inventoryDays < 30 ? 'var(--red)' : 'var(--green)'};">${lastDay.inventoryDays.toFixed(0)} days</div>
+                <div class="scenario-result-note">${lastDay.inventoryDays < 30 ? 'CRITICAL' : 'Manageable'}</div>
+            </div>
+            ${useSPR ? `<div class="scenario-result-item">
+                <div class="scenario-result-label">SPR Depleted</div>
+                <div class="scenario-result-value" style="color:var(--amber);">${lastDay.sprUsed.toFixed(0)}M</div>
+                <div class="scenario-result-note">${((lastDay.sprUsed / C.sprTotal) * 100).toFixed(0)}% of reserves</div>
+            </div>` : ''}
+        `;
+
+        // Day-by-day table (show milestones)
+        const milestones = [];
+        const milestoneDays = [1, 2, 3, 5, 7, 14, 21, 30, 45, 60, 90, 120, 150, 180];
+        milestoneDays.forEach(md => {
+            if (md <= duration) {
+                milestones.push(days[md - 1]);
+            }
+        });
+        // Always include last day if not already
+        if (milestones.length === 0 || milestones[milestones.length - 1].day !== duration) {
+            milestones.push(days[days.length - 1]);
+        }
+
+        const dayTable = document.querySelector('#dayByDayTable tbody');
+        dayTable.innerHTML = milestones.map(d => {
+            const changeClass = d.changePct >= 0 ? 'impact-positive' : 'impact-negative';
+            return `<tr>
+                <td style="font-weight:700;">Day ${d.day}</td>
+                <td style="font-weight:700;color:var(--amber);">$${d.price.toFixed(2)}</td>
+                <td class="${changeClass}">${d.changePct >= 0 ? '+' : ''}${d.changePct.toFixed(1)}%</td>
+                <td style="color:var(--red);">${d.netDeficit.toFixed(1)}M bbl/d</td>
+                <td>${d.cumulativeLost.toFixed(0)}M</td>
+                <td style="color:${d.inventoryDays < 30 ? 'var(--red)' : 'var(--text)'};">${d.inventoryDays.toFixed(0)}</td>
+            </tr>`;
+        }).join('');
+
+        // Portfolio impact table
+        const impactInstruments = [
+            { ticker: 'CL=F', name: 'WTI Futures', type: 'Futures', lev: '~15x', beta: 1.0, levMult: 1 },
+            { ticker: 'UCO', name: '2x Crude Oil', type: 'Lev. ETF', lev: '2x', beta: 1.0, levMult: 2 },
+            { ticker: 'GUSH', name: '2x Oil & Gas E&P', type: 'Lev. ETF', lev: '2x', beta: 0.8, levMult: 2 },
+            { ticker: 'USO', name: 'Crude Oil Fund', type: 'ETF', lev: '1x', beta: 0.9, levMult: 1 },
+            { ticker: 'XLE', name: 'Energy Sector', type: 'ETF', lev: '1x', beta: 0.6, levMult: 1 },
+            { ticker: 'XOP', name: 'Oil & Gas E&P', type: 'ETF', lev: '1x', beta: 0.75, levMult: 1 },
+            { ticker: 'OXY', name: 'Occidental Petro.', type: 'Stock', lev: '1x', beta: 0.85, levMult: 1 },
+            { ticker: 'XOM', name: 'Exxon Mobil', type: 'Stock', lev: '1x', beta: 0.5, levMult: 1 },
+            { ticker: 'DVN', name: 'Devon Energy', type: 'Stock', lev: '1x', beta: 0.8, levMult: 1 },
+            { ticker: 'FANG', name: 'Diamondback', type: 'Stock', lev: '1x', beta: 0.75, levMult: 1 },
+            { ticker: 'SLB', name: 'Schlumberger', type: 'Services', lev: '1x', beta: 0.45, levMult: 1 },
+            { ticker: 'OXY Call', name: 'OXY ATM 90d Call', type: 'Option', lev: '~5x', beta: 0.85, levMult: 5 },
+            { ticker: 'UCO Call', name: 'UCO ATM 90d Call', type: 'Option', lev: '~8x', beta: 1.0, levMult: 8 },
+            { ticker: 'USO Call', name: 'USO OTM 90d Call', type: 'Option', lev: '~10x', beta: 0.9, levMult: 10 }
+        ];
+
+        const impactBody = document.querySelector('#portfolioImpact tbody');
+        impactBody.innerHTML = impactInstruments.map(inst => {
+            const estReturn = peakChangePct * inst.beta * inst.levMult / 100;
+            const estReturnPct = estReturn * 100;
+            const finalValue = capital * (1 + estReturn);
+            const returnClass = estReturn >= 0 ? 'impact-positive' : 'impact-negative';
+
+            return `<tr>
+                <td class="impact-ticker">${inst.ticker}</td>
+                <td style="font-size:11px;color:var(--text-dim);">${inst.type}</td>
+                <td style="color:var(--amber);font-weight:600;">${inst.lev}</td>
+                <td class="${returnClass}">${estReturnPct >= 0 ? '+' : ''}${estReturnPct.toFixed(0)}%</td>
+                <td class="${returnClass}">$${finalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+            </tr>`;
+        }).join('');
+
+        // Draw price chart
+        drawPriceChart(days, basePrice);
+    }
+
+    function drawPriceChart(days, basePrice) {
+        const canvas = document.getElementById('priceChart');
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.parentElement.getBoundingClientRect();
+
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = rect.height + 'px';
+        ctx.scale(dpr, dpr);
+
+        const w = rect.width;
+        const h = rect.height;
+        const pad = { top: 30, right: 60, bottom: 35, left: 55 };
+        const plotW = w - pad.left - pad.right;
+        const plotH = h - pad.top - pad.bottom;
+
+        // Clear
+        ctx.fillStyle = '#0f1520';
+        ctx.fillRect(0, 0, w, h);
+
+        // Find ranges
+        const maxPrice = Math.max(...days.map(d => d.price)) * 1.1;
+        const minPrice = Math.min(basePrice * 0.9, ...days.map(d => d.price) ) * 0.95;
+        const maxDeficit = Math.max(...days.map(d => d.netDeficit)) * 1.2 || 1;
+        const maxInvDays = Math.max(...days.map(d => d.inventoryDays)) * 1.05;
+
+        // Grid lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+            const y = pad.top + (plotH / 4) * i;
+            ctx.beginPath();
+            ctx.moveTo(pad.left, y);
+            ctx.lineTo(w - pad.right, y);
+            ctx.stroke();
+        }
+
+        // Y-axis labels (price)
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = '10px Inter, sans-serif';
+        ctx.textAlign = 'right';
+        for (let i = 0; i <= 4; i++) {
+            const y = pad.top + (plotH / 4) * i;
+            const val = maxPrice - (maxPrice - minPrice) * (i / 4);
+            ctx.fillText('$' + val.toFixed(0), pad.left - 8, y + 4);
+        }
+
+        // X-axis labels
+        ctx.textAlign = 'center';
+        const xSteps = Math.min(days.length, 8);
+        for (let i = 0; i <= xSteps; i++) {
+            const dayIdx = Math.round((days.length - 1) * i / xSteps);
+            const x = pad.left + (plotW * dayIdx / (days.length - 1 || 1));
+            ctx.fillText('D' + days[dayIdx].day, x, h - pad.bottom + 16);
+        }
+
+        // Helper: map data to canvas coords
+        const xMap = (i) => pad.left + (plotW * i / (days.length - 1 || 1));
+        const yMapPrice = (p) => pad.top + plotH - ((p - minPrice) / (maxPrice - minPrice)) * plotH;
+
+        // Draw baseline
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(pad.left, yMapPrice(basePrice));
+        ctx.lineTo(w - pad.right, yMapPrice(basePrice));
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#9ca3af';
+        ctx.textAlign = 'left';
+        ctx.fillText('Base $' + basePrice, w - pad.right + 4, yMapPrice(basePrice) + 4);
+
+        // Draw supply deficit area (red, scaled to right axis)
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.15)';
+        ctx.beginPath();
+        ctx.moveTo(xMap(0), pad.top + plotH);
+        days.forEach((d, i) => {
+            const deficitH = (d.netDeficit / maxDeficit) * plotH * 0.4;
+            ctx.lineTo(xMap(i), pad.top + plotH - deficitH);
+        });
+        ctx.lineTo(xMap(days.length - 1), pad.top + plotH);
+        ctx.closePath();
+        ctx.fill();
+
+        // Draw deficit line
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        days.forEach((d, i) => {
+            const deficitH = (d.netDeficit / maxDeficit) * plotH * 0.4;
+            const y = pad.top + plotH - deficitH;
+            i === 0 ? ctx.moveTo(xMap(i), y) : ctx.lineTo(xMap(i), y);
+        });
+        ctx.stroke();
+
+        // Draw inventory line (green, dashed)
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        days.forEach((d, i) => {
+            const y = pad.top + plotH - ((d.inventoryDays / maxInvDays) * plotH * 0.3);
+            i === 0 ? ctx.moveTo(xMap(i), y) : ctx.lineTo(xMap(i), y);
+        });
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Draw price line (amber, thick)
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        days.forEach((d, i) => {
+            const y = yMapPrice(d.price);
+            i === 0 ? ctx.moveTo(xMap(i), y) : ctx.lineTo(xMap(i), y);
+        });
+        ctx.stroke();
+
+        // Fill under price line
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.08)';
+        ctx.beginPath();
+        ctx.moveTo(xMap(0), yMapPrice(basePrice));
+        days.forEach((d, i) => ctx.lineTo(xMap(i), yMapPrice(d.price)));
+        ctx.lineTo(xMap(days.length - 1), yMapPrice(basePrice));
+        ctx.closePath();
+        ctx.fill();
+
+        // Peak marker
+        const peakIdx = days.findIndex(d => d.price === Math.max(...days.map(dd => dd.price)));
+        if (peakIdx >= 0) {
+            const px = xMap(peakIdx);
+            const py = yMapPrice(days[peakIdx].price);
+            ctx.fillStyle = '#f59e0b';
+            ctx.beginPath();
+            ctx.arc(px, py, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 11px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('$' + days[peakIdx].price.toFixed(0), px, py - 10);
+        }
     }
 
     // ---- COMPARE ----
