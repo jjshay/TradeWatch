@@ -1,0 +1,1976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Oil Radar - Leveraged Oil Options Tracker</title>
+    <meta name="description" content="Oil Radar - Track oil ETFs, stocks, and futures. Find the best call options for maximum leverage on your bullish oil bet.">
+    <meta name="theme-color" content="#10b981">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #080c14;
+            --bg-card: #0f1520;
+            --bg-glass: rgba(15, 21, 32, 0.95);
+            --green: #10b981;
+            --green-light: #34d399;
+            --amber: #f59e0b;
+            --amber-light: #fbbf24;
+            --red: #ef4444;
+            --text: #f9fafb;
+            --text-dim: #9ca3af;
+            --border: rgba(16, 185, 129, 0.25);
+            --border-amber: rgba(245, 158, 11, 0.25);
+
+            --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --fs-xs: 10px;
+            --fs-sm: 12px;
+            --fs-base: 14px;
+            --fs-md: 16px;
+            --fs-lg: 18px;
+            --fs-xl: 20px;
+            --fs-2xl: 24px;
+
+            --space-xs: 4px;
+            --space-sm: 8px;
+            --space-md: 12px;
+            --space-lg: 16px;
+            --space-xl: 20px;
+            --space-2xl: 24px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font);
+            font-size: var(--fs-base);
+            line-height: 1.5;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            min-height: 100dvh;
+            overflow: hidden;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .app {
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ========== HEADER ========== */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            position: relative;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--green), var(--amber));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--bg);
+        }
+
+        .logo-text {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            color: #fff;
+        }
+        .logo-text span { color: var(--green); }
+
+        .header-search {
+            flex: 1;
+            position: relative;
+            max-width: 280px;
+        }
+        .search-input {
+            font-family: var(--font);
+            width: 100%;
+            padding: 8px 12px 8px 32px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            background: var(--bg-card);
+            color: var(--text);
+            font-size: var(--fs-sm);
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: var(--green);
+        }
+        .search-input::placeholder { color: var(--text-dim); }
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-dim);
+            font-size: var(--fs-sm);
+            pointer-events: none;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .header-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        .header-btn:hover, .header-btn.active {
+            border-color: var(--green);
+            color: var(--green);
+        }
+        .header-counter {
+            font-size: var(--fs-xs);
+            color: var(--text-dim);
+            white-space: nowrap;
+        }
+
+        /* ========== MAIN CONTENT ========== */
+        .main-content {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .view {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: none;
+            flex-direction: column;
+        }
+        .view.active { display: flex; }
+
+        /* ========== CARD STACK ========== */
+        .card-stack {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            overflow: hidden;
+        }
+
+        .card {
+            position: absolute;
+            width: calc(100% - 32px);
+            max-width: 420px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            cursor: grab;
+            touch-action: none;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            overflow-y: auto;
+            max-height: calc(100% - 20px);
+        }
+        .card:active { cursor: grabbing; }
+        .card.dragging { transition: none; }
+        .card.swiping { transition: transform 0.4s ease, opacity 0.4s ease; }
+
+        .card-ticker {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--green);
+            letter-spacing: 1px;
+        }
+        .card-name {
+            font-size: var(--fs-sm);
+            color: var(--text-dim);
+            margin-bottom: 12px;
+        }
+
+        .card-badges {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .badge {
+            font-size: var(--fs-xs);
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .badge-type {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--green);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .badge-leverage {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--amber);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        .badge-sector {
+            background: rgba(96, 165, 250, 0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(96, 165, 250, 0.3);
+        }
+        .badge-options {
+            background: rgba(139, 92, 246, 0.15);
+            color: #8b5cf6;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+
+        .card-desc {
+            font-size: var(--fs-sm);
+            color: var(--text);
+            line-height: 1.5;
+            margin-bottom: 14px;
+        }
+
+        .card-section {
+            margin-bottom: 12px;
+        }
+        .card-section-title {
+            font-size: var(--fs-xs);
+            font-weight: 700;
+            color: var(--green);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        .card-section-title.amber { color: var(--amber); }
+        .card-section-title.red { color: var(--red); }
+
+        .card-section-text {
+            font-size: var(--fs-sm);
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        .card-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .card-stat {
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            padding: 8px 10px;
+        }
+        .card-stat-label {
+            font-size: var(--fs-xs);
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .card-stat-value {
+            font-size: var(--fs-sm);
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .card-rating {
+            display: flex;
+            gap: 3px;
+            margin-bottom: 14px;
+        }
+        .barrel {
+            width: 18px;
+            height: 18px;
+            border-radius: 3px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+        }
+        .barrel.filled {
+            background: var(--green);
+            border-color: var(--green);
+        }
+
+        .card-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .card-tag {
+            font-size: 9px;
+            padding: 2px 8px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            color: var(--text-dim);
+        }
+
+        /* Swipe overlays */
+        .swipe-label {
+            position: absolute;
+            top: 20px;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            opacity: 0;
+            transform: rotate(-15deg);
+            pointer-events: none;
+            z-index: 10;
+        }
+        .swipe-label.watch {
+            right: 20px;
+            border: 3px solid var(--green);
+            color: var(--green);
+            transform: rotate(15deg);
+        }
+        .swipe-label.pass {
+            left: 20px;
+            border: 3px solid var(--red);
+            color: var(--red);
+            transform: rotate(-15deg);
+        }
+
+        /* Card action buttons */
+        .card-actions {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            padding: 12px 16px;
+        }
+        .card-action-btn {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: 2px solid;
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 22px;
+            transition: all 0.2s;
+        }
+        .card-action-btn.pass-btn {
+            border-color: var(--red);
+            color: var(--red);
+        }
+        .card-action-btn.pass-btn:hover {
+            background: var(--red);
+            color: #fff;
+        }
+        .card-action-btn.detail-btn {
+            border-color: #60a5fa;
+            color: #60a5fa;
+        }
+        .card-action-btn.detail-btn:hover {
+            background: #60a5fa;
+            color: #fff;
+        }
+        .card-action-btn.calc-btn {
+            border-color: var(--amber);
+            color: var(--amber);
+        }
+        .card-action-btn.calc-btn:hover {
+            background: var(--amber);
+            color: #fff;
+        }
+        .card-action-btn.watch-btn {
+            border-color: var(--green);
+            color: var(--green);
+        }
+        .card-action-btn.watch-btn:hover {
+            background: var(--green);
+            color: #fff;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-dim);
+        }
+        .empty-state h2 {
+            color: var(--green);
+            font-size: var(--fs-xl);
+            margin-bottom: 8px;
+        }
+
+        /* ========== SCANNER VIEW ========== */
+        .scanner-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        .scanner-header {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .filter-btn {
+            font-family: var(--font);
+            font-size: var(--fs-xs);
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-btn.active {
+            border-color: var(--green);
+            color: var(--green);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .scanner-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .scanner-table th {
+            font-size: var(--fs-xs);
+            font-weight: 700;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            position: sticky;
+            top: 0;
+            background: var(--bg);
+        }
+        .scanner-table td {
+            font-size: var(--fs-sm);
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            vertical-align: middle;
+        }
+        .scanner-table tr {
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .scanner-table tr:hover {
+            background: rgba(16, 185, 129, 0.05);
+        }
+        .scanner-ticker {
+            font-weight: 800;
+            color: var(--green);
+        }
+        .scanner-type {
+            font-size: var(--fs-xs);
+            color: var(--text-dim);
+        }
+
+        /* ========== CALCULATOR VIEW ========== */
+        .calc-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        .calc-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .calc-card h3 {
+            color: var(--green);
+            font-size: var(--fs-md);
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+        .calc-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .calc-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .calc-field label {
+            font-size: var(--fs-xs);
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+        .calc-field input, .calc-field select {
+            font-family: var(--font);
+            font-size: var(--fs-base);
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--bg);
+            color: var(--text);
+        }
+        .calc-field input:focus, .calc-field select:focus {
+            outline: none;
+            border-color: var(--green);
+        }
+        .calc-btn {
+            font-family: var(--font);
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            background: var(--green);
+            color: #fff;
+            font-size: var(--fs-base);
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .calc-btn:hover { opacity: 0.9; }
+
+        .calc-results {
+            display: none;
+        }
+        .calc-results.active { display: block; }
+
+        .calc-result-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .calc-result-item {
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+        }
+        .calc-result-label {
+            font-size: var(--fs-xs);
+            color: var(--text-dim);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .calc-result-value {
+            font-size: var(--fs-lg);
+            font-weight: 800;
+            color: var(--green);
+        }
+        .calc-result-value.amber { color: var(--amber); }
+        .calc-result-value.red { color: var(--red); }
+
+        .scenario-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+        .scenario-table th {
+            font-size: var(--fs-xs);
+            color: var(--text-dim);
+            text-transform: uppercase;
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--border);
+            text-align: center;
+        }
+        .scenario-table td {
+            font-size: var(--fs-sm);
+            padding: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            text-align: center;
+        }
+        .scenario-table .positive { color: var(--green); font-weight: 700; }
+        .scenario-table .negative { color: var(--red); font-weight: 700; }
+
+        /* ========== TRACKER VIEW ========== */
+        .tracker-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        .tracker-form {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .tracker-form h3 {
+            color: var(--green);
+            font-size: var(--fs-md);
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .position-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 10px;
+        }
+        .position-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .position-ticker {
+            font-size: var(--fs-lg);
+            font-weight: 800;
+            color: var(--green);
+        }
+        .position-type {
+            font-size: var(--fs-xs);
+            padding: 2px 8px;
+            border-radius: 8px;
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--amber);
+            font-weight: 600;
+        }
+        .position-details {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .position-detail-label {
+            font-size: var(--fs-xs);
+            color: var(--text-dim);
+        }
+        .position-detail-value {
+            font-size: var(--fs-sm);
+            font-weight: 600;
+        }
+        .position-delete {
+            font-family: var(--font);
+            font-size: var(--fs-xs);
+            color: var(--red);
+            background: none;
+            border: 1px solid var(--red);
+            padding: 4px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            float: right;
+        }
+
+        /* ========== DASHBOARD VIEW ========== */
+        .dashboard-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        .dashboard-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .dashboard-card h3 {
+            color: var(--green);
+            font-size: var(--fs-md);
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .market-indicators {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        .indicator {
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            padding: 14px;
+            text-align: center;
+        }
+        .indicator-label {
+            font-size: var(--fs-xs);
+            color: var(--text-dim);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .indicator-value {
+            font-size: var(--fs-xl);
+            font-weight: 800;
+            color: var(--amber);
+        }
+        .indicator-note {
+            font-size: var(--fs-xs);
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        /* ========== WATCHLIST VIEW ========== */
+        .watchlist-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        .watchlist-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .watchlist-item:hover {
+            background: rgba(16, 185, 129, 0.05);
+        }
+        .watchlist-ticker {
+            font-size: var(--fs-lg);
+            font-weight: 800;
+            color: var(--green);
+            min-width: 60px;
+        }
+        .watchlist-info {
+            flex: 1;
+        }
+        .watchlist-name {
+            font-size: var(--fs-sm);
+            color: var(--text);
+        }
+        .watchlist-meta {
+            font-size: var(--fs-xs);
+            color: var(--text-dim);
+        }
+        .watchlist-remove {
+            font-family: var(--font);
+            font-size: var(--fs-xs);
+            color: var(--red);
+            background: none;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 4px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        /* ========== BOTTOM NAV ========== */
+        .bottom-nav {
+            display: flex;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border);
+            padding: 8px 0;
+            padding-bottom: max(8px, env(safe-area-inset-bottom));
+            z-index: 100;
+        }
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            padding: 6px 0;
+            cursor: pointer;
+            color: var(--text-dim);
+            font-size: var(--fs-xs);
+            font-weight: 600;
+            transition: color 0.2s;
+            border: none;
+            background: none;
+            font-family: var(--font);
+        }
+        .nav-item.active { color: var(--green); }
+        .nav-item:hover { color: var(--green-light); }
+        .nav-icon { font-size: 20px; }
+
+        /* ========== DETAIL MODAL ========== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 300;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px 20px 0 0;
+            width: 100%;
+            max-width: 500px;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding: 24px;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        .modal-handle {
+            width: 40px;
+            height: 4px;
+            background: var(--text-dim);
+            border-radius: 2px;
+            margin: 0 auto 16px;
+        }
+        .modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .detail-ticker {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--green);
+        }
+        .detail-name {
+            font-size: var(--fs-base);
+            color: var(--text-dim);
+            margin-bottom: 16px;
+        }
+        .detail-section {
+            margin-bottom: 16px;
+        }
+        .detail-section h4 {
+            font-size: var(--fs-sm);
+            font-weight: 700;
+            color: var(--green);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+        .detail-section h4.amber { color: var(--amber); }
+        .detail-section h4.red { color: var(--red); }
+        .detail-section h4.blue { color: #60a5fa; }
+        .detail-section p, .detail-section li {
+            font-size: var(--fs-sm);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        .detail-section ul {
+            list-style: none;
+            padding: 0;
+        }
+        .detail-section li {
+            padding: 4px 0;
+            padding-left: 16px;
+            position: relative;
+        }
+        .detail-section li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 11px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+        }
+        .detail-section.risks li::before { background: var(--red); }
+        .detail-section.catalysts li::before { background: var(--amber); }
+
+        /* ========== SCROLLBAR ========== */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+        /* ========== MOBILE ========== */
+        @media (max-width: 480px) {
+            .header { padding: 10px 12px; gap: 8px; }
+            .logo-text { font-size: 16px; }
+            .card { padding: 16px; }
+            .card-ticker { font-size: 24px; }
+            .card-actions { gap: 14px; }
+            .card-action-btn { width: 48px; height: 48px; font-size: 18px; }
+            .header-counter { display: none; }
+        }
+
+        /* ========== CREDIT ========== */
+        .credit-line {
+            font-size: var(--fs-xs);
+            color: var(--text-dim);
+            text-align: center;
+            padding: 4px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- HEADER -->
+        <div class="header">
+            <div class="logo" onclick="showView('cards')">
+                <div class="logo-icon">OR</div>
+                <div class="logo-text"><span>OIL</span> RADAR</div>
+            </div>
+            <div class="header-search">
+                <span class="search-icon">&#128269;</span>
+                <input type="text" class="search-input" id="searchInput" placeholder="Search ticker or name...">
+            </div>
+            <div class="header-actions">
+                <span class="header-counter" id="headerCounter">0/0</span>
+                <button class="header-btn" id="filterBtn" title="Filter">&#9776;</button>
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="main-content">
+            <!-- CARDS VIEW -->
+            <div class="view active" id="cardsView">
+                <div class="card-stack" id="cardStack"></div>
+                <div class="card-actions" id="cardActions">
+                    <button class="card-action-btn pass-btn" onclick="swipeCard('left')" title="Pass">&#10005;</button>
+                    <button class="card-action-btn detail-btn" onclick="showCurrentDetail()" title="Details">&#9432;</button>
+                    <button class="card-action-btn calc-btn" onclick="openCalcForCurrent()" title="Calculator">&#128200;</button>
+                    <button class="card-action-btn watch-btn" onclick="swipeCard('right')" title="Watchlist">&#10003;</button>
+                </div>
+            </div>
+
+            <!-- SCANNER VIEW -->
+            <div class="view" id="scannerView">
+                <div class="scanner-container">
+                    <div class="scanner-header" id="scannerFilters"></div>
+                    <table class="scanner-table">
+                        <thead>
+                            <tr>
+                                <th>Ticker</th>
+                                <th>Type</th>
+                                <th>Sector</th>
+                                <th>Lev.</th>
+                                <th>Opts</th>
+                                <th>Rating</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scannerBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- CALCULATOR VIEW -->
+            <div class="view" id="calcView">
+                <div class="calc-container">
+                    <div class="calc-card">
+                        <h3>Options Leverage Calculator</h3>
+                        <div class="calc-row">
+                            <div class="calc-field">
+                                <label>Instrument</label>
+                                <select id="calcTicker">
+                                    <option value="">Select...</option>
+                                </select>
+                            </div>
+                            <div class="calc-field">
+                                <label>Option Type</label>
+                                <select id="calcType">
+                                    <option value="call">Call (Bullish)</option>
+                                    <option value="put">Put (Bearish)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="calc-row">
+                            <div class="calc-field">
+                                <label>Current Price ($)</label>
+                                <input type="number" id="calcPrice" step="0.01" placeholder="e.g. 75.00">
+                            </div>
+                            <div class="calc-field">
+                                <label>Strike Price ($)</label>
+                                <input type="number" id="calcStrike" step="0.01" placeholder="e.g. 80.00">
+                            </div>
+                        </div>
+                        <div class="calc-row">
+                            <div class="calc-field">
+                                <label>Premium per Contract ($)</label>
+                                <input type="number" id="calcPremium" step="0.01" placeholder="e.g. 3.50">
+                            </div>
+                            <div class="calc-field">
+                                <label>Number of Contracts</label>
+                                <input type="number" id="calcContracts" value="1" min="1">
+                            </div>
+                        </div>
+                        <div class="calc-row">
+                            <div class="calc-field">
+                                <label>Days to Expiry</label>
+                                <input type="number" id="calcDTE" placeholder="e.g. 90">
+                            </div>
+                            <div class="calc-field">
+                                <label>ETF Leverage</label>
+                                <select id="calcLeverage">
+                                    <option value="1">1x (No leverage)</option>
+                                    <option value="2">2x Leveraged</option>
+                                    <option value="3">3x Leveraged</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="calc-btn" onclick="calculateOptions()">Calculate Leverage & Returns</button>
+                    </div>
+
+                    <div class="calc-results" id="calcResults">
+                        <div class="calc-card">
+                            <h3>Results</h3>
+                            <div class="calc-result-grid" id="calcResultGrid"></div>
+                        </div>
+                        <div class="calc-card">
+                            <h3>Profit/Loss Scenarios</h3>
+                            <p style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">If underlying moves by these percentages at expiry:</p>
+                            <table class="scenario-table" id="scenarioTable">
+                                <thead>
+                                    <tr>
+                                        <th>Oil Move</th>
+                                        <th>Price at Expiry</th>
+                                        <th>Option Value</th>
+                                        <th>P/L per Contract</th>
+                                        <th>Return %</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TRACKER VIEW -->
+            <div class="view" id="trackerView">
+                <div class="tracker-container">
+                    <div class="tracker-form">
+                        <h3>Add Position</h3>
+                        <div class="calc-row">
+                            <div class="calc-field">
+                                <label>Ticker</label>
+                                <input type="text" id="posTicker" placeholder="e.g. UCO">
+                            </div>
+                            <div class="calc-field">
+                                <label>Position Type</label>
+                                <select id="posType">
+                                    <option value="calls">Call Options</option>
+                                    <option value="puts">Put Options</option>
+                                    <option value="shares">Shares</option>
+                                    <option value="futures">Futures</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="calc-row">
+                            <div class="calc-field">
+                                <label>Quantity / Contracts</label>
+                                <input type="number" id="posQty" min="1" value="1">
+                            </div>
+                            <div class="calc-field">
+                                <label>Entry Price ($)</label>
+                                <input type="number" id="posEntry" step="0.01" placeholder="e.g. 3.50">
+                            </div>
+                        </div>
+                        <div class="calc-row">
+                            <div class="calc-field">
+                                <label>Strike Price ($) (options only)</label>
+                                <input type="number" id="posStrike" step="0.01" placeholder="e.g. 80.00">
+                            </div>
+                            <div class="calc-field">
+                                <label>Expiry Date (options only)</label>
+                                <input type="date" id="posExpiry">
+                            </div>
+                        </div>
+                        <div class="calc-row">
+                            <div class="calc-field" style="grid-column: span 2;">
+                                <label>Notes</label>
+                                <input type="text" id="posNotes" placeholder="e.g. Bullish oil bet, targeting $100 WTI">
+                            </div>
+                        </div>
+                        <button class="calc-btn" onclick="addPosition()">Add Position</button>
+                    </div>
+
+                    <h3 style="color:var(--green);margin-bottom:12px;" id="positionsTitle">Positions (0)</h3>
+                    <div id="positionsList"></div>
+                </div>
+            </div>
+
+            <!-- DASHBOARD VIEW -->
+            <div class="view" id="dashboardView">
+                <div class="dashboard-container">
+                    <div class="dashboard-card">
+                        <h3>WTI Crude Oil</h3>
+                        <div class="chart-container" id="chartContainer"></div>
+                    </div>
+                    <div class="dashboard-card">
+                        <h3>Key Indicators</h3>
+                        <div class="market-indicators">
+                            <div class="indicator">
+                                <div class="indicator-label">Your Thesis</div>
+                                <div class="indicator-value" style="color:var(--green);">+100%</div>
+                                <div class="indicator-note">Bullish Target</div>
+                            </div>
+                            <div class="indicator">
+                                <div class="indicator-label">Watchlist</div>
+                                <div class="indicator-value" id="dashWatchCount">0</div>
+                                <div class="indicator-note">Instruments Saved</div>
+                            </div>
+                            <div class="indicator">
+                                <div class="indicator-label">Positions</div>
+                                <div class="indicator-value" id="dashPosCount">0</div>
+                                <div class="indicator-note">Active Trades</div>
+                            </div>
+                            <div class="indicator">
+                                <div class="indicator-label">Total Invested</div>
+                                <div class="indicator-value" id="dashTotalInvested">$0</div>
+                                <div class="indicator-note">Capital Deployed</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dashboard-card">
+                        <h3>Watchlist</h3>
+                        <div class="watchlist-container" id="dashWatchlist"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTTOM NAV -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" onclick="showView('cards')" data-view="cards">
+                <span class="nav-icon">&#9830;</span>
+                Cards
+            </button>
+            <button class="nav-item" onclick="showView('scanner')" data-view="scanner">
+                <span class="nav-icon">&#9776;</span>
+                Scanner
+            </button>
+            <button class="nav-item" onclick="showView('calc')" data-view="calc">
+                <span class="nav-icon">&#128200;</span>
+                Calculator
+            </button>
+            <button class="nav-item" onclick="showView('tracker')" data-view="tracker">
+                <span class="nav-icon">&#128176;</span>
+                Tracker
+            </button>
+            <button class="nav-item" onclick="showView('dashboard')" data-view="dashboard">
+                <span class="nav-icon">&#128202;</span>
+                Dashboard
+            </button>
+        </nav>
+        <div class="credit-line">Oil Radar by Greg Miller</div>
+    </div>
+
+    <!-- DETAIL MODAL -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal-content" id="detailContent">
+            <div class="modal-handle"></div>
+        </div>
+    </div>
+
+    <script>
+    /* ============================================================
+       OIL RADAR - Main Application Script
+       ============================================================ */
+
+    // ---- STATE ----
+    let instruments = [];
+    let currentIndex = 0;
+    let watchlist = JSON.parse(localStorage.getItem('oilradar_watchlist') || '[]');
+    let positions = JSON.parse(localStorage.getItem('oilradar_positions') || '[]');
+    let passed = JSON.parse(localStorage.getItem('oilradar_passed') || '[]');
+    let currentFilter = 'all';
+    let searchTerm = '';
+    let isDragging = false;
+    let startX = 0;
+    let currentX = 0;
+
+    // ---- LOAD DATA ----
+    async function loadData() {
+        try {
+            const resp = await fetch('instruments.json');
+            instruments = await resp.json();
+        } catch (e) {
+            // Fallback: inline data if fetch fails
+            console.error('Failed to load instruments.json:', e);
+            instruments = [];
+        }
+        init();
+    }
+
+    function init() {
+        populateCalcDropdown();
+        renderCards();
+        renderScanner();
+        renderPositions();
+        updateDashboard();
+        updateCounter();
+    }
+
+    // ---- FILTERED LIST ----
+    function getFilteredInstruments() {
+        let list = instruments.filter(i => !watchlist.includes(i.id) && !passed.includes(i.id));
+        if (searchTerm) {
+            const q = searchTerm.toLowerCase();
+            list = list.filter(i =>
+                i.ticker.toLowerCase().includes(q) ||
+                i.name.toLowerCase().includes(q) ||
+                i.sector.toLowerCase().includes(q) ||
+                i.type.toLowerCase().includes(q)
+            );
+        }
+        if (currentFilter !== 'all') {
+            list = list.filter(i => {
+                if (currentFilter === 'leveraged') return i.leverage === '2x' || i.leverage === '3x';
+                if (currentFilter === 'etf') return i.type.includes('ETF');
+                if (currentFilter === 'stock') return i.type === 'Stock';
+                if (currentFilter === 'futures') return i.type === 'Futures';
+                if (currentFilter === 'options') return i.optionsAvailable;
+                return true;
+            });
+        }
+        return list;
+    }
+
+    function getAllFiltered() {
+        let list = [...instruments];
+        if (searchTerm) {
+            const q = searchTerm.toLowerCase();
+            list = list.filter(i =>
+                i.ticker.toLowerCase().includes(q) ||
+                i.name.toLowerCase().includes(q) ||
+                i.sector.toLowerCase().includes(q)
+            );
+        }
+        if (currentFilter !== 'all') {
+            list = list.filter(i => {
+                if (currentFilter === 'leveraged') return i.leverage === '2x' || i.leverage === '3x';
+                if (currentFilter === 'etf') return i.type.includes('ETF');
+                if (currentFilter === 'stock') return i.type === 'Stock';
+                if (currentFilter === 'futures') return i.type === 'Futures';
+                if (currentFilter === 'options') return i.optionsAvailable;
+                return true;
+            });
+        }
+        return list;
+    }
+
+    // ---- CARDS ----
+    function renderCards() {
+        const stack = document.getElementById('cardStack');
+        const actions = document.getElementById('cardActions');
+        const filtered = getFilteredInstruments();
+
+        stack.innerHTML = '';
+
+        if (filtered.length === 0) {
+            stack.innerHTML = `
+                <div class="empty-state">
+                    <h2>All Reviewed!</h2>
+                    <p>You've gone through all instruments. Check your Watchlist in the Dashboard or reset below.</p>
+                    <button class="calc-btn" style="margin-top:16px;max-width:200px;" onclick="resetCards()">Reset All Cards</button>
+                </div>`;
+            actions.style.display = 'none';
+            return;
+        }
+
+        actions.style.display = 'flex';
+
+        // Render up to 3 cards (stack effect)
+        const count = Math.min(3, filtered.length);
+        for (let i = count - 1; i >= 0; i--) {
+            const inst = filtered[i];
+            const card = createCardElement(inst, i);
+            stack.appendChild(card);
+        }
+
+        // Add swipe handlers to top card
+        const topCard = stack.lastElementChild;
+        if (topCard) setupSwipe(topCard);
+        updateCounter();
+    }
+
+    function createCardElement(inst, stackIndex) {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.dataset.id = inst.id;
+        card.style.zIndex = 10 - stackIndex;
+
+        if (stackIndex > 0) {
+            const scale = 1 - (stackIndex * 0.04);
+            const translateY = stackIndex * 8;
+            card.style.transform = `translateY(${translateY}px) scale(${scale})`;
+            card.style.opacity = 1 - (stackIndex * 0.15);
+        }
+
+        const ratingHTML = Array.from({length: 5}, (_, i) =>
+            `<div class="barrel ${i < inst.rating ? 'filled' : ''}"></div>`
+        ).join('');
+
+        const risksHTML = inst.risks.slice(0, 3).map(r => `<span class="card-tag">${r}</span>`).join('');
+        const catalystsHTML = inst.catalysts.slice(0, 3).map(c => `<span class="card-tag">${c}</span>`).join('');
+
+        const statsHTML = [];
+        if (inst.expenseRatio) statsHTML.push(`<div class="card-stat"><div class="card-stat-label">Expense Ratio</div><div class="card-stat-value">${inst.expenseRatio}</div></div>`);
+        if (inst.marketCap) statsHTML.push(`<div class="card-stat"><div class="card-stat-label">Market Cap</div><div class="card-stat-value">${inst.marketCap}</div></div>`);
+        if (inst.optionsLiquidity && inst.optionsLiquidity !== 'N/A') statsHTML.push(`<div class="card-stat"><div class="card-stat-label">Options Liquidity</div><div class="card-stat-value">${inst.optionsLiquidity}</div></div>`);
+        if (inst.dividend) statsHTML.push(`<div class="card-stat"><div class="card-stat-label">Dividend</div><div class="card-stat-value">${inst.dividend}</div></div>`);
+
+        card.innerHTML = `
+            <div class="swipe-label watch">WATCHLIST</div>
+            <div class="swipe-label pass">PASS</div>
+            <div class="card-ticker">${inst.ticker}</div>
+            <div class="card-name">${inst.name}</div>
+            <div class="card-badges">
+                <span class="badge badge-type">${inst.type}</span>
+                ${inst.leverage !== 'N/A' ? `<span class="badge badge-leverage">${inst.leverage} Leverage</span>` : ''}
+                <span class="badge badge-sector">${inst.sector}</span>
+                ${inst.optionsAvailable ? '<span class="badge badge-options">Options Available</span>' : ''}
+            </div>
+            <div class="card-rating">${ratingHTML}</div>
+            <div class="card-desc">${inst.description}</div>
+            <div class="card-section">
+                <div class="card-section-title">Bull Case</div>
+                <div class="card-section-text">${inst.bullCase}</div>
+            </div>
+            <div class="card-section">
+                <div class="card-section-title amber">Strategy</div>
+                <div class="card-section-text">${inst.strategy}</div>
+            </div>
+            ${statsHTML.length ? `<div class="card-stats">${statsHTML.join('')}</div>` : ''}
+            <div class="card-section">
+                <div class="card-section-title red">Risks</div>
+                <div class="card-tags">${risksHTML}</div>
+            </div>
+            <div class="card-section">
+                <div class="card-section-title amber">Catalysts</div>
+                <div class="card-tags">${catalystsHTML}</div>
+            </div>
+        `;
+
+        return card;
+    }
+
+    // ---- SWIPE MECHANICS ----
+    function setupSwipe(card) {
+        card.addEventListener('mousedown', onDragStart);
+        card.addEventListener('touchstart', onDragStart, { passive: true });
+    }
+
+    function onDragStart(e) {
+        const card = e.currentTarget;
+        isDragging = true;
+        startX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+        card.classList.add('dragging');
+
+        const onMove = (ev) => {
+            if (!isDragging) return;
+            currentX = (ev.type === 'touchmove' ? ev.touches[0].clientX : ev.clientX) - startX;
+            const rotation = currentX * 0.08;
+            card.style.transform = `translateX(${currentX}px) rotate(${rotation}deg)`;
+
+            // Show swipe labels
+            const watchLabel = card.querySelector('.swipe-label.watch');
+            const passLabel = card.querySelector('.swipe-label.pass');
+            if (currentX > 30) {
+                watchLabel.style.opacity = Math.min((currentX - 30) / 80, 1);
+                passLabel.style.opacity = 0;
+            } else if (currentX < -30) {
+                passLabel.style.opacity = Math.min((-currentX - 30) / 80, 1);
+                watchLabel.style.opacity = 0;
+            } else {
+                watchLabel.style.opacity = 0;
+                passLabel.style.opacity = 0;
+            }
+        };
+
+        const onEnd = () => {
+            isDragging = false;
+            card.classList.remove('dragging');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onEnd);
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('touchend', onEnd);
+
+            if (Math.abs(currentX) > 100) {
+                // Threshold met - swipe away
+                const direction = currentX > 0 ? 'right' : 'left';
+                animateSwipe(card, direction);
+            } else {
+                // Snap back
+                card.classList.add('swiping');
+                card.style.transform = '';
+                card.querySelector('.swipe-label.watch').style.opacity = 0;
+                card.querySelector('.swipe-label.pass').style.opacity = 0;
+                setTimeout(() => card.classList.remove('swiping'), 300);
+            }
+            currentX = 0;
+        };
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onEnd);
+        document.addEventListener('touchmove', onMove, { passive: true });
+        document.addEventListener('touchend', onEnd);
+    }
+
+    function animateSwipe(card, direction) {
+        card.classList.add('swiping');
+        const offX = direction === 'right' ? window.innerWidth : -window.innerWidth;
+        card.style.transform = `translateX(${offX}px) rotate(${offX * 0.05}deg)`;
+        card.style.opacity = '0';
+
+        const id = parseInt(card.dataset.id);
+
+        setTimeout(() => {
+            if (direction === 'right') {
+                if (!watchlist.includes(id)) {
+                    watchlist.push(id);
+                    localStorage.setItem('oilradar_watchlist', JSON.stringify(watchlist));
+                }
+            } else {
+                if (!passed.includes(id)) {
+                    passed.push(id);
+                    localStorage.setItem('oilradar_passed', JSON.stringify(passed));
+                }
+            }
+            renderCards();
+            updateDashboard();
+        }, 350);
+    }
+
+    function swipeCard(direction) {
+        const stack = document.getElementById('cardStack');
+        const topCard = stack.lastElementChild;
+        if (!topCard || topCard.classList.contains('empty-state')) return;
+        animateSwipe(topCard, direction);
+    }
+
+    function resetCards() {
+        passed = [];
+        watchlist = [];
+        localStorage.setItem('oilradar_passed', '[]');
+        localStorage.setItem('oilradar_watchlist', '[]');
+        renderCards();
+        updateDashboard();
+    }
+
+    // ---- DETAIL MODAL ----
+    function showDetail(id) {
+        const inst = instruments.find(i => i.id === id);
+        if (!inst) return;
+
+        const modal = document.getElementById('detailModal');
+        const content = document.getElementById('detailContent');
+
+        const ratingHTML = Array.from({length: 5}, (_, i) =>
+            `<div class="barrel ${i < inst.rating ? 'filled' : ''}" style="display:inline-block;"></div>`
+        ).join('');
+
+        content.innerHTML = `
+            <div class="modal-handle"></div>
+            <div class="detail-ticker">${inst.ticker}</div>
+            <div class="detail-name">${inst.name}</div>
+            <div class="card-badges" style="margin-bottom:16px;">
+                <span class="badge badge-type">${inst.type}</span>
+                ${inst.leverage !== 'N/A' ? `<span class="badge badge-leverage">${inst.leverage} Leverage</span>` : ''}
+                <span class="badge badge-sector">${inst.sector}</span>
+                ${inst.optionsAvailable ? '<span class="badge badge-options">Options</span>' : ''}
+            </div>
+            <div class="card-rating" style="margin-bottom:16px;">${ratingHTML}</div>
+
+            <div class="detail-section">
+                <h4>Description</h4>
+                <p>${inst.description}</p>
+            </div>
+
+            <div class="detail-section">
+                <h4>Bull Case</h4>
+                <p>${inst.bullCase}</p>
+            </div>
+
+            <div class="detail-section">
+                <h4 class="red">Bear Case</h4>
+                <p>${inst.bearCase}</p>
+            </div>
+
+            <div class="detail-section">
+                <h4 class="amber">Recommended Strategy</h4>
+                <p>${inst.strategy}</p>
+            </div>
+
+            <div class="detail-section risks">
+                <h4 class="red">Risk Factors</h4>
+                <ul>${inst.risks.map(r => `<li>${r}</li>`).join('')}</ul>
+            </div>
+
+            <div class="detail-section catalysts">
+                <h4 class="amber">Catalysts</h4>
+                <ul>${inst.catalysts.map(c => `<li>${c}</li>`).join('')}</ul>
+            </div>
+
+            ${inst.notes ? `<div class="detail-section"><h4 class="blue">Notes</h4><p>${inst.notes}</p></div>` : ''}
+
+            <div class="card-stats" style="margin-top:16px;">
+                ${inst.expenseRatio ? `<div class="card-stat"><div class="card-stat-label">Expense Ratio</div><div class="card-stat-value">${inst.expenseRatio}</div></div>` : ''}
+                ${inst.marketCap ? `<div class="card-stat"><div class="card-stat-label">Market Cap</div><div class="card-stat-value">${inst.marketCap}</div></div>` : ''}
+                ${inst.optionsLiquidity ? `<div class="card-stat"><div class="card-stat-label">Options Liquidity</div><div class="card-stat-value">${inst.optionsLiquidity}</div></div>` : ''}
+                ${inst.dividend ? `<div class="card-stat"><div class="card-stat-label">Dividend</div><div class="card-stat-value">${inst.dividend}</div></div>` : ''}
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:16px;">
+                <button class="calc-btn" style="flex:1;" onclick="openCalcFor(${inst.id})">Open Calculator</button>
+                <button class="calc-btn" style="flex:1;background:var(--amber);" onclick="closeModal(); addToWatchlist(${inst.id})">Add to Watchlist</button>
+            </div>
+        `;
+
+        modal.classList.add('active');
+    }
+
+    function showCurrentDetail() {
+        const stack = document.getElementById('cardStack');
+        const topCard = stack.lastElementChild;
+        if (!topCard || !topCard.dataset.id) return;
+        showDetail(parseInt(topCard.dataset.id));
+    }
+
+    function closeModal() {
+        document.getElementById('detailModal').classList.remove('active');
+    }
+
+    document.getElementById('detailModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeModal();
+    });
+
+    function addToWatchlist(id) {
+        if (!watchlist.includes(id)) {
+            watchlist.push(id);
+            localStorage.setItem('oilradar_watchlist', JSON.stringify(watchlist));
+            renderCards();
+            updateDashboard();
+        }
+    }
+
+    // ---- SCANNER ----
+    function renderScanner() {
+        const body = document.getElementById('scannerBody');
+        const filters = document.getElementById('scannerFilters');
+        const list = getAllFiltered();
+
+        // Render filter buttons
+        const types = ['all', 'leveraged', 'etf', 'stock', 'futures', 'options'];
+        filters.innerHTML = types.map(t =>
+            `<button class="filter-btn ${currentFilter === t ? 'active' : ''}" onclick="setFilter('${t}')">${t === 'all' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1)}</button>`
+        ).join('');
+
+        body.innerHTML = list.map(inst => {
+            const inWatch = watchlist.includes(inst.id);
+            const ratingDots = Array.from({length: 5}, (_, i) =>
+                `<span style="color:${i < inst.rating ? 'var(--green)' : 'var(--text-dim)'};">&#9679;</span>`
+            ).join('');
+
+            return `<tr onclick="showDetail(${inst.id})" style="${inWatch ? 'background:rgba(16,185,129,0.05);' : ''}">
+                <td><span class="scanner-ticker">${inst.ticker}</span></td>
+                <td><span class="scanner-type">${inst.type}</span></td>
+                <td style="font-size:11px;color:var(--text-dim);">${inst.sector}</td>
+                <td style="color:var(--amber);font-weight:700;">${inst.leverage}</td>
+                <td>${inst.optionsAvailable ? '<span style="color:var(--green);">Yes</span>' : '<span style="color:var(--text-dim);">No</span>'}</td>
+                <td style="font-size:10px;">${ratingDots}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function setFilter(filter) {
+        currentFilter = filter;
+        renderScanner();
+        renderCards();
+    }
+
+    // ---- CALCULATOR ----
+    function populateCalcDropdown() {
+        const select = document.getElementById('calcTicker');
+        select.innerHTML = '<option value="">Select instrument...</option>';
+        instruments.forEach(inst => {
+            if (inst.optionsAvailable) {
+                const opt = document.createElement('option');
+                opt.value = inst.id;
+                opt.textContent = `${inst.ticker} - ${inst.name}`;
+                select.appendChild(opt);
+            }
+        });
+
+        // Auto-set leverage when instrument is selected
+        select.addEventListener('change', () => {
+            const inst = instruments.find(i => i.id === parseInt(select.value));
+            if (inst) {
+                const lev = inst.leverage === '2x' ? '2' : inst.leverage === '3x' ? '3' : '1';
+                document.getElementById('calcLeverage').value = lev;
+            }
+        });
+    }
+
+    function openCalcForCurrent() {
+        const stack = document.getElementById('cardStack');
+        const topCard = stack.lastElementChild;
+        if (!topCard || !topCard.dataset.id) {
+            showView('calc');
+            return;
+        }
+        openCalcFor(parseInt(topCard.dataset.id));
+    }
+
+    function openCalcFor(id) {
+        closeModal();
+        showView('calc');
+        const inst = instruments.find(i => i.id === id);
+        if (inst) {
+            document.getElementById('calcTicker').value = id;
+            const lev = inst.leverage === '2x' ? '2' : inst.leverage === '3x' ? '3' : '1';
+            document.getElementById('calcLeverage').value = lev;
+        }
+    }
+
+    function calculateOptions() {
+        const price = parseFloat(document.getElementById('calcPrice').value);
+        const strike = parseFloat(document.getElementById('calcStrike').value);
+        const premium = parseFloat(document.getElementById('calcPremium').value);
+        const contracts = parseInt(document.getElementById('calcContracts').value) || 1;
+        const dte = parseInt(document.getElementById('calcDTE').value) || 90;
+        const leverage = parseInt(document.getElementById('calcLeverage').value) || 1;
+        const optType = document.getElementById('calcType').value;
+
+        if (!price || !strike || !premium) {
+            alert('Please fill in price, strike, and premium.');
+            return;
+        }
+
+        const totalCost = premium * 100 * contracts; // Options are per 100 shares
+        const breakeven = optType === 'call' ? strike + premium : strike - premium;
+        const sharesEquiv = contracts * 100;
+        const stockCost = price * sharesEquiv;
+        const optionLeverage = stockCost / totalCost;
+        const effectiveLeverage = optionLeverage * leverage;
+        const intrinsicValue = optType === 'call' ? Math.max(0, price - strike) : Math.max(0, strike - price);
+        const timeValue = premium - intrinsicValue;
+
+        // Results grid
+        const grid = document.getElementById('calcResultGrid');
+        grid.innerHTML = `
+            <div class="calc-result-item">
+                <div class="calc-result-label">Total Cost</div>
+                <div class="calc-result-value">$${totalCost.toLocaleString()}</div>
+            </div>
+            <div class="calc-result-item">
+                <div class="calc-result-label">Breakeven</div>
+                <div class="calc-result-value amber">$${breakeven.toFixed(2)}</div>
+            </div>
+            <div class="calc-result-item">
+                <div class="calc-result-label">Options Leverage</div>
+                <div class="calc-result-value">${optionLeverage.toFixed(1)}x</div>
+            </div>
+            <div class="calc-result-item">
+                <div class="calc-result-label">Effective Leverage</div>
+                <div class="calc-result-value" style="color:var(--amber);">${effectiveLeverage.toFixed(1)}x</div>
+            </div>
+            <div class="calc-result-item">
+                <div class="calc-result-label">Max Loss</div>
+                <div class="calc-result-value red">$${totalCost.toLocaleString()}</div>
+            </div>
+            <div class="calc-result-item">
+                <div class="calc-result-label">Shares Equivalent</div>
+                <div class="calc-result-value">${sharesEquiv.toLocaleString()}</div>
+            </div>
+            <div class="calc-result-item">
+                <div class="calc-result-label">Intrinsic Value</div>
+                <div class="calc-result-value">$${intrinsicValue.toFixed(2)}</div>
+            </div>
+            <div class="calc-result-item">
+                <div class="calc-result-label">Time Value</div>
+                <div class="calc-result-value amber">$${timeValue.toFixed(2)}</div>
+            </div>
+        `;
+
+        // Scenario table
+        const scenarios = [-50, -25, -10, 0, 10, 25, 50, 75, 100, 150, 200];
+        const tbody = document.querySelector('#scenarioTable tbody');
+        tbody.innerHTML = scenarios.map(pct => {
+            const underlyingMove = price * (pct / 100) * leverage; // Leverage amplifies the move
+            const newPrice = price + underlyingMove;
+            let optionVal, pnl, returnPct;
+
+            if (optType === 'call') {
+                optionVal = Math.max(0, newPrice - strike);
+            } else {
+                optionVal = Math.max(0, strike - newPrice);
+            }
+
+            pnl = (optionVal - premium) * 100;
+            returnPct = ((optionVal - premium) / premium) * 100;
+
+            const pnlClass = pnl >= 0 ? 'positive' : 'negative';
+            const pnlTotal = pnl * contracts;
+
+            return `<tr>
+                <td style="font-weight:700;color:${pct >= 0 ? 'var(--green)' : 'var(--red)'};">${pct >= 0 ? '+' : ''}${pct}%</td>
+                <td>$${newPrice.toFixed(2)}</td>
+                <td>$${optionVal.toFixed(2)}</td>
+                <td class="${pnlClass}">${pnlTotal >= 0 ? '+' : ''}$${pnlTotal.toFixed(0)}</td>
+                <td class="${pnlClass}">${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(0)}%</td>
+            </tr>`;
+        }).join('');
+
+        document.getElementById('calcResults').classList.add('active');
+    }
+
+    // ---- POSITION TRACKER ----
+    function addPosition() {
+        const ticker = document.getElementById('posTicker').value.trim().toUpperCase();
+        const type = document.getElementById('posType').value;
+        const qty = parseInt(document.getElementById('posQty').value) || 1;
+        const entry = parseFloat(document.getElementById('posEntry').value);
+        const strike = parseFloat(document.getElementById('posStrike').value) || null;
+        const expiry = document.getElementById('posExpiry').value || null;
+        const notes = document.getElementById('posNotes').value.trim();
+
+        if (!ticker || !entry) {
+            alert('Please enter at least ticker and entry price.');
+            return;
+        }
+
+        const position = {
+            id: Date.now(),
+            ticker,
+            type,
+            qty,
+            entry,
+            strike,
+            expiry,
+            notes,
+            addedAt: new Date().toISOString()
+        };
+
+        positions.push(position);
+        localStorage.setItem('oilradar_positions', JSON.stringify(positions));
+
+        // Clear form
+        document.getElementById('posTicker').value = '';
+        document.getElementById('posEntry').value = '';
+        document.getElementById('posStrike').value = '';
+        document.getElementById('posExpiry').value = '';
+        document.getElementById('posNotes').value = '';
+
+        renderPositions();
+        updateDashboard();
+    }
+
+    function deletePosition(id) {
+        positions = positions.filter(p => p.id !== id);
+        localStorage.setItem('oilradar_positions', JSON.stringify(positions));
+        renderPositions();
+        updateDashboard();
+    }
+
+    function renderPositions() {
+        const list = document.getElementById('positionsList');
+        const title = document.getElementById('positionsTitle');
+        title.textContent = `Positions (${positions.length})`;
+
+        if (positions.length === 0) {
+            list.innerHTML = '<div class="empty-state"><p>No positions yet. Add your first trade above.</p></div>';
+            return;
+        }
+
+        list.innerHTML = positions.map(p => {
+            const totalCost = p.type === 'calls' || p.type === 'puts'
+                ? (p.entry * 100 * p.qty)
+                : (p.entry * p.qty);
+
+            return `<div class="position-card">
+                <div class="position-header">
+                    <span class="position-ticker">${p.ticker}</span>
+                    <span class="position-type">${p.type.toUpperCase()}</span>
+                </div>
+                <div class="position-details">
+                    <div>
+                        <div class="position-detail-label">Qty</div>
+                        <div class="position-detail-value">${p.qty}</div>
+                    </div>
+                    <div>
+                        <div class="position-detail-label">Entry</div>
+                        <div class="position-detail-value">$${p.entry.toFixed(2)}</div>
+                    </div>
+                    <div>
+                        <div class="position-detail-label">Total Cost</div>
+                        <div class="position-detail-value">$${totalCost.toLocaleString()}</div>
+                    </div>
+                    ${p.strike ? `<div>
+                        <div class="position-detail-label">Strike</div>
+                        <div class="position-detail-value">$${p.strike.toFixed(2)}</div>
+                    </div>` : ''}
+                    ${p.expiry ? `<div>
+                        <div class="position-detail-label">Expiry</div>
+                        <div class="position-detail-value">${p.expiry}</div>
+                    </div>` : ''}
+                </div>
+                ${p.notes ? `<div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">${p.notes}</div>` : ''}
+                <button class="position-delete" onclick="deletePosition(${p.id})">Remove</button>
+            </div>`;
+        }).join('');
+    }
+
+    // ---- DASHBOARD ----
+    function updateDashboard() {
+        document.getElementById('dashWatchCount').textContent = watchlist.length;
+        document.getElementById('dashPosCount').textContent = positions.length;
+
+        const totalInvested = positions.reduce((sum, p) => {
+            const cost = (p.type === 'calls' || p.type === 'puts')
+                ? p.entry * 100 * p.qty
+                : p.entry * p.qty;
+            return sum + cost;
+        }, 0);
+        document.getElementById('dashTotalInvested').textContent = '$' + totalInvested.toLocaleString();
+
+        // Watchlist in dashboard
+        const wlContainer = document.getElementById('dashWatchlist');
+        if (watchlist.length === 0) {
+            wlContainer.innerHTML = '<p style="color:var(--text-dim);font-size:12px;">Swipe right on cards to add to your watchlist.</p>';
+        } else {
+            wlContainer.innerHTML = watchlist.map(id => {
+                const inst = instruments.find(i => i.id === id);
+                if (!inst) return '';
+                return `<div class="watchlist-item" onclick="showDetail(${inst.id})">
+                    <span class="watchlist-ticker">${inst.ticker}</span>
+                    <div class="watchlist-info">
+                        <div class="watchlist-name">${inst.name}</div>
+                        <div class="watchlist-meta">${inst.type} | ${inst.sector} | ${inst.leverage}</div>
+                    </div>
+                    <button class="watchlist-remove" onclick="event.stopPropagation(); removeFromWatchlist(${inst.id})">Remove</button>
+                </div>`;
+            }).join('');
+        }
+
+        // Load TradingView chart
+        loadChart();
+    }
+
+    function removeFromWatchlist(id) {
+        watchlist = watchlist.filter(w => w !== id);
+        localStorage.setItem('oilradar_watchlist', JSON.stringify(watchlist));
+        renderCards();
+        updateDashboard();
+    }
+
+    function loadChart() {
+        const container = document.getElementById('chartContainer');
+        if (container.dataset.loaded) return;
+        container.dataset.loaded = 'true';
+
+        container.innerHTML = `
+            <iframe
+                src="https://www.tradingview.com/widgetembed/?symbol=NYMEX:CL1!&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=0&toolbarbg=0f1520&studies=[]&theme=dark&style=1&timezone=America/New_York&withdateranges=1&showpopupbutton=0&studies_overrides={}&overrides={}&enabled_features=[]&disabled_features=[]&locale=en&utm_source=&utm_medium=widget&utm_campaign=chart"
+                style="width:100%;height:100%;border:none;"
+                allowtransparency="true"
+                loading="lazy"
+            ></iframe>
+        `;
+    }
+
+    // ---- VIEW SWITCHING ----
+    function showView(name) {
+        const views = {
+            cards: 'cardsView',
+            scanner: 'scannerView',
+            calc: 'calcView',
+            tracker: 'trackerView',
+            dashboard: 'dashboardView'
+        };
+
+        Object.values(views).forEach(id => {
+            document.getElementById(id).classList.remove('active');
+        });
+        document.getElementById(views[name]).classList.add('active');
+
+        document.querySelectorAll('.nav-item').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.view === name);
+        });
+
+        if (name === 'scanner') renderScanner();
+        if (name === 'dashboard') updateDashboard();
+        if (name === 'tracker') renderPositions();
+    }
+
+    // ---- SEARCH ----
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+        searchTerm = e.target.value.trim();
+        renderCards();
+        renderScanner();
+    });
+
+    // ---- COUNTER ----
+    function updateCounter() {
+        const filtered = getFilteredInstruments();
+        const total = instruments.length;
+        const remaining = filtered.length;
+        document.getElementById('headerCounter').textContent = `${total - remaining}/${total}`;
+    }
+
+    // ---- FILTER BUTTON ----
+    document.getElementById('filterBtn').addEventListener('click', () => {
+        const types = ['all', 'leveraged', 'etf', 'stock', 'futures', 'options'];
+        const idx = types.indexOf(currentFilter);
+        currentFilter = types[(idx + 1) % types.length];
+        document.getElementById('filterBtn').title = `Filter: ${currentFilter}`;
+        document.getElementById('filterBtn').classList.toggle('active', currentFilter !== 'all');
+        renderCards();
+        renderScanner();
+    });
+
+    // ---- KEYBOARD SHORTCUTS ----
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+        if (e.key === 'ArrowLeft') swipeCard('left');
+        if (e.key === 'ArrowRight') swipeCard('right');
+        if (e.key === 'Escape') closeModal();
+    });
+
+    // ---- INIT ----
+    loadData();
+    </script>
+</body>
+</html>
