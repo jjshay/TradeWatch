@@ -1,0 +1,32 @@
+# Crypto Radar ML Pipeline - Dependencies
+# Install: pip install -r requirements.txt
+
+# Data ingestion
+feedparser==6.0.11
+websockets==12.0
+requests==2.31.0
+aiohttp==3.9.5
+
+# ML & Deep Learning
+torch>=2.0.0
+transformers==4.44.0
+scikit-learn==1.5.1
+xgboost==2.1.0
+
+# NLP
+finbert-embedding==0.1.4
+
+# Data processing
+pandas==2.2.2
+numpy==1.26.4
+
+# Visualization & reporting
+matplotlib==3.9.1
+
+# Exchange connectivity
+python-binance==1.0.19
+ccxt==4.3.50
+
+# Utilities
+python-dotenv==1.0.1
+schedule==1.2.2

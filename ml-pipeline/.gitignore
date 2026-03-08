@@ -1,0 +1,18 @@
+# Environment
+.env
+__pycache__/
+*.pyc
+
+# Data (generated, potentially large)
+data/*.csv
+data/*.json
+data/*.parquet
+
+# Trained models
+models/*.pt
+models/*.pkl
+models/*.joblib
+
+# IDE
+.vscode/
+.idea/
