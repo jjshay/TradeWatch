@@ -2157,6 +2157,177 @@
             overflow-y: auto;
             padding: 16px;
         }
+
+        /* ── PULSE TAB ── */
+        .pulse-container { flex:1; overflow-y:auto; padding:16px; }
+        .pulse-section-title { font-size:var(--fs-lg); font-weight:700; margin-bottom:12px; color:var(--text); }
+        .pulse-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:16px; }
+        .pulse-card {
+            background:var(--bg-card); border:1px solid var(--border);
+            border-radius:14px; padding:14px; display:flex; flex-direction:column; align-items:center; gap:8px;
+        }
+        .pulse-card-title { font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.06em; color:var(--text-dim); }
+        .pulse-big-num { font-size:32px; font-weight:800; line-height:1; }
+        .pulse-sub { font-size:var(--fs-sm); color:var(--text-dim); text-align:center; }
+        .pulse-wide { grid-column:1/-1; }
+        .pulse-row { display:flex; flex-direction:column; gap:12px; margin-bottom:16px; }
+        .pulse-half-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:16px; }
+        .aaii-bars { width:100%; display:flex; flex-direction:column; gap:6px; }
+        .aaii-row { display:flex; align-items:center; gap:8px; font-size:var(--fs-sm); }
+        .aaii-label { width:52px; color:var(--text-dim); flex-shrink:0; }
+        .aaii-track { flex:1; background:rgba(255,255,255,0.07); border-radius:4px; height:8px; overflow:hidden; }
+        .aaii-fill { height:100%; border-radius:4px; transition:width .4s ease; }
+        .aaii-pct { width:38px; text-align:right; font-weight:600; }
+        .pulse-headlines { display:flex; flex-direction:column; gap:6px; }
+        .pulse-headline {
+            background:rgba(255,255,255,0.04); border-radius:8px; padding:10px 12px;
+            display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
+        }
+        .pulse-headline-text { font-size:var(--fs-sm); flex:1; line-height:1.4; }
+        .pulse-sentiment-pill {
+            font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px;
+            flex-shrink:0; margin-top:2px;
+        }
+        .sent-pos { background:rgba(16,185,129,.15); color:#10b981; }
+        .sent-neg { background:rgba(239,68,68,.15); color:#ef4444; }
+        .sent-neu { background:rgba(156,163,175,.1); color:#9ca3af; }
+        .pulse-refresh-btn {
+            background:rgba(16,185,129,.12); border:1px solid var(--border);
+            color:var(--green); border-radius:8px; padding:4px 12px;
+            font-size:var(--fs-sm); cursor:pointer; margin-left:auto; display:block;
+        }
+        .pulse-composite-bar {
+            width:100%; height:12px; border-radius:6px; overflow:hidden;
+            background:linear-gradient(to right,#ef4444,#f97316,#eab308,#84cc16,#10b981);
+            position:relative; margin:4px 0;
+        }
+        .pulse-composite-needle {
+            position:absolute; top:-3px; width:4px; height:18px;
+            background:white; border-radius:2px; transform:translateX(-50%);
+            box-shadow:0 0 6px rgba(0,0,0,.5);
+        }
+        .yield-inverted { color:var(--red); font-size:var(--fs-xs); font-weight:700; }
+        .yield-normal { color:var(--green); font-size:var(--fs-xs); font-weight:700; }
+        .spread-zero-line { border-top: 1px dashed rgba(255,255,255,0.15); }
+
+        /* ── PREDICT TAB ── */
+        .predict-container { flex:1; overflow-y:auto; padding:16px; }
+        .predict-cat-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+        .predict-cat-btn {
+            padding:5px 12px; border-radius:20px; font-size:var(--fs-sm); cursor:pointer;
+            background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
+            color:var(--text-dim); transition:all .2s;
+        }
+        .predict-cat-btn.active { background:rgba(16,185,129,.15); border-color:var(--green); color:var(--green); }
+        .predict-markets-list { display:flex; flex-direction:column; gap:10px; margin-bottom:16px; }
+        .predict-market-card {
+            background:var(--bg-card); border:1px solid var(--border);
+            border-radius:12px; padding:14px;
+        }
+        .predict-market-title { font-size:var(--fs-sm); font-weight:600; margin-bottom:10px; line-height:1.4; }
+        .predict-market-meta { display:flex; gap:12px; font-size:var(--fs-xs); color:var(--text-dim); margin-bottom:10px; }
+        .predict-outcome-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:var(--fs-sm); }
+        .predict-outcome-label { flex:1; color:var(--text-dim); }
+        .predict-prob-bar-track { flex:2; background:rgba(255,255,255,0.07); border-radius:4px; height:7px; overflow:hidden; }
+        .predict-prob-fill { height:100%; border-radius:4px; }
+        .predict-prob-val { width:38px; text-align:right; font-weight:700; }
+        .predict-source { font-size:10px; color:var(--text-dim); margin-top:8px; opacity:.6; }
+        .predict-empty { text-align:center; color:var(--text-dim); padding:32px; font-size:var(--fs-sm); }
+        .calibration-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+        .cal-stat { background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:12px; text-align:center; }
+        .cal-stat-val { font-size:22px; font-weight:800; }
+        .cal-stat-label { font-size:var(--fs-xs); color:var(--text-dim); margin-top:2px; }
+        .futures-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+        .futures-card { background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:14px; }
+        .futures-card-title { font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.06em; color:var(--text-dim); margin-bottom:10px; }
+        .futures-row { display:flex; justify-content:space-between; align-items:center; padding:4px 0; font-size:var(--fs-sm); border-bottom:1px solid rgba(255,255,255,0.05); }
+        .futures-row:last-child { border-bottom:none; }
+        .contango-tag { color:var(--amber); font-size:10px; font-weight:700; }
+        .backwardation-tag { color:var(--green); font-size:10px; font-weight:700; }
+        .btc-prem-stat { display:flex; justify-content:space-between; padding:6px 0; font-size:var(--fs-sm); border-bottom:1px solid rgba(255,255,255,0.05); }
+        .btc-prem-stat:last-child { border-bottom:none; }
+        .kalshi-fed-list { display:flex; flex-direction:column; gap:6px; }
+        .kalshi-market-row {
+            display:flex; justify-content:space-between; align-items:center;
+            background:rgba(255,255,255,0.04); border-radius:8px; padding:10px 12px;
+        }
+        .kalshi-mkt-title { font-size:var(--fs-sm); flex:1; line-height:1.3; }
+        .kalshi-yes-price { font-size:var(--fs-md); font-weight:800; color:var(--green); min-width:44px; text-align:right; }
+        .resolved-market-row {
+            display:flex; justify-content:space-between; align-items:center;
+            padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05); font-size:var(--fs-sm);
+        }
+        .resolved-outcome-yes { color:var(--green); font-weight:700; font-size:var(--fs-xs); }
+        .resolved-outcome-no { color:var(--red); font-weight:700; font-size:var(--fs-xs); }
+        .resolved-prob { color:var(--text-dim); font-size:var(--fs-xs); }
+
+        /* ── PORTFOLIO TAB ── */
+        .portfolio-container { flex:1; overflow-y:auto; padding:16px; }
+        .portfolio-summary {
+            background:linear-gradient(135deg,rgba(16,185,129,.12),rgba(245,158,11,.08));
+            border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px;
+        }
+        .portfolio-total { font-size:28px; font-weight:800; margin-bottom:4px; }
+        .portfolio-pnl { font-size:var(--fs-md); font-weight:700; }
+        .portfolio-pnl.pos { color:var(--green); }
+        .portfolio-pnl.neg { color:var(--red); }
+        .portfolio-add-btn {
+            width:100%; background:rgba(16,185,129,.12); border:1px solid var(--border);
+            color:var(--green); border-radius:10px; padding:12px;
+            font-size:var(--fs-base); font-weight:600; cursor:pointer; margin-bottom:16px;
+        }
+        .holding-card {
+            background:var(--bg-card); border:1px solid var(--border);
+            border-radius:12px; padding:14px; margin-bottom:10px;
+        }
+        .holding-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+        .holding-asset { font-size:var(--fs-md); font-weight:800; }
+        .holding-type-badge { font-size:10px; padding:2px 7px; border-radius:20px; background:rgba(255,255,255,.08); color:var(--text-dim); }
+        .holding-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; font-size:var(--fs-sm); }
+        .holding-stat { text-align:center; }
+        .holding-stat-val { font-weight:700; }
+        .holding-stat-label { font-size:var(--fs-xs); color:var(--text-dim); }
+        .holding-remove { background:none; border:none; color:var(--red); cursor:pointer; font-size:16px; opacity:.5; }
+        .holding-remove:hover { opacity:1; }
+        .add-holding-form {
+            background:var(--bg-card); border:1px solid var(--border);
+            border-radius:12px; padding:16px; margin-bottom:16px; display:none;
+        }
+        .add-holding-form.open { display:block; }
+        .form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+        .form-input {
+            background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
+            color:var(--text); border-radius:8px; padding:9px 12px; font-size:var(--fs-sm);
+            width:100%;
+        }
+        .form-input:focus { outline:none; border-color:var(--green); }
+        .form-select { appearance:none; background:rgba(255,255,255,.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%239ca3af'/%3E%3C/svg%3E") no-repeat right 10px center; }
+        .form-btn-row { display:flex; gap:8px; }
+        .btn-save { flex:1; background:rgba(16,185,129,.15); border:1px solid var(--green); color:var(--green); border-radius:8px; padding:10px; font-size:var(--fs-sm); font-weight:600; cursor:pointer; }
+        .btn-cancel { flex:1; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); color:var(--text-dim); border-radius:8px; padding:10px; font-size:var(--fs-sm); cursor:pointer; }
+        .alerts-section { margin-top:20px; }
+        .alert-row {
+            display:flex; align-items:center; gap:10px; padding:10px 12px;
+            background:rgba(255,255,255,0.04); border-radius:8px; margin-bottom:6px;
+        }
+        .alert-info { flex:1; font-size:var(--fs-sm); }
+        .alert-asset { font-weight:700; }
+        .alert-cond { color:var(--text-dim); font-size:var(--fs-xs); }
+        .alert-toggle { background:none; border:none; cursor:pointer; font-size:18px; }
+        .alert-delete { background:none; border:none; color:var(--red); cursor:pointer; opacity:.5; font-size:14px; }
+        .alert-delete:hover { opacity:1; }
+        .add-alert-btn {
+            width:100%; background:rgba(245,158,11,.1); border:1px solid var(--border-amber);
+            color:var(--amber); border-radius:10px; padding:10px;
+            font-size:var(--fs-sm); font-weight:600; cursor:pointer; margin-top:10px;
+        }
+        .notif-banner {
+            position:fixed; top:16px; left:50%; transform:translateX(-50%);
+            background:var(--green); color:#000; padding:10px 20px; border-radius:10px;
+            font-weight:700; font-size:var(--fs-sm); z-index:9999;
+            animation:fadeInDown .3s ease; display:none;
+        }
+        @keyframes fadeInDown { from{opacity:0;transform:translateX(-50%) translateY(-10px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
         .geo-pillar-tabs {
             display: flex;
             gap: 6px;
@@ -3239,6 +3410,14 @@
                                     <label style="font-size:10px;color:var(--amber);font-weight:600;">TRADIER (free — tradier.com/api)</label>
                                     <input type="text" id="keyTradier" class="search-input" style="width:100%;margin-top:2px;" placeholder="Bearer token...">
                                 </div>
+                                <div>
+                                    <label style="font-size:10px;color:var(--amber);font-weight:600;">LUNARCRUSH (lunarcrush.com)</label>
+                                    <input type="text" id="keyLunarcrush" class="search-input" style="width:100%;margin-top:2px;" placeholder="API key...">
+                                </div>
+                                <div>
+                                    <label style="font-size:10px;color:var(--amber);font-weight:600;">AUGMENTO (augmento.ai — social sentiment)</label>
+                                    <input type="text" id="keyAugmento" class="search-input" style="width:100%;margin-top:2px;" placeholder="pk_...">
+                                </div>
                             </div>
                             <div style="display:flex;gap:8px;margin-top:12px;">
                                 <button class="news-btn active" onclick="saveKeys()">Save Keys</button>
@@ -3486,6 +3665,270 @@
 
         </div>
 
+        <!-- PULSE VIEW -->
+        <div class="view" id="pulseView">
+          <div class="pulse-container">
+            <div class="pulse-section-title">Market Pulse</div>
+
+            <!-- Composite score bar -->
+            <div class="pulse-card pulse-wide" style="margin-bottom:14px;">
+              <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
+                <span class="pulse-card-title">Composite Sentiment</span>
+                <span id="pulseCompositeLabel" class="pulse-sub">--</span>
+              </div>
+              <div class="pulse-composite-bar" style="width:100%;">
+                <div class="pulse-composite-needle" id="pulseNeedle" style="left:50%"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;width:100%;font-size:10px;color:var(--text-dim);">
+                <span>Extreme Fear</span><span>Neutral</span><span>Extreme Greed</span>
+              </div>
+            </div>
+
+            <!-- Top row: F&G gauges + AAII -->
+            <div class="pulse-grid">
+              <!-- Crypto Fear & Greed -->
+              <div class="pulse-card">
+                <span class="pulse-card-title">Crypto F&amp;G</span>
+                <canvas id="cryptoFNGCanvas" width="120" height="70" style="max-width:120px;"></canvas>
+                <div class="pulse-big-num" id="cryptoFNGVal" style="font-size:24px;">--</div>
+                <div class="pulse-sub" id="cryptoFNGLabel">Loading…</div>
+              </div>
+              <!-- CNN Fear & Greed -->
+              <div class="pulse-card">
+                <span class="pulse-card-title">Equity F&amp;G</span>
+                <canvas id="cnnFNGCanvas" width="120" height="70" style="max-width:120px;"></canvas>
+                <div class="pulse-big-num" id="cnnFNGVal" style="font-size:24px;">--</div>
+                <div class="pulse-sub" id="cnnFNGLabel">Loading…</div>
+              </div>
+              <!-- VIX -->
+              <div class="pulse-card">
+                <span class="pulse-card-title">VIX</span>
+                <div class="pulse-big-num" id="vixVal">--</div>
+                <div class="pulse-sub" id="vixLabel">Volatility Index</div>
+                <canvas id="vixSparkline" width="120" height="40" style="max-width:120px;"></canvas>
+              </div>
+              <!-- Put/Call -->
+              <div class="pulse-card">
+                <span class="pulse-card-title">Put/Call Ratio</span>
+                <div class="pulse-big-num" id="pcRatioVal">--</div>
+                <div class="pulse-sub" id="pcRatioLabel">&gt;1.0 = fear</div>
+                <canvas id="pcSparkline" width="120" height="40" style="max-width:120px;"></canvas>
+              </div>
+            </div>
+
+            <!-- AAII Investor Sentiment -->
+            <div class="pulse-card" style="margin-bottom:14px;">
+              <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
+                <span class="pulse-card-title">AAII Investor Sentiment</span>
+                <span id="aaiiDate" style="font-size:10px;color:var(--text-dim);">weekly survey</span>
+              </div>
+              <div class="aaii-bars" id="aaiiBars">
+                <div class="aaii-row">
+                  <span class="aaii-label" style="color:#10b981;">Bull</span>
+                  <div class="aaii-track"><div class="aaii-fill" id="aaiiBullFill" style="background:#10b981;width:0%"></div></div>
+                  <span class="aaii-pct" id="aaiiBullPct" style="color:#10b981;">--%</span>
+                </div>
+                <div class="aaii-row">
+                  <span class="aaii-label" style="color:#9ca3af;">Neutral</span>
+                  <div class="aaii-track"><div class="aaii-fill" id="aaiiNeutFill" style="background:#9ca3af;width:0%"></div></div>
+                  <span class="aaii-pct" id="aaiiNeutPct" style="color:#9ca3af;">--%</span>
+                </div>
+                <div class="aaii-row">
+                  <span class="aaii-label" style="color:#ef4444;">Bear</span>
+                  <div class="aaii-track"><div class="aaii-fill" id="aaiiBearFill" style="background:#ef4444;width:0%"></div></div>
+                  <span class="aaii-pct" id="aaiiBearPct" style="color:#ef4444;">--%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Yield Curve + Spread -->
+            <div class="pulse-half-grid">
+              <div class="pulse-card">
+                <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
+                  <span class="pulse-card-title">Yield Curve</span>
+                  <span id="yieldStatus" class="yield-normal">Normal ▲</span>
+                </div>
+                <canvas id="yieldCurveCanvas" width="160" height="90" style="max-width:160px;width:100%;"></canvas>
+              </div>
+              <div class="pulse-card">
+                <span class="pulse-card-title">2Y–10Y Spread</span>
+                <div class="pulse-big-num" id="spreadVal" style="font-size:22px;">--</div>
+                <div class="pulse-sub">basis points</div>
+                <canvas id="spreadCanvas" width="160" height="60" style="max-width:160px;width:100%;"></canvas>
+              </div>
+            </div>
+
+            <!-- BTC Funding + HY Spread -->
+            <div class="pulse-half-grid">
+              <div class="pulse-card">
+                <span class="pulse-card-title">BTC Funding (8hr)</span>
+                <div class="pulse-big-num" id="btcFundingVal" style="font-size:20px;">--</div>
+                <div class="pulse-sub" id="btcFundingLabel">annualized: --</div>
+                <canvas id="fundingCanvas" width="160" height="55" style="max-width:160px;width:100%;"></canvas>
+              </div>
+              <div class="pulse-card">
+                <span class="pulse-card-title">HY Credit Spread</span>
+                <div class="pulse-big-num" id="hySpreadVal" style="font-size:20px;">--</div>
+                <div class="pulse-sub">ICE BofA OAS (bp)</div>
+                <canvas id="hySpreadCanvas" width="160" height="55" style="max-width:160px;width:100%;"></canvas>
+              </div>
+            </div>
+
+            <!-- News Sentiment -->
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+              <span class="pulse-card-title" style="font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);">Headline Sentiment</span>
+              <button class="pulse-refresh-btn" onclick="loadPulseHeadlines()">↻ Refresh</button>
+            </div>
+            <div class="pulse-headlines" id="pulseHeadlines">
+              <div style="text-align:center;color:var(--text-dim);padding:20px;font-size:var(--fs-sm);">Tap Refresh to score headlines</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PREDICT VIEW -->
+        <div class="view" id="predictView">
+          <div class="predict-container">
+            <div class="pulse-section-title">Predict</div>
+
+            <!-- Sub-tabs -->
+            <div class="geo-pillar-tabs" style="margin-bottom:14px;">
+              <button class="geo-pillar-tab active" onclick="switchPredictPillar('markets')" id="ptab-markets">Live Markets</button>
+              <button class="geo-pillar-tab" onclick="switchPredictPillar('futures')" id="ptab-futures">Futures</button>
+              <button class="geo-pillar-tab" onclick="switchPredictPillar('accuracy')" id="ptab-accuracy">Accuracy</button>
+            </div>
+
+            <!-- Pillar 1: Live Prediction Markets -->
+            <div id="predictMarketsPanel">
+              <div class="predict-cat-row" id="polyTagRow">
+                <button class="predict-cat-btn active" onclick="loadPolyCategory('economics',this)">Economics</button>
+                <button class="predict-cat-btn" onclick="loadPolyCategory('crypto',this)">Crypto</button>
+                <button class="predict-cat-btn" onclick="loadPolyCategory('geopolitics',this)">Geopolitics</button>
+                <button class="predict-cat-btn" onclick="loadPolyCategory('us-politics',this)">Politics</button>
+                <button class="predict-cat-btn" onclick="loadPolyCategory('middle-east',this)">Mid East</button>
+                <button class="predict-cat-btn" onclick="loadPolyCategory('iran',this)">Iran</button>
+              </div>
+              <div class="predict-markets-list" id="polymarketsList">
+                <div class="predict-empty">Loading markets…</div>
+              </div>
+              <div class="predict-source" style="text-align:center;margin-top:4px;">Data: Polymarket Gamma API · CFTC-regulated</div>
+            </div>
+
+            <!-- Pillar 2: Futures Curves -->
+            <div id="predictFuturesPanel" style="display:none;">
+              <div class="futures-grid">
+                <div class="futures-card" style="grid-column:1/-1;">
+                  <div class="futures-card-title">WTI Crude Oil Term Structure <span id="oilCurveMode" class="contango-tag" style="margin-left:8px;"></span></div>
+                  <canvas id="oilCurveCanvas" width="340" height="130" style="width:100%;max-width:340px;"></canvas>
+                  <div id="oilCurveRows" style="margin-top:8px;"></div>
+                </div>
+                <div class="futures-card">
+                  <div class="futures-card-title">BTC Perp Premium</div>
+                  <div id="btcPremStats"></div>
+                </div>
+                <div class="futures-card">
+                  <div class="futures-card-title">BTC Funding History</div>
+                  <canvas id="btcFundingHistCanvas" width="160" height="100" style="width:100%;"></canvas>
+                </div>
+              </div>
+              <div class="futures-card" style="margin-top:0;">
+                <div class="futures-card-title">Fed Rate Expectations (Kalshi)</div>
+                <div class="kalshi-fed-list" id="kalshiFedList">
+                  <div class="predict-empty" style="padding:16px;">Loading Kalshi markets…</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pillar 3: Historical Accuracy -->
+            <div id="predictAccuracyPanel" style="display:none;">
+              <div class="calibration-stats" id="calStats">
+                <div class="cal-stat"><div class="cal-stat-val" id="calTotal">--</div><div class="cal-stat-label">Markets analyzed</div></div>
+                <div class="cal-stat"><div class="cal-stat-val" id="calBrier">--</div><div class="cal-stat-label">Brier score ↓</div></div>
+                <div class="cal-stat"><div class="cal-stat-val" id="calAccuracy">--%</div><div class="cal-stat-label">Overall accuracy</div></div>
+              </div>
+              <div class="predict-cat-row">
+                <button class="predict-cat-btn active" onclick="loadCalibration('economics',this)">Economics</button>
+                <button class="predict-cat-btn" onclick="loadCalibration('crypto',this)">Crypto</button>
+                <button class="predict-cat-btn" onclick="loadCalibration('geopolitics',this)">Geopolitics</button>
+              </div>
+              <div class="pulse-card" style="margin:12px 0;">
+                <span class="pulse-card-title">Calibration Curve</span>
+                <canvas id="calibrationCanvas" width="300" height="220" style="width:100%;max-width:300px;"></canvas>
+                <div style="font-size:10px;color:var(--text-dim);text-align:center;">X = implied prob · Y = actual outcome rate · diagonal = perfect</div>
+              </div>
+              <div id="resolvedMarkets" style="margin-bottom:12px;"></div>
+              <button class="geo-run-btn" onclick="analyzeCalibration()">Analyze with AI →</button>
+              <div id="calAINarrative" class="geo-ai-narrative" style="display:none;margin-top:12px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PORTFOLIO VIEW -->
+        <div class="view" id="portfolioView">
+          <div class="portfolio-container">
+            <div class="pulse-section-title">Portfolio</div>
+
+            <!-- Summary card -->
+            <div class="portfolio-summary">
+              <div style="font-size:var(--fs-xs);color:var(--text-dim);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;">Total Value</div>
+              <div class="portfolio-total" id="portTotalVal">$0.00</div>
+              <div class="portfolio-pnl" id="portTotalPnL">--</div>
+            </div>
+
+            <!-- Add holding -->
+            <button class="portfolio-add-btn" onclick="toggleAddHolding()">+ Add Holding</button>
+            <div class="add-holding-form" id="addHoldingForm">
+              <div class="form-row">
+                <input class="form-input" id="holdingAsset" placeholder="Asset (BTC, NVDA…)" />
+                <select class="form-input form-select" id="holdingType">
+                  <option value="crypto">Crypto</option>
+                  <option value="stock">Stock</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <input class="form-input" id="holdingQty" placeholder="Quantity" type="number" step="any" />
+                <input class="form-input" id="holdingCost" placeholder="Avg cost ($)" type="number" step="any" />
+              </div>
+              <input class="form-input" id="holdingNotes" placeholder="Notes (optional)" style="margin-bottom:10px;" />
+              <div class="form-btn-row">
+                <button class="btn-save" onclick="saveHolding()">Save</button>
+                <button class="btn-cancel" onclick="toggleAddHolding()">Cancel</button>
+              </div>
+            </div>
+
+            <!-- Holdings list -->
+            <div id="holdingsList"></div>
+
+            <!-- Alerts section -->
+            <div class="alerts-section">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <span style="font-size:var(--fs-sm);font-weight:700;">Price Alerts</span>
+                <span style="font-size:var(--fs-xs);color:var(--text-dim);" id="alertNotifStatus"></span>
+              </div>
+              <div id="alertsList"></div>
+              <button class="add-alert-btn" onclick="showAddAlertForm()">+ Add Alert</button>
+              <div class="add-holding-form" id="addAlertForm" style="margin-top:10px;">
+                <div class="form-row">
+                  <input class="form-input" id="alertAsset" placeholder="Asset (BTC…)" />
+                  <select class="form-input form-select" id="alertCondition">
+                    <option value="above">Price above</option>
+                    <option value="below">Price below</option>
+                    <option value="change_pct_above">24h gain &gt;</option>
+                    <option value="change_pct_below">24h drop &gt;</option>
+                  </select>
+                </div>
+                <div class="form-row">
+                  <input class="form-input" id="alertValue" placeholder="Value" type="number" step="any" />
+                  <input class="form-input" id="alertNote" placeholder="Note (optional)" />
+                </div>
+                <div class="form-btn-row">
+                  <button class="btn-save" onclick="saveAlert()">Save Alert</button>
+                  <button class="btn-cancel" onclick="closeAddAlertForm()">Cancel</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- BOTTOM NAV -->
         <nav class="bottom-nav">
             <button class="nav-item active" onclick="showView('crypto')" data-view="crypto">
@@ -3524,6 +3967,18 @@
                 <span class="nav-icon">&#127758;</span>
                 GeoIntel
             </button>
+            <button class="nav-item" onclick="showView('pulse')" data-view="pulse">
+                <span class="nav-icon">&#128200;</span>
+                Pulse
+            </button>
+            <button class="nav-item" onclick="showView('predict')" data-view="predict">
+                <span class="nav-icon">&#127919;</span>
+                Predict
+            </button>
+            <button class="nav-item" onclick="showView('portfolio')" data-view="portfolio">
+                <span class="nav-icon">&#128184;</span>
+                Portfolio
+            </button>
         </nav>
         <div class="credit-line">Crypto Radar by Greg Miller</div>
     </div>
@@ -3539,6 +3994,9 @@
     <script src="engine.js"></script>
     <script src="events-db.js"></script>
     <script src="geo-intel.js"></script>
+    <script src="pulse.js"></script>
+    <script src="predict.js"></script>
+    <script src="portfolio.js"></script>
     <script>
     /* ============================================================
        CRYPTO RADAR - Main Application Script
@@ -4256,11 +4714,15 @@
             news: 'newsView',
             dashboard: 'dashboardView',
             charts: 'chartsView',
-            geointel: 'geoIntelView'
+            geointel: 'geoIntelView',
+            pulse: 'pulseView',
+            predict: 'predictView',
+            portfolio: 'portfolioView'
         };
 
         Object.values(views).forEach(id => {
-            document.getElementById(id).classList.remove('active');
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('active');
         });
         document.getElementById(views[name]).classList.add('active');
 
@@ -4276,6 +4738,9 @@
         if (name === 'analysis') initAnalysisView();
         if (name === 'charts') initChartsView();
         if (name === 'geointel') initGeoIntel();
+        if (name === 'pulse') initPulse();
+        if (name === 'predict') initPredict();
+        if (name === 'portfolio') initPortfolio();
     }
 
     // ---- SCENARIOS: STRAIT OF HORMUZ MODEL ----
@@ -6469,6 +6934,8 @@
         document.getElementById('keyPerplexity').value = keys.perplexity || '';
         document.getElementById('keyFred').value = keys.fred || '';
         document.getElementById('keyTradier').value = keys.tradier || '';
+        document.getElementById('keyLunarcrush').value = keys.lunarcrush || '';
+        document.getElementById('keyAugmento').value = keys.augmento || '';
     }
 
     function saveKeys() {
@@ -6480,7 +6947,9 @@
             grok: document.getElementById('keyGrok').value.trim(),
             perplexity: document.getElementById('keyPerplexity').value.trim(),
             fred: document.getElementById('keyFred').value.trim(),
-            tradier: document.getElementById('keyTradier').value.trim()
+            tradier: document.getElementById('keyTradier').value.trim(),
+            lunarcrush: document.getElementById('keyLunarcrush').value.trim(),
+            augmento: document.getElementById('keyAugmento').value.trim()
         });
         document.getElementById('keySettingsPanel').style.display = 'none';
     }
@@ -7210,6 +7679,693 @@
         if (v >= 100) return v.toFixed(2);
         if (v >= 1) return v.toFixed(4);
         return v.toFixed(6);
+    }
+
+    // ================================================================
+    // PULSE TAB
+    // ================================================================
+    let _pulseInited = false;
+
+    async function initPulse() {
+        if (_pulseInited) return;
+        _pulseInited = true;
+        // Run all fetches in parallel
+        const [cfng, cnnFng, vix, aaii, yieldCurve, spread, funding, hySpread, pcRatio] = await Promise.all([
+            Pulse.fetchCryptoFNG(30),
+            Pulse.fetchCNNFNG(),
+            Pulse.fetchVIX(),
+            Pulse.fetchAAII(),
+            Pulse.fetchYieldCurve(),
+            Pulse.fetchSpreadHistory(180),
+            Pulse.fetchBTCFunding(90),
+            Pulse.fetchHYSpread(),
+            Pulse.fetchPutCallRatio()
+        ]);
+
+        // Crypto Fear & Greed
+        if (cfng.length) {
+            const latest = cfng[cfng.length - 1];
+            document.getElementById('cryptoFNGVal').textContent = latest.value;
+            document.getElementById('cryptoFNGLabel').textContent = latest.label;
+            document.getElementById('cryptoFNGVal').style.color = Pulse.fngColor(latest.value);
+            drawFNGGauge('cryptoFNGCanvas', latest.value);
+        }
+
+        // CNN Fear & Greed
+        if (cnnFng) {
+            document.getElementById('cnnFNGVal').textContent = cnnFng.value;
+            document.getElementById('cnnFNGLabel').textContent = cnnFng.label;
+            document.getElementById('cnnFNGVal').style.color = Pulse.fngColor(cnnFng.value);
+            drawFNGGauge('cnnFNGCanvas', cnnFng.value);
+        }
+
+        // VIX
+        if (vix.length) {
+            const v = vix[vix.length - 1].value;
+            document.getElementById('vixVal').textContent = v.toFixed(1);
+            document.getElementById('vixVal').style.color = v > 30 ? '#ef4444' : v > 20 ? '#f97316' : '#10b981';
+            document.getElementById('vixLabel').textContent = v > 30 ? 'High Fear' : v > 20 ? 'Elevated' : 'Calm';
+            drawSparkline('vixSparkline', vix.map(p => p.value), '#60a5fa');
+        }
+
+        // Put/Call Ratio
+        if (pcRatio.length) {
+            const pc = pcRatio[pcRatio.length - 1].value;
+            document.getElementById('pcRatioVal').textContent = pc.toFixed(2);
+            document.getElementById('pcRatioVal').style.color = pc > 1.2 ? '#ef4444' : pc < 0.7 ? '#10b981' : '#f59e0b';
+            document.getElementById('pcRatioLabel').textContent = pc > 1.2 ? 'Elevated Fear' : pc < 0.7 ? 'Complacent' : 'Neutral';
+            drawSparkline('pcSparkline', pcRatio.map(p => p.value), '#a78bfa');
+        }
+
+        // AAII
+        if (aaii.bull != null) {
+            const set = (id, fillId, val) => {
+                document.getElementById(id).textContent = val != null ? val.toFixed(1) + '%' : '--%';
+                document.getElementById(fillId).style.width = (val ?? 0) + '%';
+            };
+            set('aaiiBullPct', 'aaiiBullFill', aaii.bull);
+            set('aaiiNeutPct', 'aaiiNeutFill', aaii.neutral);
+            set('aaiiBearPct', 'aaiiBearFill', aaii.bear);
+            if (aaii.date) document.getElementById('aaiiDate').textContent = aaii.date;
+        }
+
+        // Yield Curve
+        if (yieldCurve.length) {
+            drawYieldCurve('yieldCurveCanvas', yieldCurve);
+            const y2 = yieldCurve.find(p => p.label === '2Y')?.value;
+            const y10 = yieldCurve.find(p => p.label === '10Y')?.value;
+            if (y2 != null && y10 != null) {
+                const inverted = y2 > y10;
+                const el = document.getElementById('yieldStatus');
+                el.textContent = inverted ? '⚠ Inverted' : 'Normal ▲';
+                el.className = inverted ? 'yield-inverted' : 'yield-normal';
+            }
+        }
+
+        // 2Y-10Y Spread
+        if (spread.length) {
+            const latest = spread[spread.length - 1].value;
+            const bps = Math.round(latest * 100);
+            document.getElementById('spreadVal').textContent = (bps >= 0 ? '+' : '') + bps;
+            document.getElementById('spreadVal').style.color = bps < 0 ? '#ef4444' : '#10b981';
+            drawSparkline('spreadCanvas', spread.map(p => p.value), bps < 0 ? '#ef4444' : '#10b981', true);
+        }
+
+        // BTC Funding
+        if (funding.length) {
+            const latest = funding[funding.length - 1].value;
+            const annualized = (latest * 3 * 365).toFixed(1);
+            document.getElementById('btcFundingVal').textContent = latest.toFixed(4) + '%';
+            document.getElementById('btcFundingVal').style.color = latest > 0 ? '#10b981' : '#ef4444';
+            document.getElementById('btcFundingLabel').textContent = `annualized: ${annualized}%`;
+            drawSparkline('fundingCanvas', funding.map(p => p.value), '#f59e0b', true);
+        }
+
+        // HY Spread
+        if (hySpread.length) {
+            const v = hySpread[hySpread.length - 1].value;
+            document.getElementById('hySpreadVal').textContent = v.toFixed(0);
+            document.getElementById('hySpreadVal').style.color = v > 500 ? '#ef4444' : v > 350 ? '#f97316' : '#10b981';
+            drawSparkline('hySpreadCanvas', hySpread.map(p => p.value), '#f59e0b');
+        }
+
+        // Composite pulse score
+        const fundingLatest = funding.length ? funding[funding.length - 1].value : null;
+        const hyLatest = hySpread.length ? hySpread[hySpread.length - 1].value : null;
+        const cfngLatest = cfng.length ? cfng[cfng.length - 1].value : null;
+        const vixLatest = vix.length ? vix[vix.length - 1].value : null;
+        const score = Pulse.computePulseScore({ fng: cfngLatest, vix: vixLatest, funding: fundingLatest, hySpread: hyLatest, sentimentNorm: 0 });
+        document.getElementById('pulseNeedle').style.left = score + '%';
+        document.getElementById('pulseCompositeLabel').textContent = Pulse.fngLabel(score) + ' (' + score + ')';
+    }
+
+    function drawFNGGauge(canvasId, value) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = 120 * dpr; canvas.height = 70 * dpr;
+        canvas.style.width = '120px'; canvas.style.height = '70px';
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        const cx = 60, cy = 62, r = 46;
+        // Background arc
+        const stops = [[0,'#ef4444'],[0.25,'#f97316'],[0.5,'#eab308'],[0.75,'#84cc16'],[1,'#10b981']];
+        const grad = ctx.createLinearGradient(14, 62, 106, 62);
+        stops.forEach(([p, c]) => grad.addColorStop(p, c));
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, Math.PI, 0);
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 10;
+        ctx.stroke();
+        // Colored arc up to value
+        const angle = Math.PI + (value / 100) * Math.PI;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, Math.PI, angle);
+        ctx.strokeStyle = Pulse.fngColor(value);
+        ctx.lineWidth = 10;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        // Needle
+        const nx = cx + (r - 4) * Math.cos(angle);
+        const ny = cy + (r - 4) * Math.sin(angle);
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(nx, ny);
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'white';
+        ctx.fill();
+    }
+
+    function drawYieldCurve(canvasId, points) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas || !points.length) return;
+        const dpr = window.devicePixelRatio || 1;
+        const W = 160, H = 90;
+        canvas.width = W * dpr; canvas.height = H * dpr;
+        canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        const pad = { l: 28, r: 8, t: 8, b: 22 };
+        const vals = points.map(p => p.value);
+        const minV = Math.min(...vals) - 0.1, maxV = Math.max(...vals) + 0.1;
+        const xScale = i => pad.l + (i / (points.length - 1)) * (W - pad.l - pad.r);
+        const yScale = v => pad.t + (1 - (v - minV) / (maxV - minV)) * (H - pad.t - pad.b);
+        // Grid
+        ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 3; i++) {
+            const y = pad.t + i * (H - pad.t - pad.b) / 2;
+            ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+        }
+        // Detect inversion
+        const isInverted = vals[0] > vals[vals.length - 1] || vals[1] > vals[3];
+        const lineColor = isInverted ? '#ef4444' : '#10b981';
+        // Line
+        ctx.beginPath();
+        points.forEach((p, i) => i === 0 ? ctx.moveTo(xScale(i), yScale(p.value)) : ctx.lineTo(xScale(i), yScale(p.value)));
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 2;
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+        // Dots + labels
+        points.forEach((p, i) => {
+            ctx.beginPath();
+            ctx.arc(xScale(i), yScale(p.value), 3, 0, Math.PI * 2);
+            ctx.fillStyle = lineColor;
+            ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            ctx.font = `${8 * dpr / dpr}px Inter, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.fillText(p.label, xScale(i), H - 6);
+        });
+        // Y axis value
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.textAlign = 'right';
+        ctx.fillText(vals[vals.length-1].toFixed(1), pad.l - 2, yScale(vals[vals.length-1]) + 4);
+    }
+
+    function drawSparkline(canvasId, values, color, zeroline = false) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas || !values.length) return;
+        const dpr = window.devicePixelRatio || 1;
+        const W = parseInt(canvas.style.width) || 120;
+        const H = parseInt(canvas.style.height) || 40;
+        canvas.width = W * dpr; canvas.height = H * dpr;
+        canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        const pad = 3;
+        const minV = Math.min(...values), maxV = Math.max(...values);
+        const range = maxV - minV || 1;
+        const xS = i => pad + (i / (values.length - 1)) * (W - pad * 2);
+        const yS = v => H - pad - ((v - minV) / range) * (H - pad * 2);
+        if (zeroline && minV < 0 && maxV > 0) {
+            const zy = yS(0);
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath(); ctx.moveTo(pad, zy); ctx.lineTo(W - pad, zy); ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        ctx.beginPath();
+        values.forEach((v, i) => i === 0 ? ctx.moveTo(xS(i), yS(v)) : ctx.lineTo(xS(i), yS(v)));
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+    }
+
+    async function loadPulseHeadlines() {
+        const container = document.getElementById('pulseHeadlines');
+        container.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:16px;font-size:var(--fs-sm);">Fetching headlines…</div>';
+
+        // Fetch news + social sentiment in parallel
+        const [newsArticles, augBTC, lunar] = await Promise.all([
+            Pulse.fetchMessariNews(20),
+            Pulse.fetchAugmento('bitcoin'),
+            Pulse.fetchLunarCrush('BTC')
+        ]);
+
+        const headlines = newsArticles.map(p => p.title);
+        const scored = Pulse.scoreHeadlines(headlines);
+
+        // Update composite needle with blended score
+        const needle = document.getElementById('pulseNeedle');
+        const newsPct = Math.round((scored.normalized + 1) * 50);
+        const augPct = augBTC?.sentiment != null ? Math.round((augBTC.sentiment + 1) * 50) : newsPct;
+        const lunarPct = lunar?.sentiment != null ? Math.round(((lunar.sentiment - 1) / 4) * 100) : newsPct;
+        const blended = Math.round((newsPct + augPct + lunarPct) / 3);
+        const curLeft = parseFloat(needle.style.left) || 50;
+        needle.style.left = Math.round((curLeft * 0.7 + blended * 0.3)) + '%';
+
+        // Social signals card
+        let socialHtml = '';
+        if (augBTC || lunar) {
+            const sentPct = augBTC?.sentiment != null ? Math.round((augBTC.sentiment + 1) * 50) : null;
+            const galScore = lunar?.galaxyScore;
+            const altRank = lunar?.altRank;
+            socialHtml = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
+                ${sentPct != null ? `<div style="background:rgba(255,255,255,.04);border-radius:8px;padding:10px;text-align:center;">
+                    <div style="font-size:18px;font-weight:800;color:${sentPct>55?'#10b981':sentPct<45?'#ef4444':'#f59e0b'}">${sentPct}</div>
+                    <div style="font-size:10px;color:var(--text-dim)">Social Sent.</div></div>` : ''}
+                ${galScore != null ? `<div style="background:rgba(255,255,255,.04);border-radius:8px;padding:10px;text-align:center;">
+                    <div style="font-size:18px;font-weight:800;color:#a78bfa">${galScore}</div>
+                    <div style="font-size:10px;color:var(--text-dim)">Galaxy Score</div></div>` : ''}
+                ${altRank != null ? `<div style="background:rgba(255,255,255,.04);border-radius:8px;padding:10px;text-align:center;">
+                    <div style="font-size:18px;font-weight:800;color:#60a5fa">#${altRank}</div>
+                    <div style="font-size:10px;color:var(--text-dim)">LunarCrush Rank</div></div>` : ''}
+            </div>`;
+        }
+
+        // Source label
+        const srcLabel = `<div style="font-size:10px;color:var(--text-dim);margin-bottom:8px;">Messari · Augmento · LunarCrush</div>`;
+
+        container.innerHTML = srcLabel + socialHtml + (scored.scored.map(h => {
+            const cls = h.score > 0 ? 'sent-pos' : h.score < 0 ? 'sent-neg' : 'sent-neu';
+            const label = h.score > 0 ? '+' + h.score : h.score;
+            return `<div class="pulse-headline">
+                <span class="pulse-headline-text">${h.text}</span>
+                <span class="pulse-sentiment-pill ${cls}">${label}</span>
+            </div>`;
+        }).join('') || '<div style="text-align:center;color:var(--text-dim);padding:16px;">No headlines available</div>');
+    }
+
+    // ================================================================
+    // PREDICT TAB
+    // ================================================================
+    let _predictInited = false;
+    let _predictPillar = 'markets';
+    let _calData = null;
+
+    async function initPredict() {
+        if (_predictInited) return;
+        _predictInited = true;
+        loadPolyCategory('economics', document.querySelector('#polyTagRow .predict-cat-btn'));
+    }
+
+    function switchPredictPillar(name) {
+        _predictPillar = name;
+        ['markets','futures','accuracy'].forEach(p => {
+            document.getElementById('predictMarketsPanel').style.display = p === 'markets' && name === 'markets' ? '' : p === name ? '' : 'none';
+            document.getElementById('predictFuturesPanel').style.display = name === 'futures' ? '' : 'none';
+            document.getElementById('predictAccuracyPanel').style.display = name === 'accuracy' ? '' : 'none';
+            const tab = document.getElementById('ptab-' + p);
+            if (tab) tab.classList.toggle('active', p === name);
+        });
+        if (name === 'futures' && !document.getElementById('oilCurveRows').innerHTML) loadPredictFutures();
+        if (name === 'accuracy' && !_calData) loadCalibration('economics', document.querySelector('#predictAccuracyPanel .predict-cat-btn'));
+    }
+
+    async function loadPolyCategory(tag, btn) {
+        document.querySelectorAll('#polyTagRow .predict-cat-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        const list = document.getElementById('polymarketsList');
+        list.innerHTML = '<div class="predict-empty">Loading…</div>';
+        const events = await Predict.fetchPolymarkets(tag, 15);
+        if (!events.length) { list.innerHTML = '<div class="predict-empty">No active markets found</div>'; return; }
+        list.innerHTML = events.map(e => {
+            const daysLeft = Predict.daysUntil(e.endDate);
+            const vol = Predict.formatVolume(e.volume);
+            const marketsHtml = e.markets.slice(0, 1).map(m => {
+                if (!m.prices.length) return '';
+                const outcomes = m.outcomes.length ? m.outcomes : ['Yes','No'];
+                return outcomes.map((o, i) => {
+                    const p = m.prices[i] ?? 0;
+                    const pct = Math.round(p * 100);
+                    const col = i === 0 ? '#10b981' : '#ef4444';
+                    return `<div class="predict-outcome-row">
+                        <span class="predict-outcome-label">${o}</span>
+                        <div class="predict-prob-bar-track"><div class="predict-prob-fill" style="width:${pct}%;background:${col};"></div></div>
+                        <span class="predict-prob-val" style="color:${col};">${pct}¢</span>
+                    </div>`;
+                }).join('');
+            }).join('');
+            return `<div class="predict-market-card">
+                <div class="predict-market-title">${e.title}</div>
+                <div class="predict-market-meta">
+                    <span>Vol: ${vol}</span>
+                    ${daysLeft != null ? `<span>${daysLeft}d left</span>` : ''}
+                </div>
+                ${marketsHtml}
+            </div>`;
+        }).join('');
+    }
+
+    async function loadPredictFutures() {
+        // Oil curve
+        const oilCurve = await Predict.fetchOilCurve(7);
+        const oilRows = document.getElementById('oilCurveRows');
+        const modeEl = document.getElementById('oilCurveMode');
+        if (oilCurve.length >= 2) {
+            const isContango = oilCurve[oilCurve.length-1].price > oilCurve[0].price;
+            modeEl.textContent = isContango ? 'Contango ▲' : 'Backwardation ▼';
+            modeEl.className = isContango ? 'contango-tag' : 'backwardation-tag';
+            oilRows.innerHTML = oilCurve.map((c, i) => {
+                const diff = i > 0 ? ((c.price - oilCurve[i-1].price)).toFixed(2) : null;
+                const col = diff == null ? '' : parseFloat(diff) > 0 ? 'color:#f97316' : 'color:#10b981';
+                return `<div class="futures-row">
+                    <span>${c.label}</span>
+                    <span style="font-weight:700;">$${c.price.toFixed(2)}</span>
+                    ${diff != null ? `<span style="font-size:11px;${col}">${parseFloat(diff)>0?'+':''}${diff}</span>` : '<span></span>'}
+                </div>`;
+            }).join('');
+            drawOilCurve('oilCurveCanvas', oilCurve);
+        } else {
+            oilRows.innerHTML = '<div style="color:var(--text-dim);font-size:var(--fs-sm);padding:8px;">No oil futures data</div>';
+        }
+
+        // BTC premium
+        const prem = await Predict.fetchBTCPremium();
+        const premEl = document.getElementById('btcPremStats');
+        if (prem) {
+            const rc = prem.fundingRate > 0 ? 'color:#10b981' : 'color:#ef4444';
+            premEl.innerHTML = [
+                ['Mark Price', '$' + prem.markPrice.toLocaleString()],
+                ['Funding Rate', `<span style="${rc}">${prem.fundingRate.toFixed(4)}%</span>`],
+                ['Annualized', `<span style="${rc}">${prem.annualRate}%</span>`],
+                ['Premium', (prem.premium >= 0 ? '+' : '') + prem.premium.toFixed(4) + '%'],
+                ['Next Funding', new Date(prem.nextFunding).toLocaleTimeString()]
+            ].map(([k,v]) => `<div class="btc-prem-stat"><span style="color:var(--text-dim)">${k}</span><span>${v}</span></div>`).join('');
+            // Funding history chart
+            const hist = await Predict.fetchBTCFundingHistory(90);
+            drawSparkline('btcFundingHistCanvas', hist.map(h => h.rate), '#f59e0b', true);
+        } else {
+            premEl.innerHTML = '<div style="color:var(--text-dim);font-size:var(--fs-sm);">No data</div>';
+        }
+
+        // Kalshi Fed markets
+        const fedMarkets = await Predict.fetchFedExpectations();
+        const fedEl = document.getElementById('kalshiFedList');
+        if (fedMarkets.length) {
+            fedEl.innerHTML = fedMarkets.map(m => {
+                const p = m.yesPrice ?? m.lastPrice;
+                const col = p != null ? (p > 0.5 ? 'color:#10b981' : 'color:#ef4444') : '';
+                return `<div class="kalshi-market-row">
+                    <span class="kalshi-mkt-title">${m.title}</span>
+                    <span class="kalshi-yes-price" style="${col}">${p != null ? Math.round(p*100)+'¢' : '--'}</span>
+                </div>`;
+            }).join('');
+        } else {
+            fedEl.innerHTML = '<div style="color:var(--text-dim);padding:12px;font-size:var(--fs-sm);">No Fed rate markets found on Kalshi</div>';
+        }
+    }
+
+    function drawOilCurve(canvasId, points) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas || !points.length) return;
+        const dpr = window.devicePixelRatio || 1;
+        const W = canvas.offsetWidth || 340, H = 130;
+        canvas.width = W * dpr; canvas.height = H * dpr;
+        canvas.style.height = H + 'px';
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        const pad = { l:40, r:10, t:10, b:24 };
+        const prices = points.map(p => p.price);
+        const minP = Math.min(...prices) - 1, maxP = Math.max(...prices) + 1;
+        const xS = i => pad.l + (i / (points.length - 1)) * (W - pad.l - pad.r);
+        const yS = v => pad.t + (1 - (v - minP)/(maxP - minP)) * (H - pad.t - pad.b);
+        // Grid
+        ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1;
+        for (let i = 0; i < 4; i++) {
+            const y = pad.t + i * (H - pad.t - pad.b) / 3;
+            ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+            const val = maxP - i * (maxP - minP) / 3;
+            ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.font = '9px Inter,sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('$' + val.toFixed(0), pad.l - 4, y + 3);
+        }
+        const isContango = prices[prices.length-1] > prices[0];
+        const color = isContango ? '#f97316' : '#10b981';
+        ctx.beginPath();
+        points.forEach((p, i) => i === 0 ? ctx.moveTo(xS(i), yS(p.price)) : ctx.lineTo(xS(i), yS(p.price)));
+        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
+        points.forEach((p, i) => {
+            ctx.beginPath(); ctx.arc(xS(i), yS(p.price), 4, 0, Math.PI*2);
+            ctx.fillStyle = color; ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '8px Inter,sans-serif';
+            ctx.textAlign = 'center';
+            const lbl = p.label.split(' ')[0].slice(0,3);
+            ctx.fillText(lbl, xS(i), H - 6);
+        });
+    }
+
+    async function loadCalibration(tag, btn) {
+        document.querySelectorAll('#predictAccuracyPanel .predict-cat-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        document.getElementById('calTotal').textContent = '…';
+        const markets = await Predict.fetchResolvedPolymarkets(tag, 100);
+        _calData = markets;
+        const brier = Predict.brierScore(markets);
+        const cal = Predict.computeCalibration(markets);
+        const correct = markets.filter(m => (m.finalProbYes > 0.5) === (m.outcome === 1)).length;
+        document.getElementById('calTotal').textContent = markets.length;
+        document.getElementById('calBrier').textContent = brier != null ? brier.toFixed(3) : '--';
+        document.getElementById('calAccuracy').textContent = markets.length ? Math.round(correct/markets.length*100) + '%' : '--%';
+        drawCalibrationChart('calibrationCanvas', cal);
+        // Recent resolved markets
+        const el = document.getElementById('resolvedMarkets');
+        el.innerHTML = markets.slice(0, 12).map(m => {
+            const prob = Math.round(m.finalProbYes * 100);
+            const correct = (m.finalProbYes > 0.5) === (m.outcome === 1);
+            return `<div class="resolved-market-row">
+                <span style="flex:1;font-size:var(--fs-xs);line-height:1.3;color:var(--text-dim);">${m.question}</span>
+                <span class="resolved-prob" style="margin:0 8px;">${prob}%</span>
+                <span class="${m.outcome === 1 ? 'resolved-outcome-yes' : 'resolved-outcome-no'}">${m.outcome === 1 ? 'YES' : 'NO'}</span>
+                <span style="font-size:10px;margin-left:6px;">${correct ? '✓' : '✗'}</span>
+            </div>`;
+        }).join('');
+    }
+
+    function drawCalibrationChart(canvasId, cal) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const dpr = window.devicePixelRatio || 1;
+        const W = canvas.offsetWidth || 300, H = 220;
+        canvas.width = W * dpr; canvas.height = H * dpr;
+        canvas.style.height = H + 'px';
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        const pad = { l:36, r:10, t:10, b:30 };
+        const xS = v => pad.l + (v / 100) * (W - pad.l - pad.r);
+        const yS = v => (H - pad.b) - (v / 100) * (H - pad.t - pad.b);
+        // Grid
+        ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+            const v = i * 25;
+            ctx.beginPath(); ctx.moveTo(xS(v), pad.t); ctx.lineTo(xS(v), H - pad.b); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(pad.l, yS(v)); ctx.lineTo(W - pad.r, yS(v)); ctx.stroke();
+            ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.font = '8px Inter,sans-serif';
+            ctx.textAlign = 'center'; ctx.fillText(v + '%', xS(v), H - 8);
+            ctx.textAlign = 'right'; ctx.fillText(v + '%', pad.l - 4, yS(v) + 3);
+        }
+        // Perfect calibration diagonal
+        ctx.beginPath();
+        ctx.moveTo(xS(0), yS(0)); ctx.lineTo(xS(100), yS(100));
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+        // Actual data points
+        cal.forEach(b => {
+            if (b.actualRate == null) return;
+            const r = Math.max(3, Math.min(12, Math.sqrt(b.count) * 2));
+            ctx.beginPath();
+            ctx.arc(xS(b.implied), yS(b.actualRate), r, 0, Math.PI * 2);
+            const diff = b.actualRate - b.implied;
+            ctx.fillStyle = diff > 5 ? 'rgba(16,185,129,0.7)' : diff < -5 ? 'rgba(239,68,68,0.7)' : 'rgba(245,158,11,0.7)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1; ctx.stroke();
+            ctx.fillStyle = 'white'; ctx.font = 'bold 8px Inter,sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(b.count, xS(b.implied), yS(b.actualRate) + 3);
+        });
+    }
+
+    async function analyzeCalibration() {
+        if (!_calData || !_calData.length) return;
+        const btn = document.querySelector('#predictAccuracyPanel .geo-run-btn');
+        btn.disabled = true; btn.textContent = 'Analyzing…';
+        const cal = Predict.computeCalibration(_calData);
+        const brier = Predict.brierScore(_calData);
+        const prompt = `Analyze this prediction market calibration data from Polymarket. Brier score: ${brier}. Calibration buckets (implied prob → actual outcome rate, count): ${cal.filter(b=>b.actualRate!=null).map(b=>`${b.bucket}: ${b.actualRate?.toFixed(1)}% (n=${b.count})`).join(', ')}. Are these markets well-calibrated? Where is the biggest over/under-confidence? Is a 0.5 Brier score better or worse than a coin flip (0.25)? Keep to 150 words.`;
+        const narrative = await AIAnalysis.chatWithClaude(prompt, []);
+        const el = document.getElementById('calAINarrative');
+        el.style.display = 'block';
+        el.innerHTML = `<div style="line-height:1.6;font-size:var(--fs-sm);">${narrative?.replace(/\n/g,'<br>') || 'AI unavailable'}</div>`;
+        btn.disabled = false; btn.textContent = 'Analyze with AI →';
+    }
+
+    // ================================================================
+    // PORTFOLIO TAB
+    // ================================================================
+    let _portfolioInited = false;
+    let _portPrices = {};
+    let _portRefreshInterval = null;
+
+    function initPortfolio() {
+        if (_portfolioInited) {
+            renderPortfolio(); return;
+        }
+        _portfolioInited = true;
+        Portfolio.requestNotifPermission();
+        window._pulseAlertFired = (alert, price) => showNotifBanner(`${alert.asset} alert fired! Now $${price?.toLocaleString()}`);
+        renderPortfolio();
+        refreshPortfolioPrices();
+        _portRefreshInterval = setInterval(refreshPortfolioPrices, 60000);
+        updateAlertNotifStatus();
+    }
+
+    async function refreshPortfolioPrices() {
+        const holdings = Portfolio.load();
+        if (!holdings.length) return;
+        _portPrices = await Portfolio.fetchPrices(holdings);
+        Portfolio.checkAlerts(_portPrices);
+        renderPortfolio();
+    }
+
+    function renderPortfolio() {
+        const holdings = Portfolio.load();
+        const summary = Portfolio.summary(holdings, _portPrices);
+        document.getElementById('portTotalVal').textContent = '$' + Portfolio.fmt(summary.totalValue);
+        const pnlEl = document.getElementById('portTotalPnL');
+        pnlEl.textContent = `${Portfolio.fmtUSD(summary.totalPnl)} (${Portfolio.fmtPct(summary.totalPct)})`;
+        pnlEl.className = 'portfolio-pnl ' + (summary.totalPnl >= 0 ? 'pos' : 'neg');
+        const list = document.getElementById('holdingsList');
+        list.innerHTML = summary.rows.map(h => {
+            const pnl = h.pnl;
+            const pnlColor = !pnl ? '' : pnl.pct >= 0 ? 'color:#10b981' : 'color:#ef4444';
+            return `<div class="holding-card">
+                <div class="holding-header">
+                    <span class="holding-asset">${h.asset}</span>
+                    <span class="holding-type-badge">${h.type}</span>
+                    <button class="holding-remove" onclick="removeHolding('${h.id}')">×</button>
+                </div>
+                <div class="holding-stats">
+                    <div class="holding-stat">
+                        <div class="holding-stat-val">${h.currentPrice != null ? '$'+Portfolio.fmt(h.currentPrice) : '--'}</div>
+                        <div class="holding-stat-label">Price</div>
+                    </div>
+                    <div class="holding-stat">
+                        <div class="holding-stat-val">${Portfolio.fmt(h.quantity, 4)}</div>
+                        <div class="holding-stat-label">Qty</div>
+                    </div>
+                    <div class="holding-stat">
+                        <div class="holding-stat-val" style="${pnlColor}">${pnl ? Portfolio.fmtPct(pnl.pct) : '--'}</div>
+                        <div class="holding-stat-label">P&amp;L %</div>
+                    </div>
+                    <div class="holding-stat">
+                        <div class="holding-stat-val">${pnl ? '$'+Portfolio.fmt(pnl.cost) : '--'}</div>
+                        <div class="holding-stat-label">Cost</div>
+                    </div>
+                    <div class="holding-stat">
+                        <div class="holding-stat-val">${pnl ? '$'+Portfolio.fmt(pnl.value) : '--'}</div>
+                        <div class="holding-stat-label">Value</div>
+                    </div>
+                    <div class="holding-stat">
+                        <div class="holding-stat-val" style="${pnlColor}">${pnl ? Portfolio.fmtUSD(pnl.unrealized) : '--'}</div>
+                        <div class="holding-stat-label">Unrealized</div>
+                    </div>
+                </div>
+                ${h.change24h != null ? `<div style="font-size:11px;margin-top:6px;${h.change24h>=0?'color:#10b981':'color:#ef4444'}">24h: ${Portfolio.fmtPct(h.change24h)}</div>` : ''}
+                ${h.notes ? `<div style="font-size:11px;color:var(--text-dim);margin-top:4px;">${h.notes}</div>` : ''}
+            </div>`;
+        }).join('') || '<div style="text-align:center;color:var(--text-dim);padding:24px;font-size:var(--fs-sm);">No holdings yet. Add your first position above.</div>';
+        renderAlerts();
+    }
+
+    function toggleAddHolding() {
+        document.getElementById('addHoldingForm').classList.toggle('open');
+    }
+
+    function saveHolding() {
+        const asset = document.getElementById('holdingAsset').value.trim();
+        const type  = document.getElementById('holdingType').value;
+        const qty   = parseFloat(document.getElementById('holdingQty').value);
+        const cost  = parseFloat(document.getElementById('holdingCost').value);
+        const notes = document.getElementById('holdingNotes').value.trim();
+        if (!asset || isNaN(qty) || isNaN(cost)) return;
+        Portfolio.addHolding({ asset, type, quantity: qty, avgCost: cost, notes });
+        document.getElementById('addHoldingForm').classList.remove('open');
+        ['holdingAsset','holdingQty','holdingCost','holdingNotes'].forEach(id => document.getElementById(id).value = '');
+        refreshPortfolioPrices();
+    }
+
+    function removeHolding(id) {
+        Portfolio.removeHolding(id);
+        renderPortfolio();
+    }
+
+    function renderAlerts() {
+        const alerts = Portfolio.loadAlerts();
+        const el = document.getElementById('alertsList');
+        el.innerHTML = alerts.map(a => {
+            const icon = a.active ? '🔔' : '🔕';
+            const condLabel = a.condition.replace(/_/g,' ');
+            const suffix = a.condition.includes('pct') ? '%' : '';
+            return `<div class="alert-row">
+                <button class="alert-toggle" onclick="toggleAlert('${a.id}')">${icon}</button>
+                <div class="alert-info">
+                    <span class="alert-asset">${a.asset}</span>
+                    <span class="alert-cond"> ${condLabel} $${a.value}${suffix}</span>
+                    ${a.note ? `<div style="font-size:10px;color:var(--text-dim);">${a.note}</div>` : ''}
+                    ${a.firedAt ? `<div style="font-size:10px;color:var(--amber);">Fired: ${a.firedAt.slice(0,10)}</div>` : ''}
+                </div>
+                <button class="alert-delete" onclick="deleteAlert('${a.id}')">✕</button>
+            </div>`;
+        }).join('') || '<div style="font-size:var(--fs-sm);color:var(--text-dim);padding:8px 0;">No alerts set</div>';
+    }
+
+    function showAddAlertForm() { document.getElementById('addAlertForm').classList.add('open'); }
+    function closeAddAlertForm() { document.getElementById('addAlertForm').classList.remove('open'); }
+
+    function saveAlert() {
+        const asset = document.getElementById('alertAsset').value.trim();
+        const cond  = document.getElementById('alertCondition').value;
+        const val   = parseFloat(document.getElementById('alertValue').value);
+        const note  = document.getElementById('alertNote').value.trim();
+        if (!asset || isNaN(val)) return;
+        Portfolio.addAlert({ asset, type: 'price', condition: cond, value: val, note });
+        closeAddAlertForm();
+        ['alertAsset','alertValue','alertNote'].forEach(id => document.getElementById(id).value = '');
+        renderAlerts();
+    }
+
+    function toggleAlert(id) { Portfolio.toggleAlert(id); renderAlerts(); }
+    function deleteAlert(id) { Portfolio.removeAlert(id); renderAlerts(); }
+
+    function updateAlertNotifStatus() {
+        const el = document.getElementById('alertNotifStatus');
+        if (!('Notification' in window)) { el.textContent = 'Notifications unavailable'; return; }
+        if (Notification.permission === 'granted') { el.textContent = '🔔 Notifications on'; return; }
+        el.innerHTML = '<button onclick="Portfolio.requestNotifPermission()" style="background:none;border:none;color:var(--amber);font-size:var(--fs-xs);cursor:pointer;">Enable notifications</button>';
+    }
+
+    function showNotifBanner(msg) {
+        let el = document.getElementById('notifBanner');
+        if (!el) { el = document.createElement('div'); el.id = 'notifBanner'; el.className = 'notif-banner'; document.body.appendChild(el); }
+        el.textContent = msg; el.style.display = 'block';
+        setTimeout(() => { el.style.display = 'none'; }, 4000);
     }
 
     // ---- INIT ----
