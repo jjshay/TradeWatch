@@ -233,11 +233,15 @@ const Pulse = {
     };
   },
 
+  // Default RSS.app feed (JSON format)
+  DEFAULT_RSS_FEEDS: ['https://rss.app/feeds/v1.1/zE01NN1ghIgOlAX6.json'],
+
   // ── News Headlines — RSS.app → Messari → app RSS ──
   async fetchNewsHeadlines(limit = 20) {
     const keys = (typeof AIAnalysis !== 'undefined') ? AIAnalysis.getKeys() : {};
-    // RSS.app feeds first (user-configured, highest quality)
-    const rssUrls = keys.rssapp ? keys.rssapp.split('\n').map(s => s.trim()).filter(Boolean) : [];
+    // RSS.app feeds — user-configured or default
+    const saved = keys.rssapp ? keys.rssapp.split('\n').map(s => s.trim()).filter(Boolean) : [];
+    const rssUrls = saved.length ? saved : this.DEFAULT_RSS_FEEDS;
     if (rssUrls.length) {
       const items = await this.fetchRSSApp(rssUrls, limit);
       if (items.length) return items;

@@ -6958,7 +6958,7 @@
         document.getElementById('keyPerplexity').value = keys.perplexity || '';
         document.getElementById('keyFred').value = keys.fred || '';
         document.getElementById('keyTradier').value = keys.tradier || '';
-        document.getElementById('keyRssapp').value = keys.rssapp || '';
+        document.getElementById('keyRssapp').value = keys.rssapp || (typeof Pulse !== 'undefined' ? Pulse.DEFAULT_RSS_FEEDS.join('\n') : '');
         document.getElementById('keyLunarcrush').value = keys.lunarcrush || '';
         document.getElementById('keyAugmento').value = keys.augmento || '';
     }
