@@ -3795,9 +3795,22 @@
               </div>
             </div>
 
-            <!-- News Sentiment -->
+            <!-- CryptoPanic live widget -->
+            <div class="pulse-card" style="margin-bottom:14px;padding:0;overflow:hidden;border-radius:12px;">
+              <a href="https://cryptopanic.com/" target="_blank"
+                data-news_feed="recent"
+                data-bg_color="#0f1520"
+                data-text_color="#f9fafb"
+                data-link_color="#10b981"
+                data-header_bg_color="#080c14"
+                data-header_text_color="#10b981"
+                class="CryptoPanicWidget">Latest News</a>
+              <script src="https://static.cryptopanic.com/static/js/widgets.min.js"></script>
+            </div>
+
+            <!-- Scored Headlines (RSS + Augmento + LunarCrush) -->
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-              <span class="pulse-card-title" style="font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);">Headline Sentiment</span>
+              <span class="pulse-card-title" style="font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);">Sentiment Score</span>
               <button class="pulse-refresh-btn" onclick="loadPulseHeadlines()">↻ Refresh</button>
             </div>
             <div class="pulse-headlines" id="pulseHeadlines">
