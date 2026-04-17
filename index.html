@@ -797,6 +797,9 @@
         /* ========== BOTTOM NAV ========== */
         .bottom-nav {
             display: flex;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
             background: var(--bg-glass);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
@@ -805,9 +808,10 @@
             padding-bottom: max(8px, env(safe-area-inset-bottom));
             z-index: 100;
         }
+        .bottom-nav::-webkit-scrollbar { display: none; }
         .nav-item {
-            flex: 1;
-            min-width: 0;
+            flex: 0 0 auto;
+            min-width: 56px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -3733,8 +3737,6 @@
 
                 </div>
             </div>
-
-        </div>
 
         <!-- PULSE VIEW -->
         <div class="view" id="pulseView">
@@ -8132,15 +8134,16 @@
 
     function switchPredictPillar(name) {
         _predictPillar = name;
-        ['markets','futures','accuracy'].forEach(p => {
-            document.getElementById('predictMarketsPanel').style.display = p === 'markets' && name === 'markets' ? '' : p === name ? '' : 'none';
-            document.getElementById('predictFuturesPanel').style.display = name === 'futures' ? '' : 'none';
-            document.getElementById('predictAccuracyPanel').style.display = name === 'accuracy' ? '' : 'none';
+        const panels = { markets: 'predictMarketsPanel', futures: 'predictFuturesPanel', flow: 'predictFlowPanel', accuracy: 'predictAccuracyPanel' };
+        Object.entries(panels).forEach(([p, id]) => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = p === name ? '' : 'none';
             const tab = document.getElementById('ptab-' + p);
             if (tab) tab.classList.toggle('active', p === name);
         });
         if (name === 'futures' && !document.getElementById('oilCurveRows').innerHTML) loadPredictFutures();
         if (name === 'accuracy' && !_calData) loadCalibration('economics', document.querySelector('#predictAccuracyPanel .predict-cat-btn'));
+        if (name === 'flow') loadOptionsFlow();
     }
 
     async function loadPolyCategory(tag, btn) {
@@ -8653,19 +8656,6 @@
             </div>`).join('');
     }
 
-    // Update switchPredictPillar to handle the new 'flow' pillar
-    const _origSwitchPredictPillar = switchPredictPillar;
-    switchPredictPillar = function(name) {
-        ['markets','futures','flow','accuracy'].forEach(p => {
-            const panel = document.getElementById('predict' + p.charAt(0).toUpperCase() + p.slice(1) + 'Panel');
-            if (panel) panel.style.display = p === name ? '' : 'none';
-            const tab = document.getElementById('ptab-' + p);
-            if (tab) tab.classList.toggle('active', p === name);
-        });
-        if (name === 'futures' && !document.getElementById('oilCurveRows').innerHTML.trim()) loadPredictFutures();
-        if (name === 'flow') { /* scan on first open */ }
-        if (name === 'accuracy' && !_calData) loadCalibration('economics', document.querySelector('#predictAccuracyPanel .predict-cat-btn'));
-    };
 
     // ================================================================
     // WATCHLIST
