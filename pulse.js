@@ -147,6 +147,25 @@ const Pulse = {
       .sort((a, b) => a.date.localeCompare(b.date));
   },
 
+  // ── RSS.app JSON feeds (CORS-friendly, configured in Settings) ──
+  // Feed URL format: https://rss.app/feeds/v1.1/{feedId}.json
+  async fetchRSSApp(feedUrls = [], limit = 20) {
+    if (!feedUrls.length) return [];
+    const results = await Promise.all(feedUrls.map(async url => {
+      const d = await this._fetch(url, `rssapp_${url}`);
+      if (!d?.items) return [];
+      return d.items.slice(0, limit).map(item => ({
+        title: item.title,
+        url: item.url,
+        source: d.title || 'RSS',
+        publishedAt: item.date_published
+      }));
+    }));
+    return results.flat().sort((a, b) =>
+      new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0)
+    ).slice(0, limit);
+  },
+
   // ── Messari News (free, no auth, CORS-friendly) ──
   async fetchMessariNews(limit = 20) {
     const d = await this._fetch(
@@ -214,15 +233,22 @@ const Pulse = {
     };
   },
 
-  // ── News Headlines — tries Messari, falls back to existing app RSS ──
+  // ── News Headlines — RSS.app → Messari → app RSS ──
   async fetchNewsHeadlines(limit = 20) {
-    // Try Messari first
+    const keys = (typeof AIAnalysis !== 'undefined') ? AIAnalysis.getKeys() : {};
+    // RSS.app feeds first (user-configured, highest quality)
+    const rssUrls = keys.rssapp ? keys.rssapp.split('\n').map(s => s.trim()).filter(Boolean) : [];
+    if (rssUrls.length) {
+      const items = await this.fetchRSSApp(rssUrls, limit);
+      if (items.length) return items;
+    }
+    // Messari fallback (free, no auth)
     const messari = await this.fetchMessariNews(limit);
-    if (messari.length) return messari.map(p => p.title);
-    // Fall back to existing NewsFeed if available
+    if (messari.length) return messari;
+    // Existing app RSS cache as last resort
     if (typeof NewsFeed !== 'undefined' && NewsFeed._cache) {
       const cached = Object.values(NewsFeed._cache).flat().slice(0, limit);
-      return cached.map(item => item.title || item.headline || '').filter(Boolean);
+      return cached.map(item => ({ title: item.title || item.headline || '', source: 'App RSS' })).filter(i => i.title);
     }
     return [];
   },

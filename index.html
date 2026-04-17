@@ -3411,6 +3411,10 @@
                                     <input type="text" id="keyTradier" class="search-input" style="width:100%;margin-top:2px;" placeholder="Bearer token...">
                                 </div>
                                 <div>
+                                    <label style="font-size:10px;color:var(--amber);font-weight:600;">RSS.APP FEED URLS (one per line — rss.app/feeds/v1.1/{id}.json)</label>
+                                    <textarea id="keyRssapp" class="search-input" rows="3" style="width:100%;margin-top:2px;resize:vertical;" placeholder="https://rss.app/feeds/v1.1/abc123.json&#10;https://rss.app/feeds/v1.1/def456.json"></textarea>
+                                </div>
+                                <div>
                                     <label style="font-size:10px;color:var(--amber);font-weight:600;">LUNARCRUSH (lunarcrush.com)</label>
                                     <input type="text" id="keyLunarcrush" class="search-input" style="width:100%;margin-top:2px;" placeholder="API key...">
                                 </div>
@@ -6934,6 +6938,7 @@
         document.getElementById('keyPerplexity').value = keys.perplexity || '';
         document.getElementById('keyFred').value = keys.fred || '';
         document.getElementById('keyTradier').value = keys.tradier || '';
+        document.getElementById('keyRssapp').value = keys.rssapp || '';
         document.getElementById('keyLunarcrush').value = keys.lunarcrush || '';
         document.getElementById('keyAugmento').value = keys.augmento || '';
     }
@@ -6948,6 +6953,7 @@
             perplexity: document.getElementById('keyPerplexity').value.trim(),
             fred: document.getElementById('keyFred').value.trim(),
             tradier: document.getElementById('keyTradier').value.trim(),
+            rssapp: document.getElementById('keyRssapp').value.trim(),
             lunarcrush: document.getElementById('keyLunarcrush').value.trim(),
             augmento: document.getElementById('keyAugmento').value.trim()
         });
@@ -7924,13 +7930,13 @@
         container.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:16px;font-size:var(--fs-sm);">Fetching headlines…</div>';
 
         // Fetch news + social sentiment in parallel
-        const [newsArticles, augBTC, lunar] = await Promise.all([
-            Pulse.fetchMessariNews(20),
+        const [newsItems, augBTC, lunar] = await Promise.all([
+            Pulse.fetchNewsHeadlines(20),
             Pulse.fetchAugmento('bitcoin'),
             Pulse.fetchLunarCrush('BTC')
         ]);
 
-        const headlines = newsArticles.map(p => p.title);
+        const headlines = newsItems.map(p => typeof p === 'string' ? p : p.title).filter(Boolean);
         const scored = Pulse.scoreHeadlines(headlines);
 
         // Update composite needle with blended score
