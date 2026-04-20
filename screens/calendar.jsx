@@ -54,8 +54,27 @@ function CalendarScreen() {
     { date: '2026-05-15', time: '16:00', cat: 'Earnings',     c: T.earn,  imp: 3, title: 'COIN · Q1 Earnings',           ex: { btc: +1, oil: 0, spx: +1 } },
   ];
 
-  // selected event for detail rail
-  const selected = events.find(e => e.date === '2026-04-22');
+  // View + selection state
+  const [view, setView] = React.useState('Month');      // Month | Week | Agenda
+  const [selectedDate, setSelectedDate] = React.useState('2026-04-22'); // default FOMC
+  const [activeCats, setActiveCats] = React.useState(null); // null = all, or Set of cat labels
+  const [monthShift, setMonthShift] = React.useState(0); // 0 = base (Apr-May)
+
+  // Event derived from selected date — picks highest-importance event that day
+  const selected = React.useMemo(() => {
+    const dayEvents = events.filter(e => e.date === selectedDate);
+    if (!dayEvents.length) return null;
+    return dayEvents.sort((a, b) => b.imp - a.imp)[0];
+  }, [selectedDate, events]);
+
+  const toggleCat = (label) => {
+    setActiveCats(prev => {
+      const cur = prev ? new Set(prev) : new Set();
+      if (cur.has(label)) cur.delete(label); else cur.add(label);
+      return cur.size === 0 ? null : cur;
+    });
+  };
+  const catActive = (label) => !activeCats || activeCats.has(label);
 
   const eventsByDate = {};
   events.forEach(e => {
@@ -156,21 +175,25 @@ function CalendarScreen() {
           <div style={{
             display: 'flex', gap: 4, marginLeft: 8,
           }}>
-            {['‹', '›'].map(s => (
-              <div key={s} style={{
-                width: 24, height: 24, borderRadius: 5,
-                background: T.ink200, border: `1px solid ${T.edge}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: T.textMid, fontSize: 13,
-              }}>{s}</div>
+            {[{ s: '‹', d: -1 }, { s: '›', d: 1 }].map(btn => (
+              <div key={btn.s}
+                onClick={() => setMonthShift(prev => prev + btn.d)}
+                style={{
+                  width: 24, height: 24, borderRadius: 5,
+                  background: T.ink200, border: `1px solid ${T.edge}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: T.textMid, fontSize: 13, cursor: 'pointer',
+                }}>{btn.s}</div>
             ))}
           </div>
-          <div style={{
-            height: 24, padding: '0 10px', display: 'flex', alignItems: 'center',
-            background: T.ink200, border: `1px solid ${T.edge}`, borderRadius: 5,
-            fontSize: 10, color: T.textMid, letterSpacing: 0.5, marginLeft: 6,
-            fontFamily: T.mono,
-          }}>TODAY</div>
+          <div
+            onClick={() => { setMonthShift(0); setSelectedDate(todayStr); }}
+            style={{
+              height: 24, padding: '0 10px', display: 'flex', alignItems: 'center',
+              background: T.ink200, border: `1px solid ${T.edge}`, borderRadius: 5,
+              fontSize: 10, color: T.textMid, letterSpacing: 0.5, marginLeft: 6,
+              fontFamily: T.mono, cursor: 'pointer',
+            }}>TODAY</div>
         </div>
 
         <div style={{ width: 1, height: 22, background: T.edge }} />
@@ -180,19 +203,21 @@ function CalendarScreen() {
           display: 'flex', padding: 3, background: T.ink200,
           border: `1px solid ${T.edge}`, borderRadius: 9, height: 28,
         }}>
-          {[
-            { label: 'Month', active: true },
-            { label: 'Week', active: false },
-            { label: 'Agenda', active: false },
-          ].map(s => (
-            <div key={s.label} style={{
-              padding: '0 12px', height: 22, display: 'flex',
-              alignItems: 'center', fontSize: 11, fontWeight: 500,
-              color: s.active ? T.ink000 : T.textMid,
-              background: s.active ? T.signal : 'transparent',
-              borderRadius: 6, letterSpacing: 0.2,
-            }}>{s.label}</div>
-          ))}
+          {['Month', 'Week', 'Agenda'].map(label => {
+            const active = view === label;
+            return (
+              <div key={label}
+                onClick={() => setView(label)}
+                style={{
+                  padding: '0 12px', height: 22, display: 'flex',
+                  alignItems: 'center', fontSize: 11, fontWeight: 500,
+                  color: active ? T.ink000 : T.textMid,
+                  background: active ? T.signal : 'transparent',
+                  borderRadius: 6, letterSpacing: 0.2,
+                  cursor: active ? 'default' : 'pointer',
+                }}>{label}</div>
+            );
+          })}
         </div>
 
         {/* Category filter chips */}
@@ -204,28 +229,48 @@ function CalendarScreen() {
             { label: 'Oil',     c: T.oil,   n: 2 },
             { label: 'Reg',     c: T.reg,   n: 1 },
             { label: 'Trump',   c: T.trump, n: 1 },
-          ].map(c => (
-            <div key={c.label} style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '4px 8px',
-              background: T.ink200,
-              border: `1px solid ${T.edge}`,
-              borderRadius: 6,
-            }}>
-              <div style={{ width: 5, height: 5, borderRadius: 2.5, background: c.c }} />
-              <div style={{ fontSize: 11, color: T.textMid, fontWeight: 500 }}>{c.label}</div>
-              <div style={{ fontFamily: T.mono, fontSize: 10, color: T.textDim, marginLeft: 2 }}>{c.n}</div>
-            </div>
-          ))}
+          ].map(c => {
+            const on = catActive(c.label);
+            return (
+              <div key={c.label}
+                onClick={() => toggleCat(c.label)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '4px 8px',
+                  background: on ? T.ink200 : T.ink100,
+                  border: `1px solid ${on ? T.edge : 'transparent'}`,
+                  borderRadius: 6,
+                  opacity: on ? 1 : 0.4, cursor: 'pointer',
+                  transition: 'opacity 120ms cubic-bezier(0.2,0.7,0.2,1)',
+                }}>
+                <div style={{ width: 5, height: 5, borderRadius: 2.5, background: c.c }} />
+                <div style={{ fontSize: 11, color: T.textMid, fontWeight: 500 }}>{c.label}</div>
+                <div style={{ fontFamily: T.mono, fontSize: 10, color: T.textDim, marginLeft: 2 }}>{c.n}</div>
+              </div>
+            );
+          })}
         </div>
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
-          <div style={{
-            height: 28, padding: '0 12px', display: 'flex', alignItems: 'center', gap: 6,
-            background: T.signal, color: T.ink000, borderRadius: 7,
-            fontSize: 11, fontWeight: 600, letterSpacing: 0.2,
-            boxShadow: 'inset 0 0.5px 0 rgba(255,255,255,0.3)',
-          }}>
+          <div
+            onClick={() => {
+              const title = window.prompt('Event title');
+              if (!title) return;
+              const time = window.prompt('Time (HH:MM ET, 24h)', '14:00') || '14:00';
+              events.push({
+                date: selectedDate, time, cat: 'Custom', c: T.signal, imp: 3,
+                title, ex: { btc: 0, oil: 0, spx: 0 },
+              });
+              // trigger re-render by bumping monthShift noop
+              setMonthShift(s => s);
+            }}
+            style={{
+              height: 28, padding: '0 12px', display: 'flex', alignItems: 'center', gap: 6,
+              background: T.signal, color: T.ink000, borderRadius: 7,
+              fontSize: 11, fontWeight: 600, letterSpacing: 0.2,
+              boxShadow: 'inset 0 0.5px 0 rgba(255,255,255,0.3)',
+              cursor: 'pointer',
+            }}>
             + Add Event
           </div>
         </div>
@@ -263,19 +308,26 @@ function CalendarScreen() {
               }}>
                 {days.map((dt) => {
                   const key = iso(dt);
-                  const dayEvents = eventsByDate[key] || [];
+                  const allDayEvents = eventsByDate[key] || [];
+                  const catMap = { 'Fed': 'Fed', 'Macro Data': 'Fed', 'Geopolitical': 'Geo', 'Earnings': 'Earn',
+                                    'Oil': 'Oil', 'OPEC': 'Oil', 'Regulatory': 'Reg', 'Trump Policy': 'Trump',
+                                    'BTC Inst': 'Trump' };
+                  const dayEvents = allDayEvents.filter(ev => catActive(catMap[ev.cat] || ev.cat));
                   const isToday = key === todayStr;
                   const isPast = key < todayStr;
-                  const isSelected = selected && key === selected.date;
+                  const isSelected = key === selectedDate;
                   return (
-                    <div key={key} style={{
+                    <div key={key}
+                      onClick={() => setSelectedDate(key)}
+                      style={{
                       background: isSelected ? T.ink300 : (isToday ? 'rgba(232,184,74,0.05)' : T.ink100),
                       border: `1px solid ${isSelected ? T.edgeHi : (isToday ? 'rgba(232,184,74,0.3)' : T.edge)}`,
                       borderRadius: 8, padding: '8px 9px', minHeight: 0,
                       opacity: isPast ? 0.45 : 1,
                       boxShadow: isSelected ? 'inset 0 0.5px 0 rgba(255,255,255,0.08)' : 'none',
                       display: 'flex', flexDirection: 'column', gap: 4,
-                      overflow: 'hidden',
+                      overflow: 'hidden', cursor: 'pointer',
+                      transition: 'background 120ms cubic-bezier(0.2,0.7,0.2,1)',
                     }}>
                       {/* Date row */}
                       <div style={{
@@ -351,9 +403,17 @@ function CalendarScreen() {
             <div style={{
               fontSize: 10, letterSpacing: 1, color: T.textDim,
               textTransform: 'uppercase', fontWeight: 500, marginBottom: 10,
-            }}>Selected · Wed Apr 22</div>
+            }}>Selected · {new Date(selectedDate + 'T12:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
 
-            <div style={{
+            {!selected && (
+              <div style={{
+                background: T.ink200, border: `1px solid ${T.edge}`,
+                borderRadius: 12, padding: '22px 18px',
+                fontSize: 12, color: T.textMid, letterSpacing: 0.2,
+              }}>No scheduled events on this day. Click a day with an event dot to preview.</div>
+            )}
+
+            {selected && <div style={{
               background: T.ink200, border: `1px solid ${T.edgeHi}`,
               borderRadius: 12, padding: '16px 18px',
               boxShadow: 'inset 0 0.5px 0 rgba(255,255,255,0.06)',
@@ -439,7 +499,7 @@ function CalendarScreen() {
                   }}>+4 from last week</div>
                 </div>
               </div>
-            </div>
+            </div>}
           </div>
 
           {/* Upcoming this week */}
@@ -456,13 +516,18 @@ function CalendarScreen() {
                   return du >= 0 && du <= 7;
                 })
                 .map((e, idx) => (
-                  <div key={idx} style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '9px 11px',
-                    background: e.pulse ? 'rgba(232,184,74,0.05)' : T.ink200,
-                    border: `0.5px solid ${e.pulse ? 'rgba(232,184,74,0.3)' : T.edge}`,
-                    borderRadius: 7,
-                  }}>
+                  <div key={idx}
+                    onClick={() => setSelectedDate(e.date)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '9px 11px',
+                      background: e.date === selectedDate ? T.ink300
+                                : e.pulse ? 'rgba(232,184,74,0.05)' : T.ink200,
+                      border: `0.5px solid ${e.date === selectedDate ? T.edgeHi
+                                : e.pulse ? 'rgba(232,184,74,0.3)' : T.edge}`,
+                      borderRadius: 7, cursor: 'pointer',
+                      transition: 'background 120ms cubic-bezier(0.2,0.7,0.2,1)',
+                    }}>
                     <div style={{ width: 5, height: 5, borderRadius: 2.5, background: e.c, flexShrink: 0 }} />
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{

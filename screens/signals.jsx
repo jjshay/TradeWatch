@@ -60,16 +60,20 @@ function ImpactTags({ tags }) {
   );
 }
 
-function SignalTile({ sig }) {
+function SignalTile({ sig, onOpen }) {
   const T = sigT;
   const deltaColor = sig.dir === 'up' ? T.bull : sig.dir === 'down' ? T.bear : T.neutral;
   const arrow = sig.dir === 'up' ? '↑' : sig.dir === 'down' ? '↓' : '—';
   return (
-    <div style={{
+    <div
+      onClick={() => onOpen && onOpen(sig)}
+      style={{
       background: T.ink200, border: `1px solid ${sig.hot ? 'rgba(232,184,74,0.3)' : T.edge}`,
       borderRadius: 9, padding: '11px 13px',
       display: 'flex', flexDirection: 'column', gap: 8,
       position: 'relative', overflow: 'hidden',
+      cursor: onOpen ? 'pointer' : 'default',
+      transition: 'border-color 120ms cubic-bezier(0.2,0.7,0.2,1)',
     }}>
       {sig.hot && (
         <div style={{
@@ -119,6 +123,18 @@ function SignalTile({ sig }) {
 }
 
 function SignalsScreen() {
+  const [collapsedLanes, setCollapsedLanes] = React.useState(new Set());
+  const [openSignal, setOpenSignal] = React.useState(null);
+  const [assetFilter, setAssetFilter] = React.useState(null); // 'BTC' | 'OIL' | 'SPX' | null
+
+  const toggleLane = (id) => setCollapsedLanes(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  const filterSig = (s) => !assetFilter || (s.impact && s.impact.includes(assetFilter));
+
   const T = sigT;
   const W = 1280, H = 820;
 
@@ -328,12 +344,43 @@ function SignalsScreen() {
         overflowY: 'auto', overflowX: 'hidden',
         display: 'flex', flexDirection: 'column', gap: 14,
       }}>
-        {lanes.map(lane => (
+        {/* Asset filter pills */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: -4 }}>
+          {[{ k: null, label: 'All' }, { k: 'BTC', label: 'BTC' }, { k: 'OIL', label: 'OIL' }, { k: 'SPX', label: 'SPX' }].map(p => {
+            const on = assetFilter === p.k;
+            return (
+              <div key={p.label}
+                onClick={() => setAssetFilter(p.k)}
+                style={{
+                  padding: '4px 10px', fontSize: 10.5, letterSpacing: 0.3,
+                  fontFamily: T.mono, fontWeight: 600,
+                  background: on ? T.signal : T.ink200,
+                  color: on ? T.ink000 : T.textMid,
+                  border: `1px solid ${on ? T.signal : T.edge}`, borderRadius: 6,
+                  cursor: on ? 'default' : 'pointer',
+                }}>{p.label}</div>
+            );
+          })}
+          {assetFilter && (
+            <div style={{ fontFamily: T.mono, fontSize: 10, color: T.textDim, alignSelf: 'center', marginLeft: 6 }}>
+              filtering · {lanes.reduce((n, l) => n + l.signals.filter(filterSig).length, 0)} signals
+            </div>
+          )}
+        </div>
+
+        {lanes.map(lane => {
+          const collapsed = collapsedLanes.has(lane.id);
+          const visibleSigs = lane.signals.filter(filterSig);
+          if (assetFilter && visibleSigs.length === 0) return null;
+          return (
           <div key={lane.id}>
             {/* Lane header */}
-            <div style={{
-              display: 'flex', alignItems: 'baseline', marginBottom: 8, gap: 10,
-            }}>
+            <div
+              onClick={() => toggleLane(lane.id)}
+              style={{
+                display: 'flex', alignItems: 'baseline', marginBottom: 8, gap: 10,
+                cursor: 'pointer', userSelect: 'none',
+              }}>
               <div style={{
                 width: 3, height: 14, background: lane.accent, borderRadius: 1.5,
                 alignSelf: 'center',
@@ -347,24 +394,104 @@ function SignalsScreen() {
               <div style={{
                 marginLeft: 'auto', fontFamily: T.mono, fontSize: 9,
                 color: T.textDim, letterSpacing: 0.4,
-              }}>{lane.signals.length} SIGNALS</div>
+              }}>{visibleSigs.length}{assetFilter ? '/' + lane.signals.length : ''} SIGNALS {collapsed ? '▸' : '▾'}</div>
             </div>
 
             {/* Signals grid */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(6, 1fr)',
-              gap: 8,
-            }}>
-              {lane.signals.map(sig => (
-                <SignalTile key={sig.label} sig={sig} />
-              ))}
-            </div>
+            {!collapsed && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(6, 1fr)',
+                gap: 8,
+              }}>
+                {visibleSigs.map(sig => (
+                  <SignalTile key={sig.label} sig={sig} onOpen={setOpenSignal} />
+                ))}
+              </div>
+            )}
           </div>
-        ))}
+        );})}
 
         <div style={{ height: 8 }} />
       </div>
+
+      {/* Signal detail modal */}
+      {openSignal && (
+        <div
+          onClick={() => setOpenSignal(null)}
+          style={{
+            position: 'absolute', inset: 0, background: 'rgba(7,9,12,0.72)',
+            backdropFilter: 'blur(12px) saturate(150%)',
+            WebkitBackdropFilter: 'blur(12px) saturate(150%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 50, padding: 40,
+          }}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 520, background: T.ink100, border: `1px solid ${T.edgeHi}`,
+              borderRadius: 14, padding: '24px 28px',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.6), inset 0 0.5px 0 rgba(255,255,255,0.08)',
+            }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <div style={{
+                fontSize: 10, letterSpacing: 1.2, color: T.textDim,
+                textTransform: 'uppercase', fontWeight: 600,
+              }}>Signal Detail</div>
+              {openSignal.hot && (
+                <div style={{
+                  padding: '2px 7px', borderRadius: 4,
+                  background: 'rgba(232,184,74,0.15)',
+                  border: '0.5px solid rgba(232,184,74,0.4)',
+                  fontSize: 9, fontWeight: 600, letterSpacing: 0.8, color: T.signal,
+                }}>HOT</div>
+              )}
+              <div style={{ marginLeft: 'auto' }}>
+                <div
+                  onClick={() => setOpenSignal(null)}
+                  style={{
+                    width: 24, height: 24, borderRadius: 6,
+                    background: T.ink300, border: `1px solid ${T.edge}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', color: T.textMid, fontSize: 12, lineHeight: 1,
+                  }}>✕</div>
+              </div>
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 500, color: T.text, letterSpacing: -0.2, marginBottom: 8 }}>
+              {openSignal.label}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 18 }}>
+              <div style={{ fontFamily: T.mono, fontSize: 26, fontWeight: 500, color: T.text, letterSpacing: -0.3 }}>
+                {openSignal.value}
+              </div>
+              <div style={{
+                fontFamily: T.mono, fontSize: 12,
+                color: openSignal.dir === 'up' ? T.bull : openSignal.dir === 'down' ? T.bear : T.neutral,
+              }}>
+                {openSignal.dir === 'up' ? '↑' : openSignal.dir === 'down' ? '↓' : '—'} {openSignal.delta}
+              </div>
+            </div>
+            {/* Large sparkline */}
+            <div style={{ background: T.ink200, border: `1px solid ${T.edge}`, borderRadius: 10, padding: 16, marginBottom: 14 }}>
+              <Sparkline data={openSignal.spark} color={openSignal.dir === 'down' ? T.bear : T.bull} w={460} h={80} />
+            </div>
+            {openSignal.status && (
+              <div style={{ fontSize: 13, lineHeight: 1.55, color: T.textMid, marginBottom: 14 }}>
+                {openSignal.status}
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 14, borderTop: `1px solid ${T.edge}` }}>
+              <div style={{
+                fontSize: 9.5, letterSpacing: 0.8, color: T.textDim,
+                textTransform: 'uppercase', fontWeight: 500,
+              }}>Impacts</div>
+              <div style={{ marginLeft: 'auto' }}>
+                <ImpactTags tags={openSignal.impact || []} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
