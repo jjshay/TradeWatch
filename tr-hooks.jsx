@@ -13,7 +13,7 @@
 // }
 
 const TR_DEFAULT_SETTINGS = {
-  keys: { coingecko: '', tradier: '', polygon: '', claude: '', alpaca: '', finnhub: '' },
+  keys: { coingecko: '', tradier: '', polygon: '', claude: '', openai: '', gemini: '', grok: '', alpaca: '', finnhub: '' },
   refresh: {
     header: 60, historical: 300, news: 180, calendar: 600,
     signals: 120, impact: 60, projected: 600, recommend: 600,
@@ -123,7 +123,10 @@ function TRSettingsSheet({ open, onClose }) {
     { k: 'polygon',   label: 'Polygon.io API Key', hint: 'Alt stock/options data provider' },
     { k: 'finnhub',   label: 'Finnhub API Key',    hint: 'Free stock prices + news' },
     { k: 'alpaca',    label: 'Alpaca Keys (id:secret)', hint: 'Paper/live trading + quotes' },
-    { k: 'claude',    label: 'Anthropic API Key',  hint: 'AI narrative + recommendation ranking' },
+    { k: 'claude',    label: 'Anthropic (Claude) API Key', hint: 'Dual-LLM: Claude arm of the Recommend + Projected engines' },
+    { k: 'openai',    label: 'OpenAI (ChatGPT) API Key',   hint: 'Dual-LLM: ChatGPT arm — side-by-side with Claude, consensus block below' },
+    { k: 'gemini',    label: 'Google Gemini API Key',      hint: 'Optional 3rd opinion for briefings' },
+    { k: 'grok',      label: 'xAI Grok API Key',           hint: 'Optional 4th opinion for briefings' },
   ];
 
   const refreshRows = [

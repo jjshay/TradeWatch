@@ -802,17 +802,61 @@ const NewsFeed = {
 
 // ========== AI ANALYSIS ENGINE ==========
 const AIAnalysis = {
-    // Keys loaded from localStorage (set via Settings in the app)
+    // Keys come from TR_SETTINGS (new TradeRadar Settings sheet) OR the legacy
+    // oilradar_ai_keys localStorage blob, whichever has a value. TR_SETTINGS wins.
     getKeys() {
-        try {
-            return JSON.parse(localStorage.getItem('oilradar_ai_keys') || '{}');
-        } catch { return {}; }
+        let legacy = {};
+        try { legacy = JSON.parse(localStorage.getItem('oilradar_ai_keys') || '{}'); } catch {}
+        const tr = (window.TR_SETTINGS && window.TR_SETTINGS.keys) || {};
+        // Map TR_SETTINGS field names → legacy names where they differ
+        const merged = {
+            ...legacy,
+            claude: tr.claude   || legacy.claude   || '',
+            openai: tr.openai   || legacy.openai   || '',
+            gemini: tr.gemini   || legacy.gemini   || '',
+            grok:   tr.grok     || legacy.grok     || '',
+        };
+        return merged;
     },
     setKeys(keys) {
         localStorage.setItem('oilradar_ai_keys', JSON.stringify(keys));
     },
     get keys() {
         return this.getKeys();
+    },
+
+    // Run Claude and ChatGPT in parallel against the same prompt → consensus block.
+    // Both analyzers already JSON-parse their output; we compare sentiment +
+    // confidence to produce an agreement signal.
+    async runDual(headlines) {
+        const keys = this.getKeys();
+        const tasks = [];
+        if (keys.claude) tasks.push(this.analyzeWithClaude(headlines));
+        else tasks.push(Promise.resolve({ model: 'Claude Sonnet', result: null, raw: null, error: 'no key' }));
+        if (keys.openai) tasks.push(this.analyzeWithOpenAI(headlines));
+        else tasks.push(Promise.resolve({ model: 'GPT-4o Mini', result: null, raw: null, error: 'no key' }));
+        const [claude, gpt] = await Promise.all(tasks);
+
+        // Consensus logic — compare sentiment / confidence when both succeeded
+        let consensus = null;
+        if (claude.result && gpt.result) {
+            const cSent = claude.result.sentiment, gSent = gpt.result.sentiment;
+            const cConf = Number(claude.result.confidence) || 0;
+            const gConf = Number(gpt.result.confidence) || 0;
+            const agree = cSent === gSent;
+            consensus = {
+                agree,
+                sentiment: agree ? cSent : `${cSent} vs ${gSent}`,
+                avgConfidence: ((cConf + gConf) / 2).toFixed(1),
+                label: agree ? 'ALIGNED' : 'DIVERGENT',
+                summary: agree
+                    ? `Both models agree: ${cSent.toUpperCase()}. Avg confidence ${((cConf + gConf) / 2).toFixed(1)}/10.`
+                    : `Models split: Claude says ${cSent} (${cConf}/10) vs GPT says ${gSent} (${gConf}/10). Reduce size until alignment.`,
+                claudeActionable: claude.result.actionable || [],
+                gptActionable:    gpt.result.actionable || [],
+            };
+        }
+        return { claude, gpt, consensus };
     },
 
     _buildPrompt(headlines) {

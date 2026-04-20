@@ -66,6 +66,62 @@ function RecommendationsScreen({ onNav }) {
 
   const [openAccordion, setOpenAccordion] = React.useState('claude'); // 'claude' | 'gpt' | null
 
+  // LIVE — dual-LLM pass. Pulls fresh headlines from engine.js NewsFeed, fans
+  // them out to Claude + ChatGPT in parallel, returns both + a consensus block.
+  const { data: dual, loading: aiLoading, lastFetch: aiLastFetch, error: aiError } =
+    (window.useAutoUpdate || (() => ({})))(
+      'recommend-dual-llm',
+      async () => {
+        if (typeof NewsFeed === 'undefined' || typeof AIAnalysis === 'undefined') return null;
+        const keys = AIAnalysis.getKeys();
+        if (!keys.claude && !keys.openai) return null; // no keys → design defaults stay
+        const articles = await NewsFeed.fetchAll();
+        if (!articles || !articles.length) return null;
+        return await AIAnalysis.runDual(articles.slice(0, 15));
+      },
+      { refreshKey: 'recommend' }
+    );
+
+  // If we got live results, override the hardcoded design blocks.
+  const claudeRec = (dual && dual.claude && dual.claude.result) ? {
+    stance: (dual.claude.result.sentiment || 'neutral').toUpperCase(),
+    confidence: Math.round((dual.claude.result.confidence || 0) * 10),
+    tldr: dual.claude.result.summary || CLAUDE_REC.tldr,
+    allocTilt: (dual.claude.result.actionable && dual.claude.result.actionable[0])
+      ? `${dual.claude.result.actionable[0].action} ${dual.claude.result.actionable[0].asset} · ${dual.claude.result.actionable[0].reasoning}`
+      : CLAUDE_REC.allocTilt,
+    whyDifferent: (dual.claude.result.opportunities || []).join(' · ') || CLAUDE_REC.whyDifferent,
+    risks: dual.claude.result.risks || CLAUDE_REC.risks,
+    _live: true,
+  } : CLAUDE_REC;
+
+  const gptRec = (dual && dual.gpt && dual.gpt.result) ? {
+    stance: (dual.gpt.result.sentiment || 'neutral').toUpperCase(),
+    confidence: Math.round((dual.gpt.result.confidence || 0) * 10),
+    tldr: dual.gpt.result.summary || GPT_REC.tldr,
+    allocTilt: (dual.gpt.result.actionable && dual.gpt.result.actionable[0])
+      ? `${dual.gpt.result.actionable[0].action} ${dual.gpt.result.actionable[0].asset} · ${dual.gpt.result.actionable[0].reasoning}`
+      : GPT_REC.allocTilt,
+    whyDifferent: (dual.gpt.result.opportunities || []).join(' · ') || GPT_REC.whyDifferent,
+    risks: dual.gpt.result.risks || GPT_REC.risks,
+    _live: true,
+  } : GPT_REC;
+
+  const consensus = (dual && dual.consensus) ? {
+    stance: dual.consensus.agree ? dual.consensus.sentiment.toUpperCase() : 'MIXED',
+    confidence: Math.round((parseFloat(dual.consensus.avgConfidence) || 0) * 10),
+    tldr: dual.consensus.summary,
+    bullets: [
+      ...((dual.claude.result && dual.claude.result.opportunities) || []).slice(0, 2),
+      ...((dual.gpt.result && dual.gpt.result.opportunities) || []).slice(0, 2),
+    ].filter(Boolean).length ? [
+      ...((dual.claude.result && dual.claude.result.opportunities) || []).slice(0, 2),
+      ...((dual.gpt.result && dual.gpt.result.opportunities) || []).slice(0, 2),
+    ] : CONSENSUS.bullets,
+    _live: true,
+    _agree: dual.consensus.agree,
+  } : CONSENSUS;
+
   return (
     <div style={{
       width: W, height: H, background: T.ink000, color: T.text,
@@ -170,22 +226,35 @@ function RecommendationsScreen({ onNav }) {
                 border: `0.5px solid rgba(78,160,118,0.4)`,
                 borderRadius: 5,
                 fontFamily: T.mono, fontSize: 9.5, fontWeight: 600, color: T.bull, letterSpacing: 0.6,
-              }}>{CONSENSUS.stance}</div>
+              }}>{consensus.stance}</div>
               <div style={{
                 fontFamily: T.mono, fontSize: 10, color: T.textMid, letterSpacing: 0.3,
-              }}>CONF {CONSENSUS.confidence}</div>
+              }}>CONF {consensus.confidence}</div>
+              {consensus._live && (
+                <div style={{
+                  fontFamily: T.mono, fontSize: 9, color: consensus._agree ? T.bull : T.bear,
+                  letterSpacing: 0.6, padding: '2px 6px', borderRadius: 4,
+                  background: consensus._agree ? 'rgba(78,160,118,0.12)' : 'rgba(217,107,107,0.12)',
+                  border: `0.5px solid ${consensus._agree ? 'rgba(78,160,118,0.4)' : 'rgba(217,107,107,0.4)'}`,
+                }}>{consensus._agree ? 'LIVE · ALIGNED' : 'LIVE · DIVERGENT'}</div>
+              )}
+              {aiLoading && !consensus._live && (
+                <div style={{ fontFamily: T.mono, fontSize: 9, color: T.textDim, letterSpacing: 0.6 }}>
+                  ANALYZING…
+                </div>
+              )}
             </div>
 
             <div style={{
               fontSize: 15, lineHeight: 1.45, color: T.text, fontWeight: 500,
               letterSpacing: -0.1, marginBottom: 12,
-            }}>{CONSENSUS.tldr}</div>
+            }}>{consensus.tldr}</div>
 
             <ul style={{
               margin: 0, padding: 0, listStyle: 'none',
               display: 'flex', flexDirection: 'column', gap: 6,
             }}>
-              {CONSENSUS.bullets.map((b, i) => (
+              {consensus.bullets.map((b, i) => (
                 <li key={i} style={{
                   display: 'flex', gap: 8, fontSize: 12, color: T.textMid, lineHeight: 1.5,
                 }}>
@@ -199,17 +268,19 @@ function RecommendationsScreen({ onNav }) {
           {/* CLAUDE ACCORDION */}
           <AccordionCard
             T={T} brand={T.claude} brandName="Claude"
+            live={claudeRec._live}
             open={openAccordion === 'claude'}
             onToggle={() => setOpenAccordion(openAccordion === 'claude' ? null : 'claude')}
-            rec={CLAUDE_REC}
+            rec={claudeRec}
           />
 
           {/* GPT ACCORDION */}
           <AccordionCard
             T={T} brand={T.gpt} brandName="ChatGPT"
+            live={gptRec._live}
             open={openAccordion === 'gpt'}
             onToggle={() => setOpenAccordion(openAccordion === 'gpt' ? null : 'gpt')}
-            rec={GPT_REC}
+            rec={gptRec}
           />
 
           <div style={{ height: 20 }} />
@@ -250,7 +321,7 @@ function RecommendationsScreen({ onNav }) {
   );
 }
 
-function AccordionCard({ T, brand, brandName, open, onToggle, rec }) {
+function AccordionCard({ T, brand, brandName, open, onToggle, rec, live }) {
   return (
     <div style={{
       background: T.ink200,
@@ -285,6 +356,14 @@ function AccordionCard({ T, brand, brandName, open, onToggle, rec }) {
         <div style={{
           fontFamily: T.mono, fontSize: 10, color: T.textMid, letterSpacing: 0.3,
         }}>CONF {rec.confidence}</div>
+        {live && (
+          <div style={{
+            padding: '2px 7px', fontFamily: T.mono, fontSize: 9, fontWeight: 600,
+            color: T.bull, letterSpacing: 0.6, borderRadius: 4,
+            background: 'rgba(78,160,118,0.12)',
+            border: '0.5px solid rgba(78,160,118,0.4)',
+          }}>LIVE</div>
+        )}
         <div style={{
           marginLeft: 'auto', fontFamily: T.mono, fontSize: 14, color: T.textMid,
           transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
