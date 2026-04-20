@@ -9,16 +9,17 @@ const rcTokens = {
   signal: '#c9a227',
   btc: '#F7931A',
   bull: '#4EA076', bear: '#D96B6B',
-  claude: '#D97757',
-  gpt:    '#0077B5',
-  gemini: '#4285F4',
-  grok:   '#9AA3B2',
+  claude:     '#D97757',
+  gpt:        '#0077B5',
+  gemini:     '#4285F4',
+  grok:       '#9AA3B2',
+  perplexity: '#20A4C7',
   ui: 'InterTight, -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
   mono: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
 };
 
 // 5 illustrative investments, all tied to BTC.
-const PORTFOLIO = [
+const PORTFOLIO_BASE = [
   { ticker: 'IBIT',   name: 'iShares Bitcoin Trust ETF',      alloc: 35, price: 54.82,  chg: +2.14, thesis: 'Direct spot exposure. 14d inflow streak.' },
   { ticker: 'MSTR',   name: 'MicroStrategy (BTC treasury)',    alloc: 25, price: 1842.50, chg: +3.80, thesis: '2.4× leveraged beta to BTC via treasury.' },
   { ticker: 'COIN',   name: 'Coinbase — crypto platform',     alloc: 15, price: 268.40,  chg: +1.95, thesis: 'CLARITY passage = multiple expansion.' },
@@ -47,6 +48,18 @@ const CLAUDE_REC = {
   risks: [
     'If Hormuz closes, oil spike → inflationary reprint → Fed hold → BTC caps at $110k',
     'Political backlash on reserve acquisition — 20% probability of meaningful pause',
+  ],
+};
+
+const PERPLEXITY_REC = {
+  stance: 'CONSTRUCTIVE',
+  confidence: 76,
+  tldr: 'Web-search synthesis: ETF + CLARITY macro convergence favors BTC longs.',
+  allocTilt: 'Spot-dominant; web consensus points to institutional bid continuation.',
+  whyDifferent: 'Grounded in real-time web search — cites primary sources for every claim.',
+  risks: [
+    'Unfavorable headline risk from China EV tariff counter-moves',
+    'Cross-reference shows minor divergence on Strait of Hormuz severity',
   ],
 };
 
@@ -92,6 +105,35 @@ function RecommendationsScreen({ onNav }) {
 
   const [openAccordion, setOpenAccordion] = React.useState('claude'); // 'claude' | 'gpt' | null
 
+  // LIVE — portfolio ticker prices via Finnhub
+  const finnhubKey = (window.TR_SETTINGS && window.TR_SETTINGS.keys && window.TR_SETTINGS.keys.finnhub) || '';
+  const { data: livePortfolioPrices } = (window.useAutoUpdate || (() => ({})))(
+    `recommend-portfolio-${finnhubKey ? 'on' : 'off'}`,
+    async () => {
+      if (!finnhubKey) return null;
+      const syms = PORTFOLIO_BASE.map(p => p.ticker);
+      const results = {};
+      for (const sym of syms) {
+        try {
+          const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${finnhubKey}`);
+          if (r.ok) {
+            const q = await r.json();
+            if (q && typeof q.c === 'number' && q.c > 0) {
+              results[sym] = { price: q.c, changePct: q.dp };
+            }
+          }
+        } catch (_) { /* skip */ }
+      }
+      return Object.keys(results).length ? results : null;
+    },
+    { refreshKey: 'recommend' }
+  );
+
+  const PORTFOLIO = PORTFOLIO_BASE.map(p => {
+    const live = livePortfolioPrices && livePortfolioPrices[p.ticker];
+    return live ? { ...p, price: live.price, chg: live.changePct, _live: true } : p;
+  });
+
   // LIVE — dual-LLM pass. Pulls fresh headlines from engine.js NewsFeed, fans
   // them out to Claude + ChatGPT in parallel, returns both + a consensus block.
   const { data: dual, loading: aiLoading, lastFetch: aiLastFetch, error: aiError } =
@@ -120,6 +162,18 @@ function RecommendationsScreen({ onNav }) {
     risks: dual.claude.result.risks || CLAUDE_REC.risks,
     _live: true,
   } : CLAUDE_REC;
+
+  const perplexityRec = (dual && dual.perplexity && dual.perplexity.result) ? {
+    stance: (dual.perplexity.result.sentiment || 'neutral').toUpperCase(),
+    confidence: Math.round((dual.perplexity.result.confidence || 0) * 10),
+    tldr: dual.perplexity.result.summary || PERPLEXITY_REC.tldr,
+    allocTilt: (dual.perplexity.result.actionable && dual.perplexity.result.actionable[0])
+      ? `${dual.perplexity.result.actionable[0].action} ${dual.perplexity.result.actionable[0].asset} · ${dual.perplexity.result.actionable[0].reasoning}`
+      : PERPLEXITY_REC.allocTilt,
+    whyDifferent: (dual.perplexity.result.opportunities || []).join(' · ') || PERPLEXITY_REC.whyDifferent,
+    risks: dual.perplexity.result.risks || PERPLEXITY_REC.risks,
+    _live: true,
+  } : PERPLEXITY_REC;
 
   const grokRec = (dual && dual.grok && dual.grok.result) ? {
     stance: (dual.grok.result.sentiment || 'neutral').toUpperCase(),
@@ -347,6 +401,15 @@ function RecommendationsScreen({ onNav }) {
             open={openAccordion === 'grok'}
             onToggle={() => setOpenAccordion(openAccordion === 'grok' ? null : 'grok')}
             rec={grokRec}
+          />
+
+          {/* PERPLEXITY ACCORDION */}
+          <AccordionCard
+            T={T} brand={T.perplexity} brandName="Perplexity"
+            live={perplexityRec._live}
+            open={openAccordion === 'perplexity'}
+            onToggle={() => setOpenAccordion(openAccordion === 'perplexity' ? null : 'perplexity')}
+            rec={perplexityRec}
           />
 
           <div style={{ height: 20 }} />

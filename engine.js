@@ -801,6 +801,49 @@ const NewsFeed = {
 };
 
 // ========== AI ANALYSIS ENGINE ==========
+// Tradier wrapper — sandbox/live. Reads key + mode from TR_SETTINGS. Sandbox
+// data is 15-min delayed; production needs paid plan. All endpoints return
+// null on error so screens can fall back to designed defaults.
+const TradierAPI = {
+    _base() {
+        const meta = (window.TR_SETTINGS && window.TR_SETTINGS.meta) || {};
+        return meta.tradierMode === 'live'
+            ? 'https://api.tradier.com/v1'
+            : 'https://sandbox.tradier.com/v1';
+    },
+    _token() {
+        return (window.TR_SETTINGS && window.TR_SETTINGS.keys && window.TR_SETTINGS.keys.tradier) || '';
+    },
+    async _fetch(path) {
+        const token = this._token();
+        if (!token) return null;
+        try {
+            const r = await fetch(`${this._base()}${path}`, {
+                headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+            });
+            if (!r.ok) return null;
+            return await r.json();
+        } catch (_) { return null; }
+    },
+    async getQuote(symbol) {
+        const d = await this._fetch(`/markets/quotes?symbols=${encodeURIComponent(symbol)}`);
+        return d && d.quotes && d.quotes.quote ? d.quotes.quote : null;
+    },
+    async getExpirations(symbol) {
+        const d = await this._fetch(`/markets/options/expirations?symbol=${encodeURIComponent(symbol)}&includeAllRoots=true`);
+        return d && d.expirations && d.expirations.date
+            ? (Array.isArray(d.expirations.date) ? d.expirations.date : [d.expirations.date])
+            : null;
+    },
+    async getChain(symbol, expiration) {
+        const d = await this._fetch(`/markets/options/chains?symbol=${encodeURIComponent(symbol)}&expiration=${encodeURIComponent(expiration)}&greeks=true`);
+        return d && d.options && d.options.option
+            ? (Array.isArray(d.options.option) ? d.options.option : [d.options.option])
+            : null;
+    },
+};
+window.TradierAPI = TradierAPI;
+
 const AIAnalysis = {
     // Keys come from TR_SETTINGS (new TradeRadar Settings sheet) OR the legacy
     // oilradar_ai_keys localStorage blob, whichever has a value. TR_SETTINGS wins.
@@ -827,7 +870,31 @@ const AIAnalysis = {
 
     // Run all configured LLMs in parallel on the same prompt → per-model results
     // plus a consensus block. Claude + ChatGPT + Gemini (+ optional Grok).
-    async runMulti(headlines, { excludeGrok = false } = {}) {
+    async analyzeWithPerplexity(headlines) {
+        try {
+            const resp = await fetch('https://api.perplexity.ai/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.keys.perplexity}`
+                },
+                body: JSON.stringify({
+                    model: 'sonar',
+                    messages: [{ role: 'user', content: this._buildPrompt(headlines) }],
+                    temperature: 0.3,
+                    max_tokens: 1500
+                })
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            const text = data.choices?.[0]?.message?.content || '';
+            return { model: 'Perplexity Sonar', result: this._parseJSON(text), raw: text, error: null };
+        } catch (e) {
+            return { model: 'Perplexity Sonar', result: null, raw: null, error: e.message };
+        }
+    },
+
+    async runMulti(headlines, { excludeGrok = false, excludePerplexity = false } = {}) {
         const keys = this.getKeys();
         const skip = (model) => Promise.resolve({ model, result: null, raw: null, error: 'no key' });
 
@@ -837,6 +904,7 @@ const AIAnalysis = {
             gemini: keys.gemini ? this.analyzeWithGemini(headlines) : skip('Gemini 2.0 Flash'),
         };
         if (!excludeGrok) tasks.grok = keys.grok ? this.analyzeWithGrok(headlines) : skip('Grok 3');
+        if (!excludePerplexity) tasks.perplexity = keys.perplexity ? this.analyzeWithPerplexity(headlines) : skip('Perplexity Sonar');
 
         const keysArr = Object.keys(tasks);
         const vals = await Promise.all(keysArr.map(k => tasks[k]));
