@@ -376,7 +376,36 @@ function NewsScreen() {
     },
   ];
 
-  const activeBucket = buckets[1]; // CLARITY / Gov BTC selected by default
+  const [activeIdx, setActiveIdx] = React.useState(1); // CLARITY / Gov BTC default
+  const [openArticle, setOpenArticle] = React.useState(null); // { item, bucket } | null
+  const [sortMode, setSortMode] = React.useState('newest'); // 'newest' | 'impact'
+  const activeBucket = buckets[activeIdx];
+
+  // Risk level derived from importance (imp 1-5).
+  const riskOf = (imp) => imp >= 4 ? { label: 'HIGH', color: '#D96B6B' }
+                        : imp >= 3 ? { label: 'MED',  color: T.signal  }
+                        :            { label: 'LOW',  color: '#6FCF8E' };
+
+  // Parse "Apr 19 · 06:15" → comparable timestamp ms (fake year 2026 for sort).
+  const parseDateKey = (s) => {
+    const [d, t] = s.split(' · ');
+    const dt = new Date(`${d} 2026 ${t || '00:00'} UTC`);
+    return isNaN(dt) ? 0 : dt.getTime();
+  };
+
+  const sortedItems = React.useMemo(() => {
+    const arr = [...activeBucket.items];
+    if (sortMode === 'impact') {
+      arr.sort((a, b) => {
+        const sa = Math.abs(a.impact.btc) + Math.abs(a.impact.spx) + Math.abs(a.impact.oil) + a.imp * 0.5;
+        const sb = Math.abs(b.impact.btc) + Math.abs(b.impact.spx) + Math.abs(b.impact.oil) + b.imp * 0.5;
+        return sb - sa;
+      });
+    } else {
+      arr.sort((a, b) => parseDateKey(b.date) - parseDateKey(a.date));
+    }
+    return arr;
+  }, [activeBucket, sortMode]);
 
   const ImportanceDots = ({ n }) => (
     <div style={{ display: 'flex', gap: 2 }}>
@@ -470,16 +499,20 @@ function NewsScreen() {
           }}>Narratives</div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {buckets.map(b => {
+            {buckets.map((b, bi) => {
               const active = b === activeBucket;
               return (
-                <div key={b.id} style={{
+                <div key={b.id}
+                  onClick={() => setActiveIdx(bi)}
+                  style={{
                   padding: '10px 12px',
                   background: active ? T.ink300 : 'transparent',
                   border: `1px solid ${active ? T.edgeHi : 'transparent'}`,
                   borderRadius: 8,
                   boxShadow: active ? 'inset 0 0.5px 0 rgba(255,255,255,0.08)' : 'none',
                   position: 'relative',
+                  cursor: active ? 'default' : 'pointer',
+                  transition: 'background 120ms cubic-bezier(0.2,0.7,0.2,1)',
                 }}>
                   {active && (
                     <div style={{
@@ -528,18 +561,24 @@ function NewsScreen() {
               border: `1px solid ${T.edge}`, borderRadius: 8, height: 26,
             }}>
               {[
-                { label: 'Newest', active: true },
-                { label: 'Impact', active: false },
-              ].map(s => (
-                <div key={s.label} style={{
-                  flex: 1, height: 20, display: 'flex',
-                  alignItems: 'center', justifyContent: 'center',
-                  fontSize: 10.5, fontWeight: 500,
-                  color: s.active ? T.ink000 : T.textMid,
-                  background: s.active ? T.signal : 'transparent',
-                  borderRadius: 5, letterSpacing: 0.2,
-                }}>{s.label}</div>
-              ))}
+                { key: 'newest', label: 'Newest' },
+                { key: 'impact', label: 'Impact' },
+              ].map(s => {
+                const active = s.key === sortMode;
+                return (
+                  <div key={s.key}
+                    onClick={() => setSortMode(s.key)}
+                    style={{
+                      flex: 1, height: 20, display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      fontSize: 10.5, fontWeight: 500,
+                      color: active ? T.ink000 : T.textMid,
+                      background: active ? T.signal : 'transparent',
+                      borderRadius: 5, letterSpacing: 0.2,
+                      cursor: active ? 'default' : 'pointer',
+                    }}>{s.label}</div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -615,9 +654,10 @@ function NewsScreen() {
             </div>
           </div>
 
-          {/* Running list */}
+          {/* Horizontal card strip — scroll left/right, double-click to open */}
           <div style={{
-            flex: 1, overflow: 'hidden', padding: '4px 28px 12px',
+            flex: 1, overflow: 'hidden', padding: '4px 28px 18px',
+            display: 'flex', flexDirection: 'column',
           }}>
             <div style={{
               display: 'flex', alignItems: 'center',
@@ -626,109 +666,201 @@ function NewsScreen() {
               <div style={{
                 fontSize: 10, letterSpacing: 1, color: T.textDim,
                 textTransform: 'uppercase', fontWeight: 500,
-              }}>Running List · {activeBucket.items.length} Dated Items</div>
-              <div style={{ marginLeft: 'auto', fontFamily: T.mono, fontSize: 10, color: T.textDim, letterSpacing: 0.4 }}>
-                LATEST → OLDEST
+              }}>Articles · {sortedItems.length} · {sortMode === 'impact' ? 'By impact' : 'Newest first'}</div>
+              <div style={{ marginLeft: 'auto', fontFamily: T.mono, fontSize: 9.5, color: T.textDim, letterSpacing: 0.4 }}>
+                SCROLL → · DOUBLE-CLICK TO OPEN
               </div>
             </div>
 
             <div style={{
-              display: 'flex', flexDirection: 'column',
+              display: 'flex', gap: 14,
+              overflowX: 'auto', overflowY: 'hidden',
+              paddingBottom: 12, scrollSnapType: 'x proximity',
             }}>
-              {(() => {
-                const groups = {};
-                const order = [];
-                activeBucket.items.forEach(it => {
-                  const k = it.sub || 'Other';
-                  if (!groups[k]) { groups[k] = []; order.push(k); }
-                  groups[k].push(it);
-                });
-                const rows = [];
-                order.forEach((sub, gi) => {
-                  rows.push(
-                    <div key={`h-${sub}`} style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: gi === 0 ? '4px 0 8px' : '18px 0 8px',
-                      borderBottom: `0.5px solid ${T.edge}`, marginBottom: 2,
-                    }} title={`${groups[sub].length} items in ${sub}`}>
-                      <div style={{ width: 10, height: 1, background: activeBucket.c, opacity: 0.6 }} />
-                      <div style={{ fontSize: 9.5, letterSpacing: 1.2, color: activeBucket.c, textTransform: 'uppercase', fontWeight: 600 }}>{sub}</div>
-                      <div style={{ fontFamily: T.mono, fontSize: 9, color: T.textDim, letterSpacing: 0.4 }}>· {groups[sub].length}</div>
-                    </div>
-                  );
-                  groups[sub].forEach((it, idx) => rows.push(
-                    <div key={`i-${sub}-${idx}`} style={{
-                      display: 'grid',
-                      gridTemplateColumns: '18px 110px 1fr 280px',
-                      gap: 14, padding: '12px 0',
-                      borderBottom: `1px solid ${T.edge}`,
-                      position: 'relative',
-                    }} title={`${it.sub} · ${it.source} · importance ${it.imp}/5`}>
-                  {/* Timeline dot + line */}
-                  <div style={{
-                    position: 'relative', display: 'flex', justifyContent: 'center',
-                  }}>
-                    <div style={{
-                      position: 'absolute', top: 0, bottom: 0, width: 1,
-                      background: T.edge, left: '50%', transform: 'translateX(-50%)',
-                    }} />
-                    <div style={{
-                      width: 9, height: 9, borderRadius: 5, marginTop: 4,
-                      background: T.ink000, border: `1.5px solid ${activeBucket.c}`,
-                      zIndex: 1,
-                    }} />
-                  </div>
-
-                  {/* Date + source */}
-                  <div style={{ paddingTop: 2 }}>
-                    <div style={{
-                      fontFamily: T.mono, fontSize: 11, color: T.text,
-                      fontWeight: 500, letterSpacing: 0.2, marginBottom: 3,
-                    }}>{it.date.split(' · ')[0]}</div>
-                    <div style={{
-                      fontFamily: T.mono, fontSize: 9.5, color: T.textDim, letterSpacing: 0.3,
-                    }}>{it.date.split(' · ')[1]} ET</div>
-                    <div style={{
-                      fontFamily: T.mono, fontSize: 9.5, color: T.textDim, letterSpacing: 0.3,
-                      marginTop: 4,
-                    }}>{it.source.toUpperCase()}</div>
-                  </div>
-
-                  {/* Body */}
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4,
+              {sortedItems.map((it, idx) => {
+                const risk = riskOf(it.imp);
+                const [dPart, tPart] = it.date.split(' · ');
+                return (
+                  <div key={idx}
+                    onDoubleClick={() => setOpenArticle({ item: it, bucket: activeBucket })}
+                    title="Double-click to open"
+                    style={{
+                      flex: '0 0 300px', scrollSnapAlign: 'start',
+                      background: T.ink100, border: `1px solid ${T.edge}`,
+                      borderRadius: 10, padding: '14px 14px 12px',
+                      display: 'flex', flexDirection: 'column', gap: 10,
+                      cursor: 'pointer', userSelect: 'none',
+                      transition: 'border-color 120ms cubic-bezier(0.2,0.7,0.2,1), transform 120ms cubic-bezier(0.2,0.7,0.2,1)',
                     }}>
-                      <ImportanceDots n={it.imp} />
+                    {/* Top row: date/source · risk badge */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: 3, background: activeBucket.c }} />
+                      <div style={{
+                        fontFamily: T.mono, fontSize: 10, color: T.text,
+                        fontWeight: 500, letterSpacing: 0.3,
+                      }}>{dPart}</div>
+                      <div style={{
+                        fontFamily: T.mono, fontSize: 9.5, color: T.textDim, letterSpacing: 0.3,
+                      }}>{tPart} ET</div>
+                      <div style={{ marginLeft: 'auto' }}>
+                        <div style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          padding: '2px 7px', borderRadius: 4,
+                          background: `${risk.color}18`,
+                          border: `0.5px solid ${risk.color}55`,
+                        }}>
+                          <div style={{ width: 4, height: 4, borderRadius: 2, background: risk.color }} />
+                          <div style={{
+                            fontSize: 8.5, fontWeight: 600, letterSpacing: 0.8,
+                            color: risk.color,
+                          }}>RISK · {risk.label}</div>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{
-                      fontSize: 13.5, fontWeight: 500, color: T.text,
-                      letterSpacing: -0.05, lineHeight: 1.3, marginBottom: 4,
-                    }}>{it.title}</div>
-                    <div style={{
-                      fontSize: 11.5, color: T.textMid, lineHeight: 1.5, letterSpacing: 0.01,
-                    }}>{it.body}</div>
-                  </div>
 
-                  {/* Impact column */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 2 }}>
+                    {/* Source · importance dots */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{
+                        fontFamily: T.mono, fontSize: 9.5, color: T.textDim, letterSpacing: 0.4,
+                      }}>{it.source.toUpperCase()} · {(it.sub || '').toUpperCase()}</div>
+                      <div style={{ marginLeft: 'auto' }}><ImportanceDots n={it.imp} /></div>
+                    </div>
+
+                    {/* Title */}
                     <div style={{
-                      fontSize: 8.5, letterSpacing: 0.8, color: T.textDim,
-                      textTransform: 'uppercase', fontWeight: 500, marginBottom: 2,
-                    }}>5D IMPACT</div>
-                    <ImpactCell label="BTC" val={it.impact.btc} c={T.btc} />
-                    <ImpactCell label="SPX" val={it.impact.spx} c={T.spx} />
-                    <ImpactCell label="OIL" val={it.impact.oil} c={T.oil} />
+                      fontSize: 13, fontWeight: 500, color: T.text,
+                      letterSpacing: -0.05, lineHeight: 1.3,
+                      display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}>{it.title}</div>
+
+                    {/* Body preview */}
+                    <div style={{
+                      fontSize: 11, color: T.textMid, lineHeight: 1.5, letterSpacing: 0.01,
+                      display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden', flex: 1,
+                    }}>{it.body}</div>
+
+                    {/* Impact footer */}
+                    <div style={{
+                      display: 'flex', gap: 6, paddingTop: 8,
+                      borderTop: `1px solid ${T.edge}`, flexWrap: 'wrap',
+                    }}>
+                      <ImpactCell label="BTC" val={it.impact.btc} c={T.btc} />
+                      <ImpactCell label="SPX" val={it.impact.spx} c={T.spx} />
+                      <ImpactCell label="OIL" val={it.impact.oil} c={T.oil} />
+                    </div>
                   </div>
-                </div>
-                  ));
-                });
-                return rows;
-              })()}
+                );
+              })}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Article modal — opens on double-click */}
+      {openArticle && (
+        <div
+          onClick={() => setOpenArticle(null)}
+          style={{
+            position: 'absolute', inset: 0, background: 'rgba(7,9,12,0.72)',
+            backdropFilter: 'blur(12px) saturate(150%)',
+            WebkitBackdropFilter: 'blur(12px) saturate(150%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 50, padding: 40,
+          }}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 720, maxHeight: '90%', overflow: 'auto',
+              background: T.ink100, border: `1px solid ${T.edgeHi}`,
+              borderRadius: 14, padding: '24px 28px',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.6), inset 0 0.5px 0 rgba(255,255,255,0.08)',
+            }}>
+            {/* Modal header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <div style={{ width: 8, height: 8, borderRadius: 4, background: openArticle.bucket.c }} />
+              <div style={{
+                fontSize: 10, letterSpacing: 1.2, color: openArticle.bucket.c,
+                textTransform: 'uppercase', fontWeight: 600,
+              }}>{openArticle.bucket.label}</div>
+              <div style={{
+                fontFamily: T.mono, fontSize: 10, color: T.textDim, letterSpacing: 0.4,
+              }}>· {openArticle.item.source.toUpperCase()}</div>
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+                {(() => {
+                  const r = riskOf(openArticle.item.imp);
+                  return (
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      padding: '3px 9px', borderRadius: 5,
+                      background: `${r.color}22`, border: `0.5px solid ${r.color}66`,
+                    }}>
+                      <div style={{ width: 5, height: 5, borderRadius: 2.5, background: r.color }} />
+                      <div style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: 0.8, color: r.color }}>
+                        RISK · {r.label}
+                      </div>
+                    </div>
+                  );
+                })()}
+                <div
+                  onClick={() => setOpenArticle(null)}
+                  style={{
+                    width: 24, height: 24, borderRadius: 6,
+                    background: T.ink300, border: `1px solid ${T.edge}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', color: T.textMid, fontSize: 12, lineHeight: 1,
+                  }}>✕</div>
+              </div>
+            </div>
+
+            {/* Date/time */}
+            <div style={{
+              fontFamily: T.mono, fontSize: 11, color: T.textMid, letterSpacing: 0.3, marginBottom: 12,
+            }}>{openArticle.item.date} ET</div>
+
+            {/* Title */}
+            <div style={{
+              fontSize: 22, fontWeight: 500, color: T.text,
+              letterSpacing: -0.3, lineHeight: 1.3, marginBottom: 16,
+            }}>{openArticle.item.title}</div>
+
+            {/* Importance */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+              <div style={{
+                fontSize: 9.5, letterSpacing: 0.8, color: T.textDim,
+                textTransform: 'uppercase', fontWeight: 500,
+              }}>Importance</div>
+              <ImportanceDots n={openArticle.item.imp} />
+              <div style={{
+                fontFamily: T.mono, fontSize: 10, color: T.textDim, letterSpacing: 0.3,
+              }}>{openArticle.item.imp}/5</div>
+            </div>
+
+            {/* Body */}
+            <div style={{
+              fontSize: 14.5, lineHeight: 1.65, color: T.textMid,
+              letterSpacing: 0.01, marginBottom: 22,
+            }}>{openArticle.item.body}</div>
+
+            {/* Impact section */}
+            <div style={{
+              borderTop: `1px solid ${T.edge}`, paddingTop: 16,
+              display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+            }}>
+              <div style={{
+                fontSize: 9.5, letterSpacing: 0.8, color: T.textDim,
+                textTransform: 'uppercase', fontWeight: 500,
+              }}>5-Day Cross-Asset Impact</div>
+              <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+                <ImpactCell label="BTC" val={openArticle.item.impact.btc} c={T.btc} />
+                <ImpactCell label="SPX" val={openArticle.item.impact.spx} c={T.spx} />
+                <ImpactCell label="OIL" val={openArticle.item.impact.oil} c={T.oil} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
