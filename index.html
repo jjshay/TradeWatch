@@ -18,6 +18,11 @@
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+<!-- Legacy engine — exposes LiveData, NewsFeed, HISTORICAL_EVENTS, Correlation,
+     AIAnalysis, Backtester, TechnicalAnalysis, OnChainData, DeFiData,
+     DerivativesData, BlackScholes, MonteCarlo, VOLATILITY_DB, CRYPTO_SCENARIOS
+     as globals. Screens read from these via window.TR_LIVE (set below). -->
+<script src="engine.js"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -102,10 +107,80 @@ function TRHeader({ tab, onNav }) {
       </div>
 
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 16 }}>
+        <TRLiveStrip />
         <div style={{ fontFamily: T.mono, fontSize: 11, color: T.textMid, letterSpacing: 0.4 }}>
           <span style={{ color: T.signal, animation: 'tw-pulse 2s ease-in-out infinite' }}>●</span>&nbsp; LIVE
         </div>
       </div>
+    </div>
+  );
+}
+
+// Polls engine.js LiveData every 60s and renders BTC spot + 24h change + Fear&Greed.
+// Non-destructive: if engine globals or fetches fail, renders nothing.
+function TRLiveStrip() {
+  const T = TR_TOKENS;
+  const [btc, setBtc]   = React.useState(null);   // { price, change24h }
+  const [fng, setFng]   = React.useState(null);   // { value, classification }
+
+  React.useEffect(() => {
+    let active = true;
+    async function tick() {
+      try {
+        if (typeof LiveData !== 'undefined') {
+          const prices = await LiveData.getCryptoPrices();
+          if (active && prices && prices.bitcoin) {
+            setBtc({
+              price: prices.bitcoin.usd,
+              change24h: prices.bitcoin.usd_24h_change,
+            });
+          }
+          const fg = await LiveData.getFearGreed();
+          if (active && fg && fg.data && fg.data[0]) {
+            setFng({
+              value: parseInt(fg.data[0].value, 10),
+              classification: fg.data[0].value_classification,
+            });
+          }
+        }
+      } catch (_) { /* silent — screens fall back to mocks */ }
+    }
+    tick();
+    const iv = setInterval(tick, 60_000);
+    return () => { active = false; clearInterval(iv); };
+  }, []);
+
+  if (!btc && !fng) return null;
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 14,
+      fontFamily: T.mono, fontSize: 11, color: T.textMid,
+    }}>
+      {btc && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ color: '#F7931A', fontSize: 10 }}>●</span>
+          <span style={{ color: T.textDim, letterSpacing: 0.4 }}>BTC</span>
+          <span style={{ color: T.text, fontWeight: 600 }}>
+            ${Math.round(btc.price).toLocaleString('en-US')}
+          </span>
+          <span style={{
+            color: btc.change24h >= 0 ? '#6FCF8E' : '#D96B6B',
+            fontSize: 10.5, fontWeight: 500,
+          }}>
+            {btc.change24h >= 0 ? '+' : ''}{btc.change24h.toFixed(2)}%
+          </span>
+        </div>
+      )}
+      {fng && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ color: T.textDim, letterSpacing: 0.4 }}>F&amp;G</span>
+          <span style={{ color: T.text, fontWeight: 600 }}>{fng.value}</span>
+          <span style={{ color: T.textDim, fontSize: 10, letterSpacing: 0.3, textTransform: 'uppercase' }}>
+            {fng.classification}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
