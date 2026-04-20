@@ -9,13 +9,13 @@
 const isTokens = {
   ink000: '#07090C', ink100: '#0B0E13', ink200: '#10141B', ink300: '#171C24', ink400: '#1E2430',
   edge: 'rgba(255,255,255,0.06)', edgeHi: 'rgba(255,255,255,0.10)',
-  text: 'rgba(235,238,244,0.95)', textMid: 'rgba(180,188,200,0.75)', textDim: 'rgba(130,138,150,0.55)',
-  signal: '#E8B84A',
+  text: '#ffffff', textMid: 'rgba(180,188,200,0.75)', textDim: 'rgba(130,138,150,0.55)',
+  signal: '#c9a227',
   btc: '#F7931A',
   oil: '#9AA3B0',
   bull: '#4EA076', bear: '#D96B6B',
   claude: '#D97757',
-  gpt:    '#6B8AFA',
+  gpt:    '#0077B5',
   ui: 'InterTight, -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
   mono: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
 };
@@ -100,7 +100,7 @@ function iDriverTier(v) {
   if (v <= 25) return { tag: 'BENIGN',   color: '#4EA076' };
   if (v <= 45) return { tag: 'QUIET',    color: 'rgba(180,188,200,0.75)' };
   if (v <= 54) return { tag: 'NEUTRAL',  color: 'rgba(130,138,150,0.55)' };
-  if (v <= 74) return { tag: 'ELEVATED', color: '#E8B84A' };
+  if (v <= 74) return { tag: 'ELEVATED', color: '#c9a227' };
   return         { tag: 'HOT',      color: '#D96B6B' };
 }
 
@@ -207,7 +207,7 @@ function ImpactScreen({ onNav }) {
       }}>
         <div style={{
           width: 28, height: 28, borderRadius: 7,
-          background: 'linear-gradient(180deg, #1A2030 0%, #0B0E13 100%)',
+          background: '#1a3a6b',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 11, fontWeight: 600, color: T.signal, fontFamily: T.mono,
           boxShadow: `inset 0 0.5px 0 rgba(255,255,255,0.08)`,

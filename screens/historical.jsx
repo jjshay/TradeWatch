@@ -5,10 +5,10 @@
 const hsTokens = {
   ink000: '#07090C', ink100: '#0B0E13', ink200: '#10141B', ink300: '#171C24', ink400: '#1E2430',
   edge: 'rgba(255,255,255,0.06)', edgeHi: 'rgba(255,255,255,0.10)',
-  text: 'rgba(235,238,244,0.95)', textMid: 'rgba(180,188,200,0.75)', textDim: 'rgba(130,138,150,0.55)',
-  signal: '#E8B84A',
-  btc: '#F7931A', oil: '#6B8AFA', spx: '#9AA3B2', dow: '#C7A8FF',
-  geo: '#D96B6B', fed: '#6B8AFA', btcEvt: '#F7931A', trump: '#B07BE6', inst: '#6FCF8E', reg: '#5FC9C2',
+  text: '#ffffff', textMid: 'rgba(180,188,200,0.75)', textDim: 'rgba(130,138,150,0.55)',
+  signal: '#c9a227',
+  btc: '#F7931A', oil: '#0077B5', spx: '#9AA3B2', dow: '#C7A8FF',
+  geo: '#D96B6B', fed: '#0077B5', btcEvt: '#F7931A', trump: '#B07BE6', inst: '#6FCF8E', reg: '#5FC9C2',
   ui: 'InterTight, -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
   mono: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
 };
@@ -47,7 +47,7 @@ const EVENTS_ALL = [
   { daysAgo: 0.85, cat: 'geo',    color: '#D96B6B', label: 'IRGC warns over Gulf tanker incident', date: 'APR 18, 2026 · 20:15',
     body: 'Iranian Revolutionary Guard Corps signaled "proportional response" after second tanker incident near Hormuz this week. Hormuz insurance premiums spike 40% w/w.',
     url: 'https://www.reuters.com/world/middle-east/' },
-  { daysAgo: 2.3,  cat: 'fed',    color: '#6B8AFA', label: 'Fed minutes turn dovish',            date: 'APR 17, 2026 · 14:00',
+  { daysAgo: 2.3,  cat: 'fed',    color: '#0077B5', label: 'Fed minutes turn dovish',            date: 'APR 17, 2026 · 14:00',
     body: '"Most participants" see a cut appropriate by Q3 if core PCE holds. Waller: "policy is more restrictive than we thought." DXY breaks 102.',
     url: 'https://www.bloomberg.com/news/articles/fed-minutes' },
   { daysAgo: 5,    cat: 'reg',    color: '#5FC9C2', label: 'Lummis reserve bill gains co-sponsors', date: 'APR 14, 2026',
@@ -59,7 +59,7 @@ const EVENTS_ALL = [
   { daysAgo: 15,   cat: 'geo',    color: '#D96B6B', label: 'Ukraine drone strikes Ryazan refinery', date: 'APR 04, 2026',
     body: '200k bpd offline. Ripple effects on European diesel; WTI prints +$2.80 intraday. Russia signals retaliation vector on Ukrainian energy infrastructure.',
     url: 'https://www.reuters.com/world/europe/' },
-  { daysAgo: 35,   cat: 'fed',    color: '#6B8AFA', label: 'March FOMC: held at 4.50–4.75%',      date: 'MAR 15, 2026',
+  { daysAgo: 35,   cat: 'fed',    color: '#0077B5', label: 'March FOMC: held at 4.50–4.75%',      date: 'MAR 15, 2026',
     body: 'Statement tweak: "greater confidence" in disinflation path. Powell press conference signaled optionality; rates market repriced Q3 cut odds to 72%.',
     url: 'https://www.federalreserve.gov/monetarypolicy/fomcminutes.htm' },
   { daysAgo: 55,   cat: 'geo',    color: '#D96B6B', label: 'Bab el-Mandeb strike disrupts Red Sea', date: 'FEB 23, 2026',
@@ -69,7 +69,7 @@ const EVENTS_ALL = [
   { daysAgo: 120,  cat: 'inst',   color: '#6FCF8E', label: 'Sovereign BTC allocation reported',    date: 'DEC 23, 2025',
     body: 'Mid-sized EM sovereign wealth fund disclosed a multi-billion BTC position via spot ETFs. First G20-affiliate sovereign entity to report allocation.',
     url: 'https://www.ft.com/content/sovereign-btc' },
-  { daysAgo: 195,  cat: 'fed',    color: '#6B8AFA', label: 'Fed 25bp cut',                        date: 'OCT 07, 2025',
+  { daysAgo: 195,  cat: 'fed',    color: '#0077B5', label: 'Fed 25bp cut',                        date: 'OCT 07, 2025',
     body: 'First cut in 18 months. Statement noted "balanced" risks. Dot plot moved median Q4 rate projection to 4.0-4.25%.',
     url: 'https://www.federalreserve.gov/' },
   { daysAgo: 250,  cat: 'geo',    color: '#D96B6B', label: 'Hormuz tanker attack',               date: 'AUG 12, 2025',
@@ -87,14 +87,14 @@ const EVENTS_ALL = [
   { daysAgo: 570,  cat: 'geo',    color: '#D96B6B', label: 'Iran strikes Iraq base',             date: 'OCT 14, 2024',
     body: 'Ballistic-missile strike against a U.S. contractor presence. Limited casualties. Oil complex bid into close; WTI +3.1% in after-hours.',
     url: 'https://www.reuters.com/world/middle-east/' },
-  { daysAgo: 640,  cat: 'fed',    color: '#6B8AFA', label: 'Fed raises 75bp',                    date: 'JUL 27, 2024',
+  { daysAgo: 640,  cat: 'fed',    color: '#0077B5', label: 'Fed raises 75bp',                    date: 'JUL 27, 2024',
     body: 'Final hike of the cycle — second consecutive 75bp increment. Statement softened forward guidance; terminal implied rate shaved 15bp.',
     url: 'https://www.federalreserve.gov/' },
   // Distant
   { daysAgo: 1100, cat: 'btc',    color: '#F7931A', label: 'BTC spot ETF approved',              date: 'JAN 10, 2024',
     body: 'SEC approved the first wave of spot Bitcoin ETFs. 11 issuers including BlackRock, Fidelity, Ark.',
     url: 'https://www.sec.gov/news/press-release/' },
-  { daysAgo: 1650, cat: 'fed',    color: '#6B8AFA', label: 'Rate-hiking cycle begins',           date: 'MAR 16, 2022',
+  { daysAgo: 1650, cat: 'fed',    color: '#0077B5', label: 'Rate-hiking cycle begins',           date: 'MAR 16, 2022',
     body: 'First hike of cycle — 25bp. Powell framed the pivot as a fight against "persistent" inflation.',
     url: 'https://www.federalreserve.gov/' },
   { daysAgo: 2400, cat: 'inst',   color: '#6FCF8E', label: 'MicroStrategy first BTC buy',        date: 'AUG 11, 2020',
@@ -243,7 +243,7 @@ function HistoricalScreen({ onNav }) {
       }}>
         <div style={{
           width: 28, height: 28, borderRadius: 7,
-          background: 'linear-gradient(180deg, #1A2030 0%, #0B0E13 100%)',
+          background: '#1a3a6b',
           boxShadow: `inset 0 0.5px 0 rgba(255,255,255,0.08)`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 11, fontWeight: 600, letterSpacing: 0.6, color: T.signal,
@@ -286,10 +286,10 @@ function HistoricalScreen({ onNav }) {
           <div style={{ fontFamily: T.mono, fontSize: 11, color: T.textMid, letterSpacing: 0.4 }}>
             <span style={{ color: T.signal }}>●</span>&nbsp; LIVE &nbsp;·&nbsp; {cfg.granularity}
           </div>
-          <div style={{
+          <div onClick={() => window.openTRSettings && window.openTRSettings()} title="Settings · refresh · API keys" style={{
             width: 28, height: 28, borderRadius: 7, background: T.ink200,
             border: `1px solid ${T.edge}`, display: 'flex', flexDirection: 'column',
-            justifyContent: 'center', alignItems: 'center', gap: 3,
+            justifyContent: 'center', alignItems: 'center', gap: 3, cursor: 'pointer',
           }}>
             <div style={{ width: 12, height: 1, background: T.textMid }} />
             <div style={{ width: 12, height: 1, background: T.textMid }} />

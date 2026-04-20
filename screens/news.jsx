@@ -5,11 +5,11 @@
 const newsTokens = {
   ink000: '#07090C', ink100: '#0B0E13', ink200: '#10141B', ink300: '#171C24', ink400: '#1E2430',
   edge: 'rgba(255,255,255,0.06)', edgeHi: 'rgba(255,255,255,0.10)',
-  text: 'rgba(235,238,244,0.95)', textMid: 'rgba(180,188,200,0.75)', textDim: 'rgba(130,138,150,0.55)',
-  signal: '#E8B84A',
-  btc: '#F7931A', oil: '#6B8AFA', spx: '#9AA3B2',
-  fed: '#6B8AFA', trump: '#B07BE6', inst: '#6FCF8E',
-  sov: '#5FC9C2', whale: '#F7931A', elon: '#E8B84A',
+  text: '#ffffff', textMid: 'rgba(180,188,200,0.75)', textDim: 'rgba(130,138,150,0.55)',
+  signal: '#c9a227',
+  btc: '#F7931A', oil: '#0077B5', spx: '#9AA3B2',
+  fed: '#0077B5', trump: '#B07BE6', inst: '#6FCF8E',
+  sov: '#5FC9C2', whale: '#F7931A', elon: '#c9a227',
   ui: 'InterTight, -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
   mono: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
 };
@@ -451,7 +451,7 @@ function NewsScreen() {
       }}>
         <div style={{
           width: 28, height: 28, borderRadius: 7,
-          background: 'linear-gradient(180deg, #1A2030 0%, #0B0E13 100%)',
+          background: '#1a3a6b',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 11, fontWeight: 600, color: T.signal, fontFamily: T.mono,
           boxShadow: `inset 0 0.5px 0 rgba(255,255,255,0.08)`,

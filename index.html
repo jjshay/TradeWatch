@@ -26,6 +26,8 @@
 </head>
 <body>
 <div id="root"></div>
+<!-- Auto-update hook + settings sheet -->
+<script type="text/babel" src="tr-hooks.jsx"></script>
 <script type="text/babel" src="screens/historical.jsx"></script>
 <script type="text/babel" src="screens/projected.jsx"></script>
 <script type="text/babel" src="screens/impact.jsx"></script>
@@ -41,8 +43,8 @@
 const TR_TOKENS = {
   ink000: '#07090C', ink100: '#0B0E13', ink200: '#10141B', ink300: '#171C24', ink400: '#1E2430',
   edge: 'rgba(255,255,255,0.06)', edgeHi: 'rgba(255,255,255,0.10)',
-  text: 'rgba(235,238,244,0.95)', textMid: 'rgba(180,188,200,0.75)', textDim: 'rgba(130,138,150,0.55)',
-  signal: '#E8B84A',
+  text: '#ffffff', textMid: 'rgba(180,188,200,0.75)', textDim: 'rgba(130,138,150,0.55)',
+  signal: '#c9a227',
   ui: 'InterTight, -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
   mono: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
 };
@@ -57,7 +59,7 @@ const TR_TABS = [
   { key: 'signals',     label: 'Signals'     },
 ];
 
-function TRHeader({ tab, onNav }) {
+function TRHeader({ tab, onNav, onOpenSettings }) {
   const T = TR_TOKENS;
   return (
     <div style={{
@@ -67,7 +69,7 @@ function TRHeader({ tab, onNav }) {
     }}>
       <div style={{
         width: 28, height: 28, borderRadius: 7,
-        background: 'linear-gradient(180deg, #1A2030 0%, #0B0E13 100%)',
+        background: '#1a3a6b',
         boxShadow: 'inset 0 0.5px 0 rgba(255,255,255,0.08)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 11, fontWeight: 600, letterSpacing: 0.6, color: T.signal,
@@ -111,6 +113,7 @@ function TRHeader({ tab, onNav }) {
         <div style={{ fontFamily: T.mono, fontSize: 11, color: T.textMid, letterSpacing: 0.4 }}>
           <span style={{ color: T.signal, animation: 'tw-pulse 2s ease-in-out infinite' }}>●</span>&nbsp; LIVE
         </div>
+        <TRGearButton onClick={onOpenSettings} />
       </div>
     </div>
   );
@@ -185,10 +188,10 @@ function TRLiveStrip() {
   );
 }
 
-function TRWrap({ tab, onNav, children }) {
+function TRWrap({ tab, onNav, onOpenSettings, children }) {
   return (
     <div style={{ background: TR_TOKENS.ink000, minHeight: 820 }}>
-      <TRHeader tab={tab} onNav={onNav} />
+      <TRHeader tab={tab} onNav={onNav} onOpenSettings={onOpenSettings} />
       {children}
     </div>
   );
@@ -196,19 +199,31 @@ function TRWrap({ tab, onNav, children }) {
 
 function TradeRadarApp() {
   const [tab, setTab] = React.useState('historical');
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const openSettings = () => setSettingsOpen(true);
 
-  // Screens that already render their own TR header via onNav
-  if (tab === 'historical') return <div className="tr-shell"><HistoricalScreen       onNav={setTab} /></div>;
-  if (tab === 'projected')  return <div className="tr-shell"><ProjectedScreen        onNav={setTab} /></div>;
-  if (tab === 'impact')     return <div className="tr-shell"><ImpactScreen           onNav={setTab} /></div>;
-  if (tab === 'recommend')  return <div className="tr-shell"><RecommendationsScreen  onNav={setTab} /></div>;
+  // Stash a global callback so screens that render their own header can still
+  // trigger the settings sheet (until we refactor them to accept the prop).
+  React.useEffect(() => { window.openTRSettings = openSettings; }, []);
 
-  // Standalone screens — wrap with shared header so all tabs navigate consistently
-  if (tab === 'news')     return <div className="tr-shell"><TRWrap tab={tab} onNav={setTab}><NewsScreen     /></TRWrap></div>;
-  if (tab === 'calendar') return <div className="tr-shell"><TRWrap tab={tab} onNav={setTab}><CalendarScreen /></TRWrap></div>;
-  if (tab === 'signals')  return <div className="tr-shell"><TRWrap tab={tab} onNav={setTab}><SignalsScreen  /></TRWrap></div>;
+  let screen;
+  // Screens that render their own TR header via onNav
+  if (tab === 'historical')      screen = <HistoricalScreen       onNav={setTab} />;
+  else if (tab === 'projected')  screen = <ProjectedScreen        onNav={setTab} />;
+  else if (tab === 'impact')     screen = <ImpactScreen           onNav={setTab} />;
+  else if (tab === 'recommend')  screen = <RecommendationsScreen  onNav={setTab} />;
+  // Standalone screens — wrap with shared header
+  else if (tab === 'news')     screen = <TRWrap tab={tab} onNav={setTab} onOpenSettings={openSettings}><NewsScreen     /></TRWrap>;
+  else if (tab === 'calendar') screen = <TRWrap tab={tab} onNav={setTab} onOpenSettings={openSettings}><CalendarScreen /></TRWrap>;
+  else if (tab === 'signals')  screen = <TRWrap tab={tab} onNav={setTab} onOpenSettings={openSettings}><SignalsScreen  /></TRWrap>;
+  else screen = <HistoricalScreen onNav={setTab} />;
 
-  return <div className="tr-shell"><HistoricalScreen onNav={setTab} /></div>;
+  return (
+    <>
+      <div className="tr-shell">{screen}</div>
+      <TRSettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+    </>
+  );
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<TradeRadarApp />);
