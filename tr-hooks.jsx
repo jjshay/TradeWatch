@@ -13,7 +13,7 @@
 // }
 
 const TR_DEFAULT_SETTINGS = {
-  keys: { coingecko: '', tradier: '', polygon: '', claude: '', openai: '', gemini: '', grok: '', alpaca: '', finnhub: '' },
+  keys: { coingecko: '', tradier: '', polygon: '', claude: '', openai: '', gemini: '', grok: '', perplexity: '', alpaca: '', finnhub: '', newsapi: '', newsdata: '', bitly: '' },
   refresh: {
     header: 60, historical: 300, news: 180, calendar: 600,
     signals: 120, impact: 60, projected: 600, recommend: 600,
@@ -123,10 +123,14 @@ function TRSettingsSheet({ open, onClose }) {
     { k: 'polygon',   label: 'Polygon.io API Key', hint: 'Alt stock/options data provider' },
     { k: 'finnhub',   label: 'Finnhub API Key',    hint: 'Free stock prices + news' },
     { k: 'alpaca',    label: 'Alpaca Keys (id:secret)', hint: 'Paper/live trading + quotes' },
-    { k: 'claude',    label: 'Anthropic (Claude) API Key', hint: 'Dual-LLM: Claude arm of the Recommend + Projected engines' },
-    { k: 'openai',    label: 'OpenAI (ChatGPT) API Key',   hint: 'Dual-LLM: ChatGPT arm — side-by-side with Claude, consensus block below' },
-    { k: 'gemini',    label: 'Google Gemini API Key',      hint: 'Optional 3rd opinion for briefings' },
-    { k: 'grok',      label: 'xAI Grok API Key',           hint: 'Optional 4th opinion for briefings' },
+    { k: 'claude',     label: 'Anthropic (Claude) API Key',  hint: 'Main 4 · Claude POV + discovery' },
+    { k: 'openai',     label: 'OpenAI (ChatGPT) API Key',    hint: 'Main 4 · ChatGPT POV + discovery' },
+    { k: 'gemini',     label: 'Google AI Studio (Gemini) Key', hint: 'Main 4 · Gemini POV + discovery' },
+    { k: 'grok',       label: 'xAI (Grok) API Key',          hint: 'Main 4 · Grok POV — X/Twitter angle' },
+    { k: 'perplexity', label: 'Perplexity API Key',          hint: 'Search-augmented LLM for fact-checked takes' },
+    { k: 'newsapi',    label: 'NewsAPI Key (newsapi.org)',   hint: 'Aggregated global news beyond crypto RSS' },
+    { k: 'newsdata',   label: 'NewsData Key (newsdata.io)',  hint: 'Alternative news aggregator, richer metadata' },
+    { k: 'bitly',      label: 'Bitly API Key',               hint: 'Auto-shorten article links for sharing' },
   ];
 
   const refreshRows = [

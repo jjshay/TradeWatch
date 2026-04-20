@@ -11,6 +11,8 @@ const rcTokens = {
   bull: '#4EA076', bear: '#D96B6B',
   claude: '#D97757',
   gpt:    '#0077B5',
+  gemini: '#4285F4',
+  grok:   '#9AA3B2',
   ui: 'InterTight, -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
   mono: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
 };
@@ -48,6 +50,30 @@ const CLAUDE_REC = {
   ],
 };
 
+const GROK_REC = {
+  stance: 'NEUTRAL',
+  confidence: 68,
+  tldr: 'X-signal leans skeptical — political backlash risk rising.',
+  allocTilt: 'Keep powder dry; wait for CLARITY Senate outcome.',
+  whyDifferent: 'Reads Twitter/X discourse as a contrarian signal — sees crowded long BTC trade.',
+  risks: [
+    'Social sentiment over-extended on CLARITY outcome',
+    'MAGA vs. crypto-right rift if reserve framework underwhelms',
+  ],
+};
+
+const GEMINI_REC = {
+  stance: 'BULLISH',
+  confidence: 71,
+  tldr: 'Add at dips; macro tailwind persists while liquidity loosens.',
+  allocTilt: 'Balanced across IBIT / MSTR / COIN — favors diversified spot.',
+  whyDifferent: 'Weights the ETF flow signal most heavily; leans on structural demand thesis vs. tactical positioning.',
+  risks: [
+    'ETF flow reversal if rates spike unexpectedly',
+    'Regulatory uncertainty if CLARITY Act stalls in Senate',
+  ],
+};
+
 const GPT_REC = {
   stance: 'CONSTRUCTIVE',
   confidence: 74,
@@ -74,10 +100,10 @@ function RecommendationsScreen({ onNav }) {
       async () => {
         if (typeof NewsFeed === 'undefined' || typeof AIAnalysis === 'undefined') return null;
         const keys = AIAnalysis.getKeys();
-        if (!keys.claude && !keys.openai) return null; // no keys → design defaults stay
+        if (!keys.claude && !keys.openai && !keys.gemini) return null; // no keys → design defaults
         const articles = await NewsFeed.fetchAll();
         if (!articles || !articles.length) return null;
-        return await AIAnalysis.runDual(articles.slice(0, 15));
+        return await AIAnalysis.runMulti(articles.slice(0, 15));
       },
       { refreshKey: 'recommend' }
     );
@@ -94,6 +120,30 @@ function RecommendationsScreen({ onNav }) {
     risks: dual.claude.result.risks || CLAUDE_REC.risks,
     _live: true,
   } : CLAUDE_REC;
+
+  const grokRec = (dual && dual.grok && dual.grok.result) ? {
+    stance: (dual.grok.result.sentiment || 'neutral').toUpperCase(),
+    confidence: Math.round((dual.grok.result.confidence || 0) * 10),
+    tldr: dual.grok.result.summary || GROK_REC.tldr,
+    allocTilt: (dual.grok.result.actionable && dual.grok.result.actionable[0])
+      ? `${dual.grok.result.actionable[0].action} ${dual.grok.result.actionable[0].asset} · ${dual.grok.result.actionable[0].reasoning}`
+      : GROK_REC.allocTilt,
+    whyDifferent: (dual.grok.result.opportunities || []).join(' · ') || GROK_REC.whyDifferent,
+    risks: dual.grok.result.risks || GROK_REC.risks,
+    _live: true,
+  } : GROK_REC;
+
+  const geminiRec = (dual && dual.gemini && dual.gemini.result) ? {
+    stance: (dual.gemini.result.sentiment || 'neutral').toUpperCase(),
+    confidence: Math.round((dual.gemini.result.confidence || 0) * 10),
+    tldr: dual.gemini.result.summary || GEMINI_REC.tldr,
+    allocTilt: (dual.gemini.result.actionable && dual.gemini.result.actionable[0])
+      ? `${dual.gemini.result.actionable[0].action} ${dual.gemini.result.actionable[0].asset} · ${dual.gemini.result.actionable[0].reasoning}`
+      : GEMINI_REC.allocTilt,
+    whyDifferent: (dual.gemini.result.opportunities || []).join(' · ') || GEMINI_REC.whyDifferent,
+    risks: dual.gemini.result.risks || GEMINI_REC.risks,
+    _live: true,
+  } : GEMINI_REC;
 
   const gptRec = (dual && dual.gpt && dual.gpt.result) ? {
     stance: (dual.gpt.result.sentiment || 'neutral').toUpperCase(),
@@ -281,6 +331,24 @@ function RecommendationsScreen({ onNav }) {
             open={openAccordion === 'gpt'}
             onToggle={() => setOpenAccordion(openAccordion === 'gpt' ? null : 'gpt')}
             rec={gptRec}
+          />
+
+          {/* GEMINI ACCORDION */}
+          <AccordionCard
+            T={T} brand={T.gemini} brandName="Gemini"
+            live={geminiRec._live}
+            open={openAccordion === 'gemini'}
+            onToggle={() => setOpenAccordion(openAccordion === 'gemini' ? null : 'gemini')}
+            rec={geminiRec}
+          />
+
+          {/* GROK ACCORDION */}
+          <AccordionCard
+            T={T} brand={T.grok} brandName="Grok"
+            live={grokRec._live}
+            open={openAccordion === 'grok'}
+            onToggle={() => setOpenAccordion(openAccordion === 'grok' ? null : 'grok')}
+            rec={grokRec}
           />
 
           <div style={{ height: 20 }} />

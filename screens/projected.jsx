@@ -263,6 +263,26 @@ function ProjectedScreen({ onNav }) {
     if (e.key === 'End')  { e.preventDefault(); setDriverVal(idx, 100); }
   };
 
+  // LIVE — triple-LLM projection narrative. Builds a prompt from current driver
+  // values, fans out to Claude + ChatGPT + Gemini, returns consensus summary.
+  const driverSignature = drivers.map(d => `${d.name.slice(0, 3)}${d.val}`).join(',');
+  const { data: proj, loading: projLoading } = (window.useAutoUpdate || (() => ({})))(
+    `projected-llm-${driverSignature}`,
+    async () => {
+      if (typeof AIAnalysis === 'undefined') return null;
+      const keys = AIAnalysis.getKeys();
+      if (!keys.claude && !keys.openai && !keys.gemini) return null;
+      // Synthetic "headline" describing the driver cluster — works with the
+      // same prompt AIAnalysis expects (market-sentiment output).
+      const syntheticHeadlines = [{
+        source: 'TradeRadar',
+        title: `Current driver regime: ${drivers.map(d => `${d.name} at ${d.val}/100`).join('; ')}. Project BTC/Oil/SPX through Dec 2026. Base/bull/bear range + tail risks.`,
+      }];
+      return await AIAnalysis.runMulti(syntheticHeadlines);
+    },
+    { refreshKey: 'projected' }
+  );
+
   // Narrative
   const regime = (() => {
     const inst = drivers.find(d => d.name === 'BTC Institutional').val;
@@ -646,6 +666,38 @@ function ProjectedScreen({ onNav }) {
               <span style={{ color: T.bear, fontWeight: 500, fontFamily: T.mono }}>{fmtK(projection.bear)}</span>{' '}
               if CLARITY stalls and institutional flows reverse.
             </div>
+
+            {/* Triple-LLM live overlay — renders when any model responded */}
+            {proj && proj.consensus && (
+              <div style={{
+                marginTop: 10, padding: '10px 12px',
+                background: proj.consensus.agree ? 'rgba(78,160,118,0.08)' : 'rgba(217,107,107,0.08)',
+                border: `0.5px solid ${proj.consensus.agree ? 'rgba(78,160,118,0.4)' : 'rgba(217,107,107,0.4)'}`,
+                borderRadius: 8,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <div style={{
+                    fontFamily: T.mono, fontSize: 9, fontWeight: 600, letterSpacing: 0.8,
+                    color: proj.consensus.agree ? T.bull : T.bear,
+                  }}>
+                    LIVE · {proj.consensus.modelCount} LLMs · {proj.consensus.label}
+                  </div>
+                  <div style={{
+                    marginLeft: 'auto', fontFamily: T.mono, fontSize: 9,
+                    color: T.textDim, letterSpacing: 0.3,
+                  }}>CONF {proj.consensus.avgConfidence}/10</div>
+                </div>
+                <div style={{ fontSize: 11.5, lineHeight: 1.55, color: T.textMid }}>
+                  {proj.consensus.summary}
+                </div>
+              </div>
+            )}
+            {projLoading && !proj && (
+              <div style={{
+                marginTop: 10, fontFamily: T.mono, fontSize: 9.5, color: T.textDim,
+                letterSpacing: 0.6,
+              }}>ANALYZING DRIVERS ACROSS CLAUDE + GPT + GEMINI…</div>
+            )}
           </div>
 
           {/* News for active driver */}

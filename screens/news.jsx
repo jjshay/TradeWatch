@@ -409,7 +409,24 @@ function NewsScreen() {
   const [activeIdx, setActiveIdx] = React.useState(1); // CLARITY / Gov BTC default
   const [openArticle, setOpenArticle] = React.useState(null); // { item, bucket } | null
   const [sortMode, setSortMode] = React.useState('newest'); // 'newest' | 'impact'
+  const [aiScore, setAiScore] = React.useState(null); // { article, result } | null
+  const [aiScoring, setAiScoring] = React.useState(false);
   const activeBucket = buckets[Math.min(activeIdx, buckets.length - 1)];
+
+  const scoreWithAI = async (item) => {
+    if (typeof AIAnalysis === 'undefined') return;
+    setAiScoring(true); setAiScore(null);
+    try {
+      const result = await AIAnalysis.runMulti([
+        { source: item.source || 'News', title: item.title },
+      ]);
+      setAiScore({ article: item, result });
+    } catch (e) { setAiScore({ article: item, error: e.message }); }
+    finally { setAiScoring(false); }
+  };
+
+  // Reset score when user closes/switches article
+  React.useEffect(() => { setAiScore(null); }, [openArticle]);
 
   // Risk level derived from importance (imp 1-5).
   const riskOf = (imp) => imp >= 4 ? { label: 'HIGH', color: '#D96B6B' }
@@ -881,12 +898,110 @@ function NewsScreen() {
               <div style={{
                 fontSize: 9.5, letterSpacing: 0.8, color: T.textDim,
                 textTransform: 'uppercase', fontWeight: 500,
-              }}>5-Day Cross-Asset Impact</div>
+              }}>5-Day Cross-Asset Impact · Curated</div>
               <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
                 <ImpactCell label="BTC" val={openArticle.item.impact.btc} c={T.btc} />
                 <ImpactCell label="SPX" val={openArticle.item.impact.spx} c={T.spx} />
                 <ImpactCell label="OIL" val={openArticle.item.impact.oil} c={T.oil} />
               </div>
+            </div>
+
+            {/* AI scoring — fires all 4 LLMs in parallel */}
+            <div style={{
+              marginTop: 14, padding: '12px 14px',
+              background: T.ink200, border: `1px solid ${T.edgeHi}`, borderRadius: 10,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: aiScore || aiScoring ? 12 : 0 }}>
+                <div style={{
+                  fontSize: 10, letterSpacing: 1.2, color: T.signal,
+                  textTransform: 'uppercase', fontWeight: 600,
+                }}>Score this headline · 4-LLM panel</div>
+                <div
+                  onClick={() => scoreWithAI(openArticle.item)}
+                  style={{
+                    marginLeft: 'auto', padding: '5px 12px',
+                    background: aiScoring ? T.ink300 : T.signal,
+                    color: aiScoring ? T.textDim : T.ink000,
+                    borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: 0.3,
+                    cursor: aiScoring ? 'default' : 'pointer',
+                  }}>{aiScoring ? 'ANALYZING…' : 'Score with AI'}</div>
+                {openArticle.item.url && (
+                  <a href={openArticle.item.url} target="_blank" rel="noopener noreferrer"
+                    style={{
+                      padding: '5px 12px', background: 'transparent',
+                      color: T.textMid, border: `1px solid ${T.edge}`, borderRadius: 6,
+                      fontSize: 11, fontWeight: 500, letterSpacing: 0.2,
+                      textDecoration: 'none',
+                    }}>Read at source →</a>
+                )}
+              </div>
+
+              {aiScore && aiScore.result && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                  {[
+                    { key: 'claude', label: 'Claude', brand: '#D97757' },
+                    { key: 'gpt',    label: 'ChatGPT', brand: '#0077B5' },
+                    { key: 'gemini', label: 'Gemini', brand: '#4285F4' },
+                    { key: 'grok',   label: 'Grok',   brand: '#9AA3B2' },
+                  ].map(m => {
+                    const r = aiScore.result[m.key];
+                    const ok = r && r.result;
+                    return (
+                      <div key={m.key} style={{
+                        padding: '9px 10px',
+                        background: ok ? `${m.brand}14` : T.ink000,
+                        border: `0.5px solid ${ok ? `${m.brand}55` : T.edge}`,
+                        borderRadius: 7,
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
+                          <div style={{ width: 5, height: 5, borderRadius: 2.5, background: m.brand }} />
+                          <div style={{
+                            fontSize: 10, color: m.brand, fontWeight: 600, letterSpacing: 0.4,
+                          }}>{m.label}</div>
+                          {ok && (
+                            <div style={{
+                              marginLeft: 'auto', fontFamily: T.mono, fontSize: 8.5,
+                              color: T.textDim, letterSpacing: 0.3,
+                            }}>{r.result.confidence}/10</div>
+                          )}
+                        </div>
+                        {ok ? (
+                          <>
+                            <div style={{
+                              fontSize: 10, fontWeight: 600, letterSpacing: 0.5,
+                              color: r.result.sentiment === 'bullish' ? '#6FCF8E'
+                                   : r.result.sentiment === 'bearish' ? '#D96B6B' : T.textMid,
+                              textTransform: 'uppercase', marginBottom: 4,
+                            }}>{r.result.sentiment}</div>
+                            <div style={{
+                              fontSize: 10, color: T.textMid, lineHeight: 1.4,
+                              display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                            }}>{r.result.summary}</div>
+                          </>
+                        ) : (
+                          <div style={{ fontSize: 9.5, color: T.textDim, fontStyle: 'italic' }}>
+                            {r && r.error === 'no key' ? 'No API key in Settings' : (r && r.error) || '—'}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {aiScore.result.consensus && (
+                    <div style={{
+                      gridColumn: 'span 4', padding: '8px 10px',
+                      background: aiScore.result.consensus.agree ? 'rgba(78,160,118,0.08)' : 'rgba(217,107,107,0.08)',
+                      border: `0.5px solid ${aiScore.result.consensus.agree ? 'rgba(78,160,118,0.4)' : 'rgba(217,107,107,0.4)'}`,
+                      borderRadius: 6, fontSize: 10.5, color: T.textMid, lineHeight: 1.5,
+                    }}>
+                      <span style={{
+                        fontWeight: 600, letterSpacing: 0.6,
+                        color: aiScore.result.consensus.agree ? '#6FCF8E' : '#D96B6B',
+                      }}>{aiScore.result.consensus.label} · {aiScore.result.consensus.modelCount} MODELS</span>
+                      &nbsp; {aiScore.result.consensus.summary}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

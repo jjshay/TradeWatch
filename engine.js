@@ -825,39 +825,53 @@ const AIAnalysis = {
         return this.getKeys();
     },
 
-    // Run Claude and ChatGPT in parallel against the same prompt → consensus block.
-    // Both analyzers already JSON-parse their output; we compare sentiment +
-    // confidence to produce an agreement signal.
-    async runDual(headlines) {
+    // Run all configured LLMs in parallel on the same prompt → per-model results
+    // plus a consensus block. Claude + ChatGPT + Gemini (+ optional Grok).
+    async runMulti(headlines, { excludeGrok = false } = {}) {
         const keys = this.getKeys();
-        const tasks = [];
-        if (keys.claude) tasks.push(this.analyzeWithClaude(headlines));
-        else tasks.push(Promise.resolve({ model: 'Claude Sonnet', result: null, raw: null, error: 'no key' }));
-        if (keys.openai) tasks.push(this.analyzeWithOpenAI(headlines));
-        else tasks.push(Promise.resolve({ model: 'GPT-4o Mini', result: null, raw: null, error: 'no key' }));
-        const [claude, gpt] = await Promise.all(tasks);
+        const skip = (model) => Promise.resolve({ model, result: null, raw: null, error: 'no key' });
 
-        // Consensus logic — compare sentiment / confidence when both succeeded
+        const tasks = {
+            claude: keys.claude ? this.analyzeWithClaude(headlines) : skip('Claude Sonnet'),
+            gpt:    keys.openai ? this.analyzeWithOpenAI(headlines) : skip('GPT-4o Mini'),
+            gemini: keys.gemini ? this.analyzeWithGemini(headlines) : skip('Gemini 2.0 Flash'),
+        };
+        if (!excludeGrok) tasks.grok = keys.grok ? this.analyzeWithGrok(headlines) : skip('Grok 3');
+
+        const keysArr = Object.keys(tasks);
+        const vals = await Promise.all(keysArr.map(k => tasks[k]));
+        const out = {};
+        keysArr.forEach((k, i) => out[k] = vals[i]);
+
+        // Consensus across whichever models returned valid results
+        const valid = keysArr.filter(k => out[k].result);
         let consensus = null;
-        if (claude.result && gpt.result) {
-            const cSent = claude.result.sentiment, gSent = gpt.result.sentiment;
-            const cConf = Number(claude.result.confidence) || 0;
-            const gConf = Number(gpt.result.confidence) || 0;
-            const agree = cSent === gSent;
+        if (valid.length >= 2) {
+            const sentiments = valid.map(k => out[k].result.sentiment);
+            const confs = valid.map(k => Number(out[k].result.confidence) || 0);
+            const unique = [...new Set(sentiments)];
+            const agree = unique.length === 1;
+            const avgConf = (confs.reduce((a, b) => a + b, 0) / confs.length).toFixed(1);
+            const modelNames = { claude: 'Claude', gpt: 'GPT', gemini: 'Gemini', grok: 'Grok' };
             consensus = {
                 agree,
-                sentiment: agree ? cSent : `${cSent} vs ${gSent}`,
-                avgConfidence: ((cConf + gConf) / 2).toFixed(1),
+                sentiment: agree ? unique[0] : unique.join(' vs '),
+                avgConfidence: avgConf,
                 label: agree ? 'ALIGNED' : 'DIVERGENT',
+                modelCount: valid.length,
                 summary: agree
-                    ? `Both models agree: ${cSent.toUpperCase()}. Avg confidence ${((cConf + gConf) / 2).toFixed(1)}/10.`
-                    : `Models split: Claude says ${cSent} (${cConf}/10) vs GPT says ${gSent} (${gConf}/10). Reduce size until alignment.`,
-                claudeActionable: claude.result.actionable || [],
-                gptActionable:    gpt.result.actionable || [],
+                    ? `All ${valid.length} models agree: ${unique[0].toUpperCase()}. Avg confidence ${avgConf}/10.`
+                    : `${valid.length} models split — ${valid.map((k, i) => `${modelNames[k]} ${sentiments[i]} (${confs[i]}/10)`).join(' · ')}. Reduce size until alignment.`,
+                opportunities: [].concat(...valid.map(k => out[k].result.opportunities || [])).slice(0, 6),
+                risks:         [].concat(...valid.map(k => out[k].result.risks || [])).slice(0, 6),
             };
         }
-        return { claude, gpt, consensus };
+
+        return { ...out, consensus };
     },
+
+    // Backward-compat wrapper
+    async runDual(headlines) { return this.runMulti(headlines); },
 
     _buildPrompt(headlines) {
         return `You are a crypto market analyst. Analyze these recent blockchain/crypto headlines and provide actionable trading insights.
