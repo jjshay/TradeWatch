@@ -30,17 +30,19 @@ const STOCKS = [
   { sym: 'MARA', name: 'Marathon Digital' },
 ];
 
+// Stooq is CORS-enabled and serves free CSV futures quotes. Finnhub free
+// tier rejects Yahoo-style =F symbols, so futures live on Stooq here.
 const FUTURES = [
-  { sym: 'CL=F',  name: 'WTI Crude Oil',     unit: '/bbl' },
-  { sym: 'BZ=F',  name: 'Brent Crude',       unit: '/bbl' },
-  { sym: 'NG=F',  name: 'Natural Gas',       unit: '/MMBtu' },
-  { sym: 'GC=F',  name: 'Gold',              unit: '/oz' },
-  { sym: 'SI=F',  name: 'Silver',            unit: '/oz' },
-  { sym: 'HG=F',  name: 'Copper',            unit: '/lb' },
-  { sym: 'ES=F',  name: 'S&P 500 Futures',   unit: '' },
-  { sym: 'NQ=F',  name: 'Nasdaq 100 Futures',unit: '' },
-  { sym: 'YM=F',  name: 'Dow Jones Futures', unit: '' },
-  { sym: 'DX-Y.NYB', name: 'US Dollar Index', unit: '' },
+  { sym: 'CL',   stooq: 'cl.f',  name: 'WTI Crude Oil',      unit: '/bbl' },
+  { sym: 'BZ',   stooq: 'cb.f',  name: 'Brent Crude',        unit: '/bbl' },
+  { sym: 'NG',   stooq: 'ng.f',  name: 'Natural Gas',        unit: '/MMBtu' },
+  { sym: 'GC',   stooq: 'gc.f',  name: 'Gold',               unit: '/oz' },
+  { sym: 'SI',   stooq: 'si.f',  name: 'Silver',             unit: '/oz' },
+  { sym: 'HG',   stooq: 'hg.f',  name: 'Copper',             unit: '/lb' },
+  { sym: 'ES',   stooq: 'es.f',  name: 'S&P 500 Futures',    unit: '' },
+  { sym: 'NQ',   stooq: 'nq.f',  name: 'Nasdaq 100 Futures', unit: '' },
+  { sym: 'YM',   stooq: 'ym.f',  name: 'Dow Jones Futures',  unit: '' },
+  { sym: 'DXY',  stooq: 'dx.f',  name: 'US Dollar Index',    unit: '' },
 ];
 
 const CRYPTO = [
@@ -155,25 +157,35 @@ function PricesScreen({ onNav }) {
     { refreshKey: 'prices' }
   );
 
-  // Futures fetch
+  // Futures fetch — via Stooq (CORS-friendly, free, no key). One batch CSV
+  // call for all tickers. Format:
+  //   https://stooq.com/q/l/?s=cl.f,gc.f,...&f=sohlcv&h&e=csv
+  // Response CSV header: Symbol,Open,High,Low,Close,Volume
   const { data: futuresQuotes } = (window.useAutoUpdate || (() => ({})))(
-    `prices-futures-${finnhubKey ? 'on' : 'off'}`,
+    'prices-futures-stooq',
     async () => {
-      if (!finnhubKey) return null;
-      const out = {};
-      for (const f of FUTURES) {
-        try {
-          const encoded = encodeURIComponent(f.sym);
-          const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${encoded}&token=${finnhubKey}`);
-          if (r.ok) {
-            const q = await r.json();
-            if (q && typeof q.c === 'number' && q.c > 0) {
-              out[f.sym] = { price: q.c, change: q.dp, high: q.h, low: q.l };
-            }
-          }
-        } catch (_) {}
-      }
-      return Object.keys(out).length ? out : null;
+      try {
+        const syms = FUTURES.map(f => f.stooq).join(',');
+        const r = await fetch(`https://stooq.com/q/l/?s=${syms}&f=sohlcv&h&e=csv`);
+        if (!r.ok) return null;
+        const text = await r.text();
+        const lines = text.trim().split('\n');
+        if (lines.length < 2) return null;
+        const out = {};
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',');
+          const [symRaw, openS, , , closeS] = cols;
+          const open = parseFloat(openS);
+          const close = parseFloat(closeS);
+          if (!isFinite(close) || close <= 0) continue;
+          // Match back to our FUTURES entry by stooq code
+          const entry = FUTURES.find(f => f.stooq.toLowerCase() === symRaw.toLowerCase());
+          if (!entry) continue;
+          const chg = isFinite(open) && open > 0 ? ((close - open) / open) * 100 : null;
+          out[entry.sym] = { price: close, change: chg };
+        }
+        return Object.keys(out).length ? out : null;
+      } catch (_) { return null; }
     },
     { refreshKey: 'prices' }
   );

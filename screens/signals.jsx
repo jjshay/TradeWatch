@@ -122,10 +122,47 @@ function SignalTile({ sig, onOpen }) {
   );
 }
 
+// Map a signal label to its primary data source. Each entry returns the
+// source name + URL. If a signal already has an explicit `sig.source` /
+// `sig.url`, those win.
+function sourceFor(sig) {
+  if (sig.url) return { name: sig.source || 'Source', url: sig.url };
+  const L = (sig.label || '').toLowerCase();
+  const map = [
+    { m: /fed funds|fomc|cut odds|25bp/,         s: 'FRED · Fed Funds',            u: 'https://fred.stlouisfed.org/series/DFEDTARU' },
+    { m: /10y treasury|2s10s|spread/,            s: 'US Treasury · Daily Yields',  u: 'https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve' },
+    { m: /dxy|dollar index/,                     s: 'ICE · DXY',                   u: 'https://www.marketwatch.com/investing/index/dxy' },
+    { m: /hy credit|high yield/,                 s: 'FRED · HY OAS',               u: 'https://fred.stlouisfed.org/series/BAMLH0A0HYM2' },
+    { m: /^s&p 500|^spy|fwd p\/e|put\/call/,     s: 'Yahoo · S&P 500',             u: 'https://finance.yahoo.com/quote/%5EGSPC' },
+    { m: /^vix/,                                 s: 'CBOE · VIX',                  u: 'https://www.cboe.com/tradable_products/vix/' },
+    { m: /nvda|nvidia/,                          s: 'Yahoo · NVDA',                u: 'https://finance.yahoo.com/quote/NVDA' },
+    { m: /mstr|strategy|microstrategy/,          s: 'Yahoo · MSTR',                u: 'https://finance.yahoo.com/quote/MSTR' },
+    { m: /ibit/,                                 s: 'BlackRock · IBIT',            u: 'https://www.ishares.com/us/products/333011/' },
+    { m: /coin|coinbase/,                        s: 'Yahoo · COIN',                u: 'https://finance.yahoo.com/quote/COIN' },
+    { m: /btc spot|bitcoin/,                     s: 'CoinGecko · BTC',             u: 'https://www.coingecko.com/en/coins/bitcoin' },
+    { m: /etf aum|ibit net flow|spot btc etfs/,  s: 'Farside · BTC ETF flows',     u: 'https://farside.co.uk/btc/' },
+    { m: /perp funding/,                         s: 'Coinglass · Funding',         u: 'https://www.coinglass.com/FundingRate' },
+    { m: /realized cap|mvrv|days past halving/,  s: 'Glassnode · On-chain',        u: 'https://studio.glassnode.com/metrics' },
+    { m: /clarity act/,                          s: 'Polymarket · CLARITY',        u: 'https://polymarket.com' },
+    { m: /spot eth etf|eth etf/,                 s: 'Farside · ETH ETF flows',     u: 'https://farside.co.uk/eth/' },
+    { m: /strategic btc reserve|sbr|state btc/,  s: 'BitcoinLaws',                 u: 'https://bitcoinlaws.io/' },
+    { m: /stablecoin bill|fair accounting|fasb/, s: 'Congress.gov',                u: 'https://www.congress.gov/' },
+    { m: /iran|hormuz|yemen|red sea/,            s: 'Reuters · Mideast',           u: 'https://www.reuters.com/world/middle-east/' },
+    { m: /ukraine|russia/,                       s: 'Reuters · Europe',            u: 'https://www.reuters.com/world/europe/' },
+    { m: /israel|gaza/,                          s: 'Reuters · Israel',            u: 'https://www.reuters.com/world/middle-east/israel/' },
+    { m: /taiwan|china gdp|pboc|usd\/cnh|tariff/,s: 'Reuters · China',             u: 'https://www.reuters.com/world/china/' },
+    { m: /opec|brent|wti|crude|eia/,             s: 'EIA · Crude',                 u: 'https://www.eia.gov/petroleum/' },
+    { m: /gold/,                                 s: 'Yahoo · Gold',                u: 'https://finance.yahoo.com/quote/GC=F' },
+  ];
+  for (const row of map) if (row.m.test(L)) return { name: row.s, url: row.u };
+  return null;
+}
+
 function SignalsScreen({ onNav }) {
   const [collapsedLanes, setCollapsedLanes] = React.useState(new Set());
   const [openSignal, setOpenSignal] = React.useState(null);
   const [assetFilter, setAssetFilter] = React.useState(null); // 'BTC' | 'OIL' | 'SPX' | null
+  const [openRationale, setOpenRationale] = React.useState(null); // { scope, name, score, label, tiles, loading, text, model }
 
   // LIVE — BTC spot + 24h change (CoinGecko)
   const { data: livePrices } = (window.useAutoUpdate || (() => ({})))(
@@ -374,6 +411,50 @@ function SignalsScreen({ onNav }) {
     return Math.round(50 + (num / den) * 50);
   }
 
+  // Ask the LLM (whichever key is present) to explain why this asset/lane
+  // carries the current score. Tiles pass in as contributing context.
+  const explainWithAI = async (scope, name, score, label, tiles) => {
+    setOpenRationale({ scope, name, score, label, tiles, loading: true, text: null, model: null });
+    if (typeof AIAnalysis === 'undefined') {
+      setOpenRationale(r => ({ ...r, loading: false, text: 'AIAnalysis engine not loaded.', model: 'none' }));
+      return;
+    }
+    const tileLines = (tiles || []).map(t =>
+      `- ${t.label}: ${t.value} (${t.dir === 'up' ? '↑' : t.dir === 'down' ? '↓' : '—'} ${t.delta})` +
+      (t.status ? ` · ${t.status}` : '')
+    ).join('\n');
+    const headline = {
+      source: 'TradeRadar',
+      title: `Why is ${scope === 'asset' ? name : `the ${name} lane`} scoring ${label} (${score}/100)? Contributing signals:\n${tileLines}\n\nProvide a 2-3 paragraph rationale. Cite specific tiles. What would flip it?`,
+    };
+    try {
+      const result = await AIAnalysis.runMulti([headline]);
+      // Prefer Claude's summary, fall back to GPT/Gemini/Grok/Perplexity in order
+      const order = ['claude', 'gpt', 'gemini', 'grok', 'perplexity'];
+      for (const k of order) {
+        const r = result && result[k];
+        if (r && r.result && r.result.summary) {
+          const combined = [r.result.summary, ...(r.result.opportunities || []), ...(r.result.risks || [])].filter(Boolean).join('\n\n');
+          setOpenRationale(cur => cur && ({ ...cur, loading: false, text: combined, model: r.model || k }));
+          return;
+        }
+      }
+      setOpenRationale(cur => cur && ({ ...cur, loading: false, text: 'No LLM returned a usable response. Check API keys in Settings ⚙.', model: 'none' }));
+    } catch (e) {
+      setOpenRationale(cur => cur && ({ ...cur, loading: false, text: 'Error: ' + e.message, model: 'error' }));
+    }
+  };
+
+  // Collect tiles that contribute to a given asset / lane (for rationale context)
+  const tilesForAsset = (asset) => {
+    const out = [];
+    for (const l of lanes) for (const s of (l.signals || [])) {
+      if (s.impact && s.impact.includes(asset)) out.push(s);
+    }
+    return out;
+  };
+  const tilesForLane = (lane) => lane.signals || [];
+
   const btcScore = assetScore('BTC');
   const oilScore = assetScore('OIL');
   const spxScore = assetScore('SPX');
@@ -454,8 +535,21 @@ function SignalsScreen({ onNav }) {
           const sc = scoreColor(c.score);
           return (
             <div key={c.label}
-              onClick={() => c.asset && setAssetFilter(assetFilter === c.asset ? null : c.asset)}
-              title={c.asset ? `Click to filter lanes to ${c.asset} only` : ''}
+              onClick={(e) => {
+                // Shift/Alt-click for filter; plain click opens rationale.
+                if (e.shiftKey || e.altKey) {
+                  if (c.asset) setAssetFilter(assetFilter === c.asset ? null : c.asset);
+                  return;
+                }
+                if (c.asset) {
+                  explainWithAI('asset', c.asset, c.score, c.sub, tilesForAsset(c.asset));
+                } else {
+                  // Macro Tilt — aggregate over all tiles
+                  const allTiles = lanes.flatMap(l => l.signals || []);
+                  explainWithAI('macro', 'Macro', c.score, c.sub, allTiles);
+                }
+              }}
+              title={c.asset ? `Click = LLM rationale · Shift-click = filter lanes to ${c.asset}` : 'Click for LLM rationale'}
               style={{
                 flex: 1, padding: '8px 20px',
                 borderRight: idx < composite.length - 1 ? `1px solid ${T.edge}` : 'none',
@@ -556,11 +650,18 @@ function SignalsScreen({ onNav }) {
                 const ls = laneScore(lane);
                 const sc = scoreColor(ls);
                 return (
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '2px 8px', marginLeft: 6,
-                    background: `${sc}18`, border: `0.5px solid ${sc}55`, borderRadius: 5,
-                  }}>
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation(); // don't toggle lane collapse
+                      explainWithAI('lane', lane.label, ls, scoreToLabel(ls), tilesForLane(lane));
+                    }}
+                    title="Click for LLM rationale"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      padding: '2px 8px', marginLeft: 6,
+                      background: `${sc}18`, border: `0.5px solid ${sc}55`, borderRadius: 5,
+                      cursor: 'pointer',
+                    }}>
                     <div style={{
                       fontFamily: T.mono, fontSize: 9, fontWeight: 600, color: sc, letterSpacing: 0.6,
                     }}>{scoreToLabel(ls)}</div>
@@ -666,6 +767,130 @@ function SignalsScreen({ onNav }) {
                 <ImpactTags tags={openSignal.impact || []} />
               </div>
             </div>
+
+            {/* SOURCE — click through to primary data source */}
+            {(() => {
+              const src = sourceFor(openSignal);
+              if (!src) return null;
+              return (
+                <div style={{
+                  marginTop: 14, paddingTop: 14,
+                  borderTop: `1px solid ${T.edge}`,
+                  display: 'flex', alignItems: 'center', gap: 10,
+                }}>
+                  <div style={{
+                    fontSize: 9.5, letterSpacing: 0.8, color: T.textDim,
+                    textTransform: 'uppercase', fontWeight: 500,
+                  }}>Source</div>
+                  <a href={src.url} target="_blank" rel="noopener noreferrer"
+                    style={{
+                      marginLeft: 'auto', padding: '7px 14px',
+                      background: 'rgba(201,162,39,0.14)',
+                      border: '0.5px solid rgba(201,162,39,0.5)',
+                      borderRadius: 6, textDecoration: 'none',
+                      fontFamily: T.mono, fontSize: 11, fontWeight: 600,
+                      color: T.signal, letterSpacing: 0.3,
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                    }}>
+                    {src.name} →
+                  </a>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* Rationale modal — LLM explains why this asset/lane carries the current score */}
+      {openRationale && (
+        <div
+          onClick={() => setOpenRationale(null)}
+          style={{
+            position: 'absolute', inset: 0, background: 'rgba(7,9,12,0.78)',
+            backdropFilter: 'blur(12px) saturate(150%)',
+            WebkitBackdropFilter: 'blur(12px) saturate(150%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 60, padding: 40,
+          }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            width: 640, maxHeight: '86%', overflow: 'auto',
+            background: T.ink100, border: `1px solid ${T.edgeHi}`,
+            borderRadius: 14, padding: '22px 28px',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <div style={{
+                fontSize: 10, letterSpacing: 1.2, color: T.textDim,
+                textTransform: 'uppercase', fontWeight: 600,
+              }}>AI Rationale · {openRationale.scope === 'asset' ? 'Asset Score' : openRationale.scope === 'macro' ? 'Macro' : 'Lane'}</div>
+              <div style={{
+                padding: '2px 8px', fontFamily: T.mono, fontSize: 9, fontWeight: 600, letterSpacing: 0.6,
+                color: scoreColor(openRationale.score),
+                background: `${scoreColor(openRationale.score)}18`,
+                border: `0.5px solid ${scoreColor(openRationale.score)}55`, borderRadius: 4,
+              }}>{openRationale.label} · {openRationale.score}</div>
+              <div onClick={() => setOpenRationale(null)} style={{
+                marginLeft: 'auto', width: 24, height: 24, borderRadius: 6,
+                background: T.ink300, border: `1px solid ${T.edge}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: T.textMid, fontSize: 12,
+              }}>✕</div>
+            </div>
+            <div style={{
+              fontSize: 20, fontWeight: 500, color: T.text,
+              letterSpacing: -0.2, marginBottom: 14,
+            }}>{openRationale.name}</div>
+
+            {openRationale.loading && (
+              <div style={{
+                padding: '30px 0', textAlign: 'center',
+                fontFamily: T.mono, fontSize: 11, color: T.textDim, letterSpacing: 0.5,
+              }}>ANALYZING WITH CLAUDE + GPT + GEMINI + GROK + PERPLEXITY…</div>
+            )}
+
+            {!openRationale.loading && openRationale.text && (
+              <>
+                <div style={{
+                  fontSize: 13.5, lineHeight: 1.65, color: T.text, marginBottom: 14,
+                  whiteSpace: 'pre-wrap',
+                }}>{openRationale.text}</div>
+                {openRationale.model && openRationale.model !== 'none' && openRationale.model !== 'error' && (
+                  <div style={{
+                    fontFamily: T.mono, fontSize: 9.5, color: T.textDim,
+                    letterSpacing: 0.4, paddingTop: 10, borderTop: `0.5px solid ${T.edge}`,
+                  }}>Source: {openRationale.model}</div>
+                )}
+              </>
+            )}
+
+            {/* Contributing tiles */}
+            {openRationale.tiles && openRationale.tiles.length > 0 && (
+              <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${T.edge}` }}>
+                <div style={{
+                  fontSize: 9.5, letterSpacing: 0.8, color: T.textDim,
+                  textTransform: 'uppercase', fontWeight: 500, marginBottom: 8,
+                }}>Contributing signals ({openRationale.tiles.length})</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+                  {openRationale.tiles.slice(0, 12).map((t, i) => (
+                    <div key={i} style={{
+                      padding: '6px 9px', background: T.ink200,
+                      border: `0.5px solid ${T.edge}`, borderRadius: 5,
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}>
+                      <div style={{
+                        fontFamily: T.mono, fontSize: 9,
+                        color: t.dir === 'up' ? T.bull : t.dir === 'down' ? T.bear : T.neutral,
+                        fontWeight: 700, width: 8,
+                      }}>{t.dir === 'up' ? '↑' : t.dir === 'down' ? '↓' : '—'}</div>
+                      <div style={{ fontSize: 10, color: T.text, fontWeight: 500, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {t.label}
+                      </div>
+                      <div style={{ fontFamily: T.mono, fontSize: 9.5, color: T.textMid }}>{t.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
