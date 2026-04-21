@@ -170,25 +170,92 @@ function FlightsScreen({ onNav }) {
     setInsightLoading(true);
     (async () => {
       try {
+        // Build rich context: current aircraft, type mix, 24h trend from
+        // localStorage history, and top 5 recent geopolitical headlines.
+        const typeCount = { refueler: 0, transport: 0, bomber: 0, patrol: 0, exec: 0, other: 0 };
+        for (const a of data.usMil) {
+          const h = (callsignHint(a.callsign) || '').toLowerCase();
+          if      (h.includes('refueler')) typeCount.refueler++;
+          else if (h.includes('transport')) typeCount.transport++;
+          else if (h.includes('bomber'))    typeCount.bomber++;
+          else if (h.includes('poseidon') || h.includes('navy')) typeCount.patrol++;
+          else if (h.includes('exec'))      typeCount.exec++;
+          else                              typeCount.other++;
+        }
+
+        // 24-hour trend from localStorage history — counts per rolling 6h bucket
+        const now = Date.now() / 1000;
+        const buckets = [0, 0, 0, 0]; // [24-18h ago, 18-12h, 12-6h, 6h-now]
+        const seenPerBucket = [new Set(), new Set(), new Set(), new Set()];
+        for (const s of history) {
+          const hoursAgo = (now - s.t) / 3600;
+          if (hoursAgo > 24 || hoursAgo < 0) continue;
+          const idx = hoursAgo > 18 ? 0 : hoursAgo > 12 ? 1 : hoursAgo > 6 ? 2 : 3;
+          seenPerBucket[idx].add(s.icao24);
+        }
+        const trendStr = seenPerBucket.map(s => s.size).join(' → ');
+
+        // Current news context — pull a few recent Mideast/geo headlines
+        let geoContext = '';
+        try {
+          if (typeof NewsFeed !== 'undefined') {
+            const articles = await NewsFeed.fetchAll();
+            const mideastKw = /iran|hormuz|yemen|red sea|israel|gaza|syria|iraq|saudi|tehran|idf|irgc|opec/i;
+            const relevant = (articles || []).filter(a => mideastKw.test(a.title)).slice(0, 5);
+            if (relevant.length) {
+              geoContext = '\n\nCURRENT GEOPOLITICAL HEADLINES (last 24h):\n' +
+                relevant.map((a, i) => `${i + 1}. [${a.source}] ${a.title}`).join('\n');
+            }
+          }
+        } catch (_) {}
+
         const aircraftSummary = data.usMil.slice(0, 30).map(a =>
-          `${a.callsign} (${callsignHint(a.callsign) || 'unknown'}) · alt ${Math.round(a.alt || 0)}m · vel ${Math.round(a.velocity || 0)}m/s`
+          `  ${a.callsign} · ${callsignHint(a.callsign) || 'unknown'} · alt ${Math.round((a.alt || 0) / 1000)}k m · vel ${Math.round(a.velocity || 0)} m/s`
         ).join('\n');
-        const headline = {
-          source: 'TradeRadar Flight Tracker',
-          title: `Live US military aircraft over CENTCOM (bbox 15–40N, 30–65E): ${data.usMilCount} aircraft tracked via OpenSky.\n\n${aircraftSummary}\n\nWhat does this activity level and aircraft mix imply? Refueler-heavy = sustained strike ops prep. Transport-heavy = troop/supply movement. Bomber support = signaling. Quiet = normal ops. Give a 2-3 paragraph read for an oil/BTC trader: what moves if this escalates?`,
-        };
+
+        const prompt =
+          `You are a former USAF intelligence officer writing an OSINT read for an oil/BTC trader. ` +
+          `Analyze live US military flight activity over CENTCOM and provide a POV.\n\n` +
+          `CURRENT SNAPSHOT (OpenSky, CENTCOM bbox 15–40°N, 30–65°E):\n` +
+          `  Total aircraft in theater: ${data.total}\n` +
+          `  US military tracked: ${data.usMilCount}\n` +
+          `  Type mix — refuelers: ${typeCount.refueler}, transport: ${typeCount.transport}, bomber support: ${typeCount.bomber}, patrol (P-8): ${typeCount.patrol}, exec: ${typeCount.exec}, other: ${typeCount.other}\n\n` +
+          `AIRCRAFT LIST:\n${aircraftSummary}\n\n` +
+          `24H TREND (unique US mil aircraft seen per 6h bucket, oldest→newest):\n  ${trendStr}` +
+          geoContext +
+          `\n\nWrite your POV in this structure:\n` +
+          `1. OPERATIONAL READ (1-2 sentences): what posture does this mix suggest? Refueler-heavy = strike ops prep. Transport-heavy = supply/troop. Bomber orbit = signaling. P-8 = ASW/surveillance. Quiet = routine.\n` +
+          `2. TREND DELTA (1 sentence): is activity escalating, stable, or declining vs the 24h baseline? Cross-reference the headlines if relevant.\n` +
+          `3. MARKET IMPLICATIONS (2-3 sentences): what moves if this escalates? Quantify — "oil +$4-8/bbl if..." or "BTC -5% if..."\n` +
+          `4. WATCH FOR (2 bullets): specific next-step indicators that would confirm escalation vs normalization.`;
+
+        const headline = { source: 'TradeRadar Flight Analyst', title: prompt };
         const result = await AIAnalysis.runMulti([headline]);
         if (!active) return;
         const order = ['claude', 'gpt', 'gemini'];
         for (const k of order) {
           const r = result && result[k];
           if (r && r.result && r.result.summary) {
-            const combined = [
-              r.result.summary,
-              ...(r.result.opportunities || []).map(o => '→ ' + o),
-              ...(r.result.risks || []).map(x => '⚠ ' + x),
-            ].filter(Boolean).join('\n\n');
-            setInsight({ text: combined, model: r.model || k });
+            // runMulti's JSON parser gives {sentiment, summary, actionable, risks, opportunities}.
+            // The structured POV prompt will most often land in `summary` + arrays.
+            const sections = [];
+            if (r.result.summary) sections.push({ label: 'READ', body: r.result.summary });
+            if (r.result.opportunities && r.result.opportunities.length) {
+              sections.push({ label: 'MARKET IMPLICATIONS', body: r.result.opportunities.map(o => '→ ' + o).join('\n') });
+            }
+            if (r.result.risks && r.result.risks.length) {
+              sections.push({ label: 'WATCH FOR', body: r.result.risks.map(x => '⚠ ' + x).join('\n') });
+            }
+            if (r.result.actionable && r.result.actionable.length) {
+              sections.push({ label: 'TRADE NOTE', body: r.result.actionable.map(a => `${a.action} ${a.asset} · ${a.reasoning} · ${a.urgency}`).join('\n') });
+            }
+            setInsight({
+              sections,
+              model: r.model || k,
+              sentiment: r.result.sentiment,
+              confidence: r.result.confidence,
+              raw: sections.length ? null : (r.raw || r.result.summary),
+            });
             return;
           }
         }
@@ -388,9 +455,44 @@ function FlightsScreen({ onNav }) {
                 ANALYZING AIRCRAFT MIX…
               </div>
             )}
-            {insight && insight.text && (
+            {insight && insight.sections && insight.sections.length > 0 && (
+              <div>
+                {insight.sentiment && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
+                    padding: '6px 10px',
+                    background: insight.sentiment === 'bullish' ? 'rgba(111,207,142,0.1)'
+                              : insight.sentiment === 'bearish' ? 'rgba(217,107,107,0.1)'
+                              : 'rgba(201,162,39,0.1)',
+                    border: `0.5px solid ${insight.sentiment === 'bullish' ? 'rgba(111,207,142,0.4)' : insight.sentiment === 'bearish' ? 'rgba(217,107,107,0.4)' : 'rgba(201,162,39,0.4)'}`,
+                    borderRadius: 6,
+                  }}>
+                    <div style={{
+                      fontFamily: T.mono, fontSize: 9.5, fontWeight: 600, letterSpacing: 0.6,
+                      color: insight.sentiment === 'bullish' ? T.bull : insight.sentiment === 'bearish' ? T.bear : T.signal,
+                      textTransform: 'uppercase',
+                    }}>{insight.sentiment} · posture</div>
+                    {insight.confidence != null && (
+                      <div style={{ marginLeft: 'auto', fontFamily: T.mono, fontSize: 9.5, color: T.textDim }}>
+                        conf {insight.confidence}/10
+                      </div>
+                    )}
+                  </div>
+                )}
+                {insight.sections.map((s, i) => (
+                  <div key={i} style={{ marginBottom: 14 }}>
+                    <div style={{
+                      fontSize: 9, letterSpacing: 1.2, color: T.signal,
+                      textTransform: 'uppercase', fontWeight: 600, marginBottom: 5,
+                    }}>{s.label}</div>
+                    <div style={{ fontSize: 12, color: T.text, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{s.body}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {insight && insight.raw && (
               <div style={{ fontSize: 12.5, color: T.text, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
-                {insight.text}
+                {insight.raw}
               </div>
             )}
           </div>
