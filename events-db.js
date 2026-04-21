@@ -1,0 +1,153 @@
+/* ============================================================
+   GeoIntel Events Database
+   Key geopolitical, macroeconomic, and crypto events
+   that moved oil, BTC, and/or the S&P 500
+   ============================================================ */
+
+const GEO_EVENTS = [
+  // ── OIL SHOCKS & MIDDLE EAST ──
+  { date: '2019-09-14', label: 'Aramco Attack', category: 'geopolitical', assets: ['OIL'], color: '#ef4444',
+    summary: 'Drone attacks on Saudi Aramco facilities knocked out ~5% of global oil supply overnight. WTI spiked 15% in a single day — the largest one-day jump in history.' },
+  { date: '2020-03-08', label: 'Oil Price War', category: 'geopolitical', assets: ['OIL'], color: '#ef4444',
+    summary: 'Saudi Arabia launched a price war with Russia after OPEC+ talks collapsed. WTI crashed 25% in one day. Combined with COVID demand destruction, prices eventually went negative in April 2020.' },
+  { date: '2020-04-20', label: 'Oil Goes Negative', category: 'macro', assets: ['OIL'], color: '#ef4444',
+    summary: 'WTI May futures traded at -$37/barrel — negative for the first time in history. Storage capacity was full, COVID had crushed demand 30%, and traders paid to offload contracts.' },
+  { date: '2022-02-24', label: 'Russia Invades Ukraine', category: 'geopolitical', assets: ['OIL', 'SPX'], color: '#ef4444',
+    summary: 'Russia\'s full-scale invasion of Ukraine sent WTI to $130 and SPX down 12%. Europe\'s energy crisis began. SWIFT sanctions removed Russia from global banking.' },
+  { date: '2022-03-08', label: 'Oil Hits $130', category: 'geopolitical', assets: ['OIL'], color: '#ef4444',
+    summary: 'WTI reached $130.50 — highest since 2008. US banned Russian energy imports. Europe scrambled for LNG alternatives. Inflationary pressure accelerated Fed tightening.' },
+  { date: '2023-10-07', label: 'Hamas Attack / Israel War', category: 'geopolitical', assets: ['OIL', 'BTC'], color: '#ef4444',
+    summary: 'Hamas launched unprecedented attack on Israel. Oil spiked on Strait of Hormuz fears. BTC briefly dropped then recovered as geopolitical hedging demand emerged.' },
+  { date: '2024-04-01', label: 'Iran Strikes Israel', category: 'geopolitical', assets: ['OIL', 'BTC', 'SPX'], color: '#ef4444',
+    summary: 'Iran launched 300+ drones and missiles at Israel — first direct attack in history. Oil jumped 3%, BTC dropped 8% on risk-off, SPX fell 1.5%. Israel\'s Iron Dome intercepted most.' },
+  { date: '2024-04-19', label: 'Israel Retaliates vs Iran', category: 'geopolitical', assets: ['OIL', 'SPX'], color: '#f59e0b',
+    summary: 'Israel struck Iranian air defense systems in Isfahan. Limited response avoided escalation. Oil retreated, markets stabilized as full regional war fears subsided.' },
+  { date: '2024-09-17', label: 'Lebanon Pager Attacks', category: 'geopolitical', assets: ['OIL'], color: '#ef4444',
+    summary: 'Israel remotely detonated Hezbollah pagers across Lebanon, killing dozens. Escalation fears pushed oil up. Signaled unprecedented electronic warfare capability.' },
+  { date: '2024-11-27', label: 'Lebanon Ceasefire', category: 'geopolitical', assets: ['OIL'], color: '#10b981',
+    summary: 'US-brokered ceasefire between Israel and Hezbollah. Oil pulled back on reduced regional risk. Ceasefire held fragile through early 2025.' },
+  { date: '2025-01-15', label: 'Gaza Ceasefire Deal', category: 'geopolitical', assets: ['OIL', 'SPX'], color: '#10b981',
+    summary: 'Qatar-brokered ceasefire between Israel and Hamas announced. Phase 1 included hostage releases. Oil dropped 2% on reduced Strait closure risk. Markets rallied.' },
+
+  // ── STRAIT OF HORMUZ / IRAN ──
+  { date: '2019-05-12', label: 'Gulf Tanker Attacks', category: 'geopolitical', assets: ['OIL'], color: '#ef4444',
+    summary: 'Four oil tankers sabotaged near Fujairah UAE port. US blamed Iran. Oil jumped 2%. Beginning of escalating Strait tensions that culminated in the Aramco attack.' },
+  { date: '2019-06-13', label: 'Tanker Attacks in Gulf of Oman', category: 'geopolitical', assets: ['OIL'], color: '#ef4444',
+    summary: 'Two more tankers attacked in Gulf of Oman. US Navy released footage blaming Iran. Trump warned of "obliteration." Strait passage risk premium priced into oil.' },
+  { date: '2024-01-15', label: 'Houthi Red Sea Attacks', category: 'geopolitical', assets: ['OIL'], color: '#ef4444',
+    summary: 'Houthi rebels escalated attacks on commercial shipping in Red Sea, forcing rerouting around Africa. Shipping costs surged 300%. Oil spiked on supply chain fears.' },
+  { date: '2024-12-01', label: 'US Strikes Houthis Escalate', category: 'geopolitical', assets: ['OIL'], color: '#f59e0b',
+    summary: 'Ongoing US and UK strikes on Houthi positions in Yemen failed to stop Red Sea attacks. 12% of global trade remained diverted. Persistent supply chain oil premium.' },
+
+  // ── FED & MACRO ──
+  { date: '2020-03-15', label: 'Fed Cuts to Zero (COVID)', category: 'macro', assets: ['BTC', 'SPX', 'OIL'], color: '#10b981',
+    summary: 'Fed cut rates to 0-0.25% and launched $700B QE in emergency Sunday action. SPX bottomed 3 days later. BTC launched historic bull run. Era of free money began.' },
+  { date: '2021-11-03', label: 'Fed Taper Announcement', category: 'macro', assets: ['BTC', 'SPX'], color: '#f59e0b',
+    summary: 'Fed announced tapering QE at $15B/month. Markets initially shrugged. But combined with inflation surprise, this began the end of the 2020-2021 bull run.' },
+  { date: '2022-03-16', label: 'Fed First Hike (2022 Cycle)', category: 'macro', assets: ['BTC', 'SPX'], color: '#ef4444',
+    summary: 'Fed hiked 25bps — first hike since 2018. Began the most aggressive tightening cycle in 40 years. BTC and growth stocks entered brutal bear market.' },
+  { date: '2022-06-15', label: 'Fed 75bps Hike', category: 'macro', assets: ['BTC', 'SPX'], color: '#ef4444',
+    summary: 'Fed raised 75bps — largest single hike since 1994. CPI had printed 8.6%. BTC was below $20K. Signaled Fed would not pivot to save markets.' },
+  { date: '2023-07-26', label: 'Fed Final Hike (5.25-5.5%)', category: 'macro', assets: ['BTC', 'SPX'], color: '#f59e0b',
+    summary: 'Fed raised to 5.25-5.5%, the highest rate since 2001. Marked effective end of hiking cycle. Markets began pricing rate cuts. BTC bottomed and began recovery.' },
+  { date: '2024-09-18', label: 'Fed Cuts 50bps', category: 'macro', assets: ['BTC', 'SPX', 'OIL'], color: '#10b981',
+    summary: 'Fed cut rates 50bps — larger than expected first cut of the new easing cycle. SPX hit all-time highs. BTC rallied. Oil rose on reflation trade. Risk-on surge.' },
+  { date: '2025-01-29', label: 'Fed Holds (Trump Pressure)', category: 'macro', assets: ['BTC', 'SPX'], color: '#f59e0b',
+    summary: 'Fed held rates despite public pressure from Trump to cut. Powell defended independence. Markets volatile. Dollar strengthened. BTC dipped briefly.' },
+
+  // ── TRUMP ACTIONS ──
+  { date: '2025-01-20', label: 'Trump Inauguration / Crypto EO', category: 'trump', assets: ['BTC', 'SPX'], color: '#10b981',
+    summary: 'Trump signed executive order establishing crypto as national priority. Directed creation of strategic BTC reserve working group. BTC surged to $109K on inauguration day.' },
+  { date: '2025-01-23', label: 'Trump Tariff Threats Begin', category: 'trump', assets: ['SPX', 'OIL'], color: '#ef4444',
+    summary: 'Trump threatened 25% tariffs on Canada and Mexico, 10% on China from Feb 1. Markets fell on inflation and growth concerns. Supply chain fears emerged.' },
+  { date: '2025-02-01', label: 'Trump 25% Tariffs Canada/Mexico', category: 'trump', assets: ['SPX', 'OIL'], color: '#ef4444',
+    summary: 'Tariffs went live on Canada and Mexico. Oil spiked as Canada supplies 4M bpd to US. SPX fell 1.5%. Both countries announced retaliatory measures within hours.' },
+  { date: '2025-04-02', label: 'Liberation Day Tariffs', category: 'trump', assets: ['SPX', 'OIL', 'BTC'], color: '#ef4444',
+    summary: '"Liberation Day" — Trump announced sweeping tariffs on all trading partners. SPX fell 10% in 2 days. BTC dropped 15%. WTI fell on demand destruction fears. Most volatile day since COVID.' },
+  { date: '2025-04-09', label: 'Trump 90-Day Tariff Pause', category: 'trump', assets: ['SPX', 'BTC'], color: '#10b981',
+    summary: 'Trump paused most tariffs for 90 days except China (raised to 145%). SPX had largest single-day gain since 2008 (+9.5%). BTC bounced 12%. Volatility extreme.' },
+
+  // ── BITCOIN SPECIFIC ──
+  { date: '2013-11-28', label: 'BTC First $1,000', category: 'btc', assets: ['BTC'], color: '#10b981',
+    summary: 'Bitcoin crossed $1,000 for the first time on Mt.Gox. Media coverage exploded. First mainstream retail FOMO wave. Mt.Gox then crashed and price fell 85%.' },
+  { date: '2017-12-17', label: 'BTC ATH $19,783', category: 'btc', assets: ['BTC'], color: '#10b981',
+    summary: 'Bitcoin peaked at $19,783 driven by ICO mania and futures launch on CME/CBOE. Classic retail FOMO top. Followed by 84% drawdown over 12 months.' },
+  { date: '2020-10-21', label: 'PayPal Enables BTC Buys', category: 'btc', assets: ['BTC'], color: '#10b981',
+    summary: 'PayPal announced 350M users could buy Bitcoin. Institutional on-ramp signal. BTC rallied 20% in a week. Began the 2020-2021 bull run in earnest.' },
+  { date: '2021-02-08', label: 'Tesla $1.5B BTC Buy', category: 'btc', assets: ['BTC'], color: '#10b981',
+    summary: 'Tesla disclosed $1.5B Bitcoin purchase. Stock market validation for corporate treasury BTC. Price surged 20%. MicroStrategy had already been buying for months.' },
+  { date: '2021-04-14', label: 'Coinbase IPO', category: 'btc', assets: ['BTC', 'SPX'], color: '#10b981',
+    summary: 'Coinbase went public via direct listing at $381/share ($86B valuation). Crypto market legitimacy peak signal. BTC hit $64K same day. Classic peak timing event.' },
+  { date: '2021-05-19', label: 'China BTC Mining Ban', category: 'btc', assets: ['BTC'], color: '#ef4444',
+    summary: 'China banned Bitcoin mining and declared all crypto transactions illegal. Hash rate crashed 50%. BTC fell from $65K to $30K. Long-term bullish (mining decentralized).' },
+  { date: '2022-05-09', label: 'Luna/UST Collapse', category: 'btc', assets: ['BTC', 'SPX'], color: '#ef4444',
+    summary: 'Terra Luna and UST stablecoin collapsed — $60B wiped in 72 hours. BTC fell 30% in a week. Contagion spread to 3AC, Celsius, Voyager. Crypto winter began.' },
+  { date: '2022-11-11', label: 'FTX Bankruptcy', category: 'btc', assets: ['BTC', 'SPX'], color: '#ef4444',
+    summary: 'FTX filed bankruptcy. $8B in customer funds missing. SBF arrested. BTC crashed to $15,500. Worst crypto trust event since Mt.Gox. Ironically set the cycle bottom.' },
+  { date: '2023-01-10', label: 'BTC Cycle Bottom Confirmed', category: 'btc', assets: ['BTC'], color: '#10b981',
+    summary: 'BTC crossed $17K definitively establishing $15,500 as the cycle bottom. On-chain metrics (MVRV, SOPR) all at historical buy signals. Quiet accumulation phase.' },
+  { date: '2024-01-10', label: 'Spot BTC ETF Approved', category: 'btc', assets: ['BTC', 'SPX'], color: '#10b981',
+    summary: 'SEC approved 11 spot Bitcoin ETFs including BlackRock IBIT. Day 1 volume: $4.6B — largest ETF launch in history. Institutional floodgates opened. BTC above $46K.' },
+  { date: '2024-04-19', label: 'Bitcoin Halving 2024', category: 'btc', assets: ['BTC'], color: '#10b981',
+    summary: 'Fourth Bitcoin halving reduced block reward from 6.25 to 3.125 BTC. Historically precedes 12-18 month bull runs. Supply shock combined with ETF demand created powerful setup.' },
+  { date: '2024-11-05', label: 'Trump Wins Election', category: 'trump', assets: ['BTC', 'SPX'], color: '#10b981',
+    summary: 'Trump won presidential election. BTC surged from $68K to $75K overnight. SPX hit ATH. Trump had promised pro-crypto policies, firing of Gensler, strategic BTC reserve.' },
+  { date: '2024-12-05', label: 'BTC Crosses $100K', category: 'btc', assets: ['BTC'], color: '#10b981',
+    summary: 'Bitcoin crossed $100,000 for the first time. Driven by ETF inflows ($5B+ weekly), Trump election, and Fed rate cut. MicroStrategy had accumulated 400K+ BTC.' },
+  { date: '2025-01-17', label: 'BTC ATH $109K (Pre-Inauguration)', category: 'btc', assets: ['BTC'], color: '#10b981',
+    summary: 'Bitcoin reached all-time high of $109,026 days before Trump inauguration. World Liberty Financial (Trump family) was heavily invested. Anticipation of crypto EOs.' },
+  { date: '2025-02-03', label: 'Trump Family WLFI BTC Exposure', category: 'trump', assets: ['BTC'], color: '#10b981',
+    summary: 'World Liberty Financial disclosed full BTC and crypto stack. Trump family sitting on paper gains at $109K high. Later faced paper losses as BTC pulled back to $75-85K range.' },
+  { date: '2025-03-02', label: 'Strategic BTC Reserve EO', category: 'trump', assets: ['BTC'], color: '#10b981',
+    summary: 'Trump signed executive order establishing US Strategic Bitcoin Reserve using seized BTC (~200K coins). BTC initially surged then sold off when no new buying was announced.' },
+
+  // ── INSTITUTIONAL / CLARITY ACT ──
+  { date: '2020-08-11', label: 'MicroStrategy First BTC Buy', category: 'institutional', assets: ['BTC'], color: '#10b981',
+    summary: 'MicroStrategy bought 21,454 BTC for $250M — first major public company to adopt BTC as treasury reserve. Saylor\'s thesis: BTC is superior to cash. Template for others.' },
+  { date: '2023-06-15', label: 'BlackRock BTC ETF Filing', category: 'institutional', assets: ['BTC'], color: '#10b981',
+    summary: 'BlackRock filed for spot Bitcoin ETF, lending massive credibility. Previous 20+ ETF rejections had been by smaller firms. BTC jumped 15%. Approval presumed inevitable.' },
+  { date: '2024-03-18', label: 'MicroStrategy 1B BTC Buyback', category: 'institutional', assets: ['BTC'], color: '#10b981',
+    summary: 'MicroStrategy raised $1B convertible notes to buy more BTC, hitting 214,400 BTC total. Infinite money loop: stock premium → notes → BTC → higher BTC → higher stock.' },
+  { date: '2024-09-30', label: 'BlackRock IBIT Hits $23B AUM', category: 'institutional', assets: ['BTC'], color: '#10b981',
+    summary: 'BlackRock\'s IBIT became fastest ETF to $23B AUM in history. Daily inflows of $300-500M became routine. Structural demand fundamentally changed BTC price dynamics.' },
+  { date: '2025-02-11', label: 'CLARITY Act Introduced', category: 'regulatory', assets: ['BTC', 'SPX'], color: '#10b981',
+    summary: 'CLARITY Act introduced in Senate — comprehensive crypto market structure bill defining when tokens are securities vs. commodities. BTC and ETH confirmed as commodities under the bill.' },
+  { date: '2025-03-15', label: 'CLARITY Act Senate Banking Vote', category: 'regulatory', assets: ['BTC'], color: '#10b981',
+    summary: 'Senate Banking Committee advanced CLARITY Act. Key hurdle: definition of decentralization threshold. Stablecoin provisions most contested. BTC rallied on regulatory clarity progress.' },
+
+  // ── S&P / MACRO SHOCKS ──
+  { date: '2020-02-19', label: 'COVID Market Peak', category: 'macro', assets: ['SPX', 'OIL', 'BTC'], color: '#ef4444',
+    summary: 'S&P 500 peaked at 3,386 before COVID fears took hold. BTC was $10K. WTI was $53. Over next 33 days: SPX -34%, BTC -63%, WTI -66%. Fastest bear market in history.' },
+  { date: '2020-03-23', label: 'COVID Market Bottom', category: 'macro', assets: ['SPX', 'BTC', 'OIL'], color: '#10b981',
+    summary: 'S&P 500 bottomed at 2,237 (-34% from peak). Fed had already cut to zero and announced unlimited QE. BTC bottomed at $3,800. WTI was $20. Generational buying opportunity.' },
+  { date: '2021-11-19', label: 'SPX ATH (Pre-Fed Pivot)', category: 'macro', assets: ['SPX'], color: '#10b981',
+    summary: 'S&P 500 hit 4,743 — final ATH before Fed began tightening. Inflation was 6.2% but "transitory." 2022 saw SPX fall 25% as Fed hiked aggressively.' },
+  { date: '2023-10-27', label: 'SPX Bottom (Rate Peak)', category: 'macro', assets: ['SPX', 'BTC'], color: '#10b981',
+    summary: 'S&P bottomed at 4,103 as 10-year Treasury hit 5% (16-year high). Marked the effective end of the rate-driven bear market. BTC was $34K. Both launched sharp recoveries.' },
+  { date: '2024-07-16', label: 'SPX ATH 5,667', category: 'macro', assets: ['SPX'], color: '#10b981',
+    summary: 'S&P 500 hit new ATH of 5,667 driven by AI/tech boom and soft landing hopes. Magnificent 7 stocks contributed 60% of gains. BTC above $65K. Peak pre-election euphoria.' },
+  { date: '2025-02-19', label: 'SPX Peak Before Tariff Selloff', category: 'trump', assets: ['SPX', 'BTC', 'OIL'], color: '#ef4444',
+    summary: 'S&P 500 hit 6,147 before Trump tariff escalation began rolling selloff. Concerns about trade war recession, sticky inflation from tariffs, and AI capex slowdown.' },
+  { date: '2025-04-07', label: 'SPX -18% From Peak / VIX 60', category: 'trump', assets: ['SPX', 'BTC', 'OIL'], color: '#ef4444',
+    summary: 'S&P 500 fell 18% from Feb peak as Liberation Day tariffs triggered institutional deleveraging. VIX hit 60. BTC fell to $75K. WTI fell on demand destruction fears. Parallels to 2020 speed.' },
+
+  // ── ENERGY / OIL SPECIFIC ──
+  { date: '2023-04-02', label: 'OPEC+ Surprise 1M bpd Cut', category: 'geopolitical', assets: ['OIL'], color: '#10b981',
+    summary: 'OPEC+ surprised markets with voluntary production cuts of 1.16M bpd. WTI jumped 6% on Monday open. Saudi Arabia signaled willingness to sacrifice market share for price.' },
+  { date: '2023-11-26', label: 'OPEC+ Extends Cuts into 2024', category: 'geopolitical', assets: ['OIL'], color: '#f59e0b',
+    summary: 'OPEC+ extended production cuts through Q1 2024 but compliance mixed. Oil failed to hold above $90 as US shale production hit record highs. Saudi strategy showing cracks.' },
+  { date: '2024-06-02', label: 'OPEC+ Phases Out Cuts', category: 'geopolitical', assets: ['OIL'], color: '#ef4444',
+    summary: 'OPEC+ announced plan to gradually phase out 2.2M bpd voluntary cuts starting Q4 2024. Oil fell to $73 on oversupply fears. Internal OPEC+ discipline fraying.' },
+  { date: '2025-03-05', label: 'Trump "Drill Baby Drill" EO', category: 'trump', assets: ['OIL'], color: '#ef4444',
+    summary: 'Trump signed executive orders fast-tracking oil/gas permits and reversing Biden energy restrictions. WTI fell 3% on increased supply outlook. Saudis warned of price war response.' }
+];
+
+// Category colors for legend
+const GEO_CATEGORIES = {
+  geopolitical: { label: 'Geopolitical', color: '#ef4444' },
+  macro:        { label: 'Fed / Macro',  color: '#60a5fa' },
+  btc:          { label: 'Bitcoin',      color: '#f7931a' },
+  trump:        { label: 'Trump',        color: '#a78bfa' },
+  institutional:{ label: 'Institutional',color: '#10b981' },
+  regulatory:   { label: 'Regulatory',  color: '#34d399' }
+};
