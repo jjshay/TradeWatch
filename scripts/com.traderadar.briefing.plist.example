@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    TradeRadar daily briefing — launchd agent.
+
+    Install:
+        mkdir -p /Users/johnshay/TradeWatch/logs
+        cp /Users/johnshay/TradeWatch/scripts/com.traderadar.briefing.plist.example \
+           ~/Library/LaunchAgents/com.traderadar.briefing.plist
+        launchctl load  ~/Library/LaunchAgents/com.traderadar.briefing.plist
+        launchctl start com.traderadar.briefing       # fires immediately for a test send
+
+    Unload / reload:
+        launchctl unload ~/Library/LaunchAgents/com.traderadar.briefing.plist
+
+    Before loading, verify the node path matches your machine:
+        which node        # common: /usr/local/bin/node  or  /opt/homebrew/bin/node  or  ~/.nvm/versions/node/<ver>/bin/node
+    Then update the <string> below if needed.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.traderadar.briefing</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/node</string>
+        <string>/Users/johnshay/TradeWatch/scripts/daily-briefing.js</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/johnshay/TradeWatch</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <!-- Runs every day at 07:00 local time. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key><integer>7</integer>
+        <key>Minute</key><integer>0</integer>
+    </dict>
+
+    <!-- If the Mac was asleep at the scheduled time, run as soon as it wakes. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/johnshay/TradeWatch/logs/briefing.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/johnshay/TradeWatch/logs/briefing.err</string>
+</dict>
+</plist>

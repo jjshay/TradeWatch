@@ -1,119 +1,111 @@
-# Tradewatch
+# TradeRadar
 
-> AI-powered market intelligence — crypto, oil, geopolitics & macro in one dashboard
-
-Tradewatch is a single-page progressive web app that brings together real-time data across crypto, energy, equities, and geopolitical risk — then uses Claude AI to surface actionable intelligence. Built for traders who believe the biggest moves are driven by events, not charts alone.
+A local-only, single-page trading dashboard that fuses real-time crypto/macro data with multi-LLM consensus analysis, built for traders who want to see cause before price.
 
 ---
 
-## Features
-
-### 📡 Crypto Radar
-Live price cards for BTC, ETH, and the broader market. Swipe to watchlist, tap for AI-powered fundamental analysis.
-
-### 🌍 GeoIntel
-Three-pillar geopolitical-financial intelligence tool:
-- **Historical** — Oil × BTC × S&P 500 correlation chart overlaid with annotated geopolitical events (Ukraine invasion, Iran nuclear talks, halving events, ETF approvals)
-- **Projected** — Scenario model with sliders for Trump policy, Iran/Strait of Hormuz, Fed pivot, China, BTC institutional flow, and the CLARITY Act. Runs Monte Carlo projections through end of 2026
-- **Impact** — Live options chain analysis via Tradier. AI picks the best risk/reward trade for your scenario
-
-### 📈 Pulse
-Real-time sentiment dashboard:
-- Crypto & Equity Fear & Greed gauges
-- VIX, AAII Bull/Bear survey, put/call ratio
-- Yield curve (2s10s spread)
-- BTC perpetual funding rate
-- Augmento + LunarCrush social sentiment
-- AFINN-scored news headlines
-- Correlation matrix across BTC, Oil, Gold, DXY, S&P 500
-- AI morning briefing
-
-### 🎯 Predict
-- **Markets** — Live Polymarket prediction markets (Economics, Crypto, Geopolitics, Politics, Middle East, Iran)
-- **Futures** — WTI oil forward curve + BTC CME premium + Fed funds rate expectations
-- **Flow** — Unusual options activity scanner (IBIT, COIN, USO, VXX) ranked by anomaly score
-- **Accuracy** — Prediction market calibration tracker with Brier scores
-
-### 💰 Portfolio
-- Holdings tracker with live P&L
-- Watchlist: BTC, IBIT, COIN, GLD, USO, VXX, UUP
-- Price alerts with browser notifications
-- Earnings calendar for watchlist tickers
-
-### Additional Views
-- **Research** — Deep-dive AI analysis on any crypto or macro topic
-- **News** — RSS aggregation from 8 curated feeds + Messari
-- **Analysis** — Technical indicators (RSI, MACD, Bollinger Bands, Fibonacci)
-- **Charts** — Interactive candlestick charting
-- **Dashboard** — Portfolio summary + macro overview
-- **Tracker** — Position sizing and risk calculator
-
----
-
-## Data Sources
-
-| Source | Data | Auth |
-|--------|------|------|
-| FRED (St. Louis Fed) | WTI crude, S&P 500, VIX, yield curve, HY spreads, Gold, DXY | Free API key |
-| Tradier | Live stocks, options chains, futures | Free API key |
-| CoinGecko | Crypto prices, history, market data | None |
-| Binance | BTC perpetual funding rate, CME premium | None |
-| alternative.me | Crypto Fear & Greed index | None |
-| Polymarket | Prediction market probabilities | None |
-| Kalshi | US-regulated prediction markets | None |
-| LunarCrush | Crypto social sentiment | API key |
-| Augmento | Bitcoin social sentiment | API key |
-| Blockchain.com | On-chain metrics (hash rate, mempool, addresses) | None |
-| RSS.app | Curated news feeds | Subscription |
-| Messari | Crypto news fallback | None |
-
----
-
-## Setup
-
-Tradewatch runs entirely in the browser — no backend, no build step.
+## Quick Start
 
 ```bash
-git clone https://github.com/jjshay/tradewatch
-cd tradewatch
-# Serve locally — any static file server works
-npx serve .
-# or
-python3 -m http.server 8080
+cd /Users/johnshay/TradeWatch
+python3 -m http.server 8000
 ```
 
-Open `http://localhost:8080` and enter your API keys in **Settings** (⚙️ top right):
-- **FRED API key** — [fred.stlouisfed.org/docs/api/api_key.html](https://fred.stlouisfed.org/docs/api/api_key.html) (free)
-- **Tradier API key** — [tradier.com/api](https://developer.tradier.com) (free tier: 500 req/day)
-- **Claude API key** — [console.anthropic.com](https://console.anthropic.com) (for AI analysis features)
-- **LunarCrush key** — [lunarcrush.com/developers](https://lunarcrush.com/developers)
-- **Augmento key** — [augmento.ai](https://augmento.ai)
+Open [http://localhost:8000](http://localhost:8000) in Chrome. The app shell loads `index.html`, which pulls React 18 + Babel Standalone from CDN and the seven screen JSX files under `screens/`.
 
-### PWA Install
-On mobile, tap **Share → Add to Home Screen** (iOS) or the install prompt (Android/Chrome) to install Tradewatch as a native-feeling app.
+First-run key setup:
+
+1. Click the gear icon (top-right of the header) to open the Settings sheet.
+2. Paste your provider keys into the appropriate fields (CoinGecko, Finnhub, Tradier, NewsAPI, NewsData, Bitly, and the five LLM keys).
+3. Hit **Test** next to any provider to confirm the key round-trips.
+4. Keys persist in `localStorage` under `tr_settings`. To pre-fill them on every page load, edit `/Users/johnshay/TradeWatch/keys.local.js` (gitignored).
+
+No build step. No server. No database.
+
+---
+
+## Screens
+
+| # | Screen | Purpose |
+|---|---|---|
+| 1 | Historical | Long-range BTC / WTI / SPX % change with event-dot annotations and rolling correlation. |
+| 2 | Projected | Driver-slider scenario model (Iran, Fed, Trump, BTC flow, China, CLARITY, Shale) -> Claude fan-chart projection. |
+| 3 | Impact | Enter tickers, see Direct-Buy card + Tradier options chain with AI-picked contract and payoff diagram. |
+| 4 | Recommend | Multi-LLM consensus trade recommendations ranked by agreement and conviction. |
+| 5 | News | Aggregated headlines from NewsAPI, NewsData, and RSS (via rss2json) with LLM summarization. |
+| 6 | Calendar | Macro event calendar (FOMC, CPI, OPEC, earnings) with impact tags. |
+| 7 | Signals | Technical + on-chain + sentiment signal panel (Fear&Greed, derivatives, DeFi, volatility). |
+
+---
+
+## Data & AI Providers
+
+| Provider | Powers |
+|---|---|
+| CoinGecko | BTC/ETH spot, 24h change, historical crypto prices |
+| Finnhub | Equity quotes (SPX / DOW / OIL / portfolio tickers) |
+| Tradier | Options chain (sandbox default; live mode requires paid plan) |
+| NewsAPI | Primary news feed |
+| NewsData | Secondary news feed |
+| rss2json | RSS fallback for publisher feeds |
+| alternative.me | Fear & Greed index |
+| Bitly | Short-link creation for share-outs |
+| Claude (Anthropic) | Narrative, scenario projection, consensus input |
+| ChatGPT (OpenAI) | Consensus input |
+| Gemini (Google) | Consensus input |
+| Grok (xAI) | Consensus input |
+| Perplexity | Consensus input + news synthesis |
+
+Missing keys degrade gracefully — the relevant widget falls back to a mock or skips rendering rather than throwing.
 
 ---
 
 ## Architecture
 
-- **Vanilla JS** — no framework, no build toolchain, ships as static files
-- **Progressive Web App** — service worker caches the app shell for offline use
-- **`engine.js`** — core data engine: crypto prices, AI analysis (Claude), Black-Scholes, technical indicators
-- **`geo-intel.js`** — FRED data fetcher, Tradier options API, GeoIntel scenario model
-- **`pulse.js`** — sentiment engine: Fear & Greed, VIX, AAII, yield curve, funding rates, social sentiment, correlation matrix
-- **`predict.js`** — prediction markets (Polymarket/Kalshi), futures curves, options flow scanner, calibration tracker
-- **`portfolio.js`** — holdings, watchlist, price alerts, browser notifications
-- **`onchain.js`** — Blockchain.com on-chain metrics
-- **`events-db.js`** — ~80 annotated geopolitical and financial events (2020–2025)
+- `/Users/johnshay/TradeWatch/index.html` — shell, nav, `TradeRadarApp` component, live BTC/F&G strip.
+- `/Users/johnshay/TradeWatch/engine.js` — data layer. Exposes `LiveData`, `NewsFeed`, `HISTORICAL_EVENTS`, `Correlation`, `AIAnalysis`, `Backtester`, `TechnicalAnalysis`, `OnChainData`, `DeFiData`, `DerivativesData`, `BlackScholes`, `MonteCarlo`, `VOLATILITY_DB`, `CRYPTO_SCENARIOS` as globals. All five LLMs are routed through `AIAnalysis`.
+- `/Users/johnshay/TradeWatch/tr-hooks.jsx` — `useAutoUpdate` polling hook + `TRSettingsSheet` (API keys, refresh intervals, provider test buttons) + `TROptionsChain`.
+- `/Users/johnshay/TradeWatch/tr-header-extras.jsx` — gear button and live strip accessory components.
+- `/Users/johnshay/TradeWatch/screens/*.jsx` — one file per screen, compiled in-browser by `@babel/standalone`.
+- `/Users/johnshay/TradeWatch/keys.local.js` — gitignored bootstrap that writes into `localStorage.tr_settings` on load so the Settings sheet opens pre-filled.
+
+Everything runs in the browser. No bundler, no transpile step, no Node server in the request path.
 
 ---
 
-## Strategy
+## Daily Email
 
-See [STRATEGY.md](./STRATEGY.md) for the investment thesis behind the data this app tracks.
+`/Users/johnshay/TradeWatch/scripts/daily-briefing.js` sends a formatted HTML digest to `jjshay@gmail.com` (BTC spot, Fear & Greed, portfolio, headlines, Claude+ChatGPT+Gemini+Grok consensus). SMTP via Gmail app password. Scheduled through a launchd plist — template at `/Users/johnshay/TradeWatch/scripts/com.traderadar.briefing.plist.example`.
+
+Full setup and schedule instructions: `/Users/johnshay/TradeWatch/scripts/README.md`.
 
 ---
 
-## License
+## Roadmap
 
-MIT
+Honest status of what's live vs. mock:
+
+| Area | Status |
+|---|---|
+| BTC / ETH spot + Fear & Greed | Live (CoinGecko + alternative.me) |
+| OIL / SPX / DOW, historical lookback <= 1Y | Live (Finnhub) |
+| Historical series >= 2Y | Mock — Finnhub free tier capped at ~1Y; needs paid quote feed or a stored daily CSV |
+| Tradier options chain | Live in sandbox; live-mode market data requires Tradier paid plan |
+| News feeds | Live (NewsAPI + NewsData + rss2json) |
+| Multi-LLM consensus | Live for any key present |
+| Mobile layout | Deprioritized — shell enforces `min-width: 1280px`, desktop only |
+| Projected fan chart | Live call into Claude; driver sliders feed the prompt |
+| On-chain / DeFi / Derivatives panels | Partial — some endpoints mocked where free tiers don't exist |
+
+Branch workflow: feature branches off `main`, named `design/tradewatch-7-screens` for the current UI pass. Open PR against `main` (PR #2 at time of writing).
+
+---
+
+## Security
+
+- **No server. No telemetry. No outbound requests other than the provider APIs you paste keys for.**
+- API keys live in browser `localStorage` under `tr_settings`, plus an optional local bootstrap at `/Users/johnshay/TradeWatch/keys.local.js`.
+- `keys.local.js` is listed in `.gitignore` and must never be committed. Double-check `git status` before every push.
+- `.env` used by `scripts/daily-briefing.js` (Gmail app password + LLM keys) is also gitignored.
+- If you fork or share the repo, the next contributor starts with an empty Settings sheet — nothing in the repo leaks credentials.
+- Rotate any key you suspect has been exposed; all providers let you revoke and reissue without touching code.

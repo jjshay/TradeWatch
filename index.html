@@ -1,568 +1,250 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#10b981">
-    <title>TradeWatch</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg: #060a10;
-            --bg-card: #0c1018;
-            --bg-surface: #111820;
-            --green: #10b981;
-            --green-dim: rgba(16,185,129,0.15);
-            --amber: #f59e0b;
-            --red: #ef4444;
-            --blue: #3b82f6;
-            --purple: #a78bfa;
-            --text: #f1f5f9;
-            --text-dim: #64748b;
-            --border: rgba(255,255,255,0.06);
-            --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-        }
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family: var(--font); background: var(--bg); color: var(--text); overflow: hidden; height: 100dvh; }
-
-        /* ── APP SHELL ── */
-        .app { display: flex; flex-direction: column; height: 100dvh; }
-
-        /* ── HEADER ── */
-        .header {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 12px 16px; border-bottom: 1px solid var(--border);
-            flex-shrink: 0; z-index: 10;
-        }
-        .logo { display: flex; align-items: center; gap: 8px; }
-        .logo-mark {
-            width: 28px; height: 28px; border-radius: 8px;
-            background: linear-gradient(135deg, var(--green), #059669);
-            display: flex; align-items: center; justify-content: center;
-            font-weight: 800; font-size: 11px; color: #000; letter-spacing: -0.5px;
-        }
-        .logo-text { font-size: 15px; font-weight: 700; letter-spacing: -0.5px; }
-        .logo-text span { color: var(--green); }
-
-        /* ── TABS ── */
-        .tabs { display: flex; gap: 2px; background: rgba(255,255,255,0.04); border-radius: 10px; padding: 3px; }
-        .tab-btn {
-            padding: 6px 16px; border-radius: 8px; border: none; background: none;
-            color: var(--text-dim); font-family: var(--font); font-size: 12px;
-            font-weight: 600; cursor: pointer; transition: all 0.2s;
-        }
-        .tab-btn.active { background: var(--green); color: #000; }
-        .tab-btn:not(.active):hover { color: var(--text); }
-
-        /* ── SETTINGS BUTTON ── */
-        .settings-btn {
-            background: none; border: none; color: var(--text-dim); cursor: pointer;
-            font-size: 18px; padding: 4px 8px; border-radius: 6px;
-        }
-        .settings-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-
-        /* ── TAB PANELS ── */
-        .tab-panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
-        .tab-panel.active { display: flex; }
-
-        /* ── CHART CONTROLS ── */
-        .chart-controls {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 10px 16px; flex-shrink: 0;
-        }
-        .asset-toggles { display: flex; gap: 6px; }
-        .asset-toggle {
-            padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
-            background: none; font-family: var(--font); font-size: 11px;
-            font-weight: 600; cursor: pointer; transition: all 0.2s;
-        }
-        .asset-toggle.btc { color: var(--amber); border-color: rgba(245,158,11,0.25); }
-        .asset-toggle.btc.active { background: rgba(245,158,11,0.15); border-color: var(--amber); }
-        .asset-toggle.oil { color: var(--blue); border-color: rgba(59,130,246,0.25); }
-        .asset-toggle.oil.active { background: rgba(59,130,246,0.15); border-color: var(--blue); }
-        .asset-toggle.spx { color: var(--green); border-color: rgba(16,185,129,0.25); }
-        .asset-toggle.spx.active { background: rgba(16,185,129,0.15); border-color: var(--green); }
-
-        .tf-btns { display: flex; gap: 2px; background: rgba(255,255,255,0.03); border-radius: 8px; padding: 2px; }
-        .tf-btn {
-            padding: 4px 10px; border-radius: 6px; border: none; background: none;
-            color: var(--text-dim); font-family: var(--font); font-size: 11px;
-            font-weight: 600; cursor: pointer; transition: all 0.15s;
-        }
-        .tf-btn.active { background: rgba(255,255,255,0.1); color: var(--text); }
-
-        /* ── CHART CONTAINER ── */
-        .chart-area { flex: 1; position: relative; min-height: 0; }
-        #chartBox { width: 100%; height: 100%; }
-
-        /* ── CHART LEGEND (floating) ── */
-        .chart-legend {
-            position: absolute; top: 8px; left: 16px; z-index: 5;
-            display: flex; gap: 16px; font-size: 11px; pointer-events: none;
-        }
-        .legend-item { display: flex; align-items: center; gap: 5px; }
-        .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
-        .legend-val { font-weight: 700; font-variant-numeric: tabular-nums; }
-
-        /* ── EVENT TOOLTIP ── */
-        .event-tooltip {
-            position: absolute; z-index: 20; pointer-events: none;
-            max-width: 320px; padding: 14px 16px;
-            background: rgba(12,16,24,0.96); border: 1px solid var(--border);
-            border-radius: 12px; backdrop-filter: blur(16px);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-            opacity: 0; transition: opacity 0.15s;
-        }
-        .event-tooltip.visible { opacity: 1; }
-        .event-tooltip-date { font-size: 10px; color: var(--text-dim); margin-bottom: 4px; }
-        .event-tooltip-label { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
-        .event-tooltip-summary { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
-        .event-tooltip-tag {
-            display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase;
-            letter-spacing: 0.5px; padding: 2px 6px; border-radius: 4px;
-            margin-top: 8px;
-        }
-
-        /* ── CROSSHAIR VALUES ── */
-        .crosshair-values {
-            position: absolute; top: 8px; right: 16px; z-index: 5;
-            text-align: right; pointer-events: none;
-        }
-        .xh-date { font-size: 11px; color: var(--text-dim); margin-bottom: 2px; }
-        .xh-row { font-size: 12px; font-weight: 600; }
-
-        /* ── CORRELATION STATS BAR ── */
-        .corr-bar {
-            display: flex; gap: 12px; justify-content: center; align-items: center;
-            padding: 8px 16px; border-top: 1px solid var(--border);
-            flex-shrink: 0; font-size: 11px;
-        }
-        .corr-stat { display: flex; align-items: center; gap: 4px; }
-        .corr-stat-label { color: var(--text-dim); }
-        .corr-stat-val { font-weight: 700; font-variant-numeric: tabular-nums; }
-
-        /* ── LOADING ── */
-        .loading-overlay {
-            position: absolute; inset: 0; display: flex; align-items: center;
-            justify-content: center; background: var(--bg); z-index: 30;
-        }
-        .loading-spinner {
-            width: 32px; height: 32px; border: 3px solid var(--border);
-            border-top-color: var(--green); border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* ── COMING SOON ── */
-        .coming-soon {
-            flex: 1; display: flex; flex-direction: column; align-items: center;
-            justify-content: center; gap: 8px; color: var(--text-dim);
-        }
-        .coming-soon-icon { font-size: 40px; opacity: 0.3; }
-        .coming-soon-text { font-size: 14px; font-weight: 600; }
-
-        /* ── RESPONSIVE ── */
-        @media (max-width: 480px) {
-            .header { padding: 10px 12px; }
-            .tab-btn { padding: 5px 10px; font-size: 11px; }
-            .chart-controls { padding: 8px 12px; }
-            .asset-toggle { padding: 4px 10px; font-size: 10px; }
-            .tf-btn { padding: 3px 8px; font-size: 10px; }
-            .event-tooltip { max-width: 260px; padding: 10px 12px; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeRadar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #07090C; font-family: 'Inter Tight', system-ui, sans-serif; color: rgba(235,238,244,0.95); min-height: 100vh; }
+  * { box-sizing: border-box; }
+  @keyframes tw-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  #root { width: 100%; min-height: 100vh; }
+  .tr-shell { min-width: 1280px; min-height: 820px; }
+  .tr-nav-btn:hover { background: #171C24 !important; color: rgba(235,238,244,0.95) !important; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+<!-- Legacy engine — exposes LiveData, NewsFeed, HISTORICAL_EVENTS, Correlation,
+     AIAnalysis, Backtester, TechnicalAnalysis, OnChainData, DeFiData,
+     DerivativesData, BlackScholes, MonteCarlo, VOLATILITY_DB, CRYPTO_SCENARIOS
+     as globals. Screens read from these via window.TR_LIVE (set below). -->
+<script src="engine.js"></script>
 </head>
 <body>
-<div class="app">
-    <!-- HEADER -->
-    <div class="header">
-        <div class="logo">
-            <div class="logo-mark">TW</div>
-            <div class="logo-text"><span>Trade</span>Watch</div>
+<div id="root"></div>
+<!-- Auto-update hook + settings sheet -->
+<script type="text/babel" src="tr-hooks.jsx"></script>
+<script type="text/babel" src="tr-header-extras.jsx"></script>
+<!-- Local-only key bootstrap (gitignored) — pre-fills localStorage.tr_settings
+     so the Settings sheet loads with JJ's API keys on first page load. -->
+<script src="keys.local.js"></script>
+<script type="text/babel" src="screens/historical.jsx"></script>
+<script type="text/babel" src="screens/projected.jsx"></script>
+<script type="text/babel" src="screens/impact.jsx"></script>
+<script type="text/babel" src="screens/recommendations.jsx"></script>
+<script type="text/babel" src="screens/news.jsx"></script>
+<script type="text/babel" src="screens/calendar.jsx"></script>
+<script type="text/babel" src="screens/signals.jsx"></script>
+<script type="text/babel">
+// TradeRadar app shell — unified 7-tab nav. Screens that accept onNav route via
+// the top-level state. Standalone screens (News / Calendar / Signals) are
+// wrapped with a matching nav bar so all 7 tabs navigate consistently.
+
+const TR_TOKENS = {
+  ink000: '#07090C', ink100: '#0B0E13', ink200: '#10141B', ink300: '#171C24', ink400: '#1E2430',
+  edge: 'rgba(255,255,255,0.06)', edgeHi: 'rgba(255,255,255,0.10)',
+  text: '#ffffff', textMid: 'rgba(180,188,200,0.75)', textDim: 'rgba(130,138,150,0.55)',
+  signal: '#c9a227',
+  ui: 'InterTight, -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
+  mono: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+};
+
+const TR_TABS = [
+  { key: 'historical',  label: 'Historical'  },
+  { key: 'projected',   label: 'Projected'   },
+  { key: 'impact',      label: 'Impact'      },
+  { key: 'recommend',   label: 'Recommend'   },
+  { key: 'news',        label: 'News'        },
+  { key: 'calendar',    label: 'Calendar'    },
+  { key: 'signals',     label: 'Signals'     },
+];
+
+function TRHeader({ tab, onNav, onOpenSettings }) {
+  const T = TR_TOKENS;
+  return (
+    <div style={{
+      height: 52, display: 'flex', alignItems: 'center',
+      padding: '0 20px', borderBottom: `1px solid ${T.edge}`,
+      background: T.ink100,
+    }}>
+      <img src="assets/gg-logo.png" alt="Global Gauntlet"
+        style={{
+          width: 32, height: 32, objectFit: 'contain',
+          filter: 'drop-shadow(0 0 8px rgba(201,162,39,0.25))',
+        }} />
+      <div style={{
+        marginLeft: 10, display: 'flex', flexDirection: 'column', gap: 1,
+      }}>
+        <div style={{
+          fontSize: 8.5, fontWeight: 600, color: T.signal,
+          letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: T.mono,
+        }}>Global Gauntlet</div>
+        <div style={{
+          fontSize: 13, fontWeight: 500, color: T.text, letterSpacing: 0.2,
+        }}>TradeRadar</div>
+      </div>
+
+      <div style={{
+        marginLeft: 32, display: 'flex', padding: 3,
+        background: T.ink200, borderRadius: 10, border: `1px solid ${T.edge}`,
+        height: 34, alignItems: 'center',
+      }}>
+        {TR_TABS.map((t, idx) => {
+          const active = t.key === tab;
+          return (
+            <div key={t.key} className="tr-nav-btn"
+              onClick={() => !active && onNav && onNav(t.key)}
+              style={{
+                padding: '0 12px', height: 28, display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 12.5, fontWeight: 500, borderRadius: 7,
+                background: active ? T.ink400 : 'transparent',
+                color: active ? T.text : T.textMid,
+                boxShadow: active ? 'inset 0 0.5px 0 rgba(255,255,255,0.12), 0 1px 2px rgba(0,0,0,0.4)' : 'none',
+                cursor: active ? 'default' : 'pointer',
+                transition: 'background 120ms cubic-bezier(0.2,0.7,0.2,1), color 120ms cubic-bezier(0.2,0.7,0.2,1)',
+              }}>
+              <span style={{
+                fontFamily: T.mono, fontSize: 10, color: active ? T.signal : T.textDim,
+                fontWeight: 600, letterSpacing: 0.3,
+              }}>{idx + 1}.</span>
+              {t.label}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 16 }}>
+        <TRLiveStrip />
+        <div style={{ fontFamily: T.mono, fontSize: 11, color: T.textMid, letterSpacing: 0.4 }}>
+          <span style={{ color: T.signal, animation: 'tw-pulse 2s ease-in-out infinite' }}>●</span>&nbsp; LIVE
         </div>
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('historical')">Historical</button>
-            <button class="tab-btn" onclick="switchTab('projected')">Projected</button>
-            <button class="tab-btn" onclick="switchTab('impact')">Impact</button>
-        </div>
-        <button class="settings-btn" title="Settings">&#9881;</button>
+        <TRGearButton onClick={onOpenSettings} />
+      </div>
     </div>
-
-    <!-- TAB 1: HISTORICAL -->
-    <div class="tab-panel active" id="tab-historical">
-        <div class="chart-controls">
-            <div class="asset-toggles">
-                <button class="asset-toggle btc active" onclick="toggleAsset('btc')">&#9679; BTC</button>
-                <button class="asset-toggle oil active" onclick="toggleAsset('oil')">&#9679; WTI Oil</button>
-                <button class="asset-toggle spx" onclick="toggleAsset('spx')">&#9679; S&amp;P 500</button>
-            </div>
-            <div class="tf-btns">
-                <button class="tf-btn" onclick="setTimeframe(1)">1Y</button>
-                <button class="tf-btn active" onclick="setTimeframe(2)">2Y</button>
-                <button class="tf-btn" onclick="setTimeframe(5)">5Y</button>
-                <button class="tf-btn" onclick="setTimeframe(0)">All</button>
-            </div>
-        </div>
-        <div class="chart-area">
-            <div id="chartBox"></div>
-            <div class="chart-legend" id="chartLegend">
-                <div class="legend-item"><div class="legend-dot" style="background:var(--amber);"></div>BTC <span class="legend-val" id="legBtc"></span></div>
-                <div class="legend-item"><div class="legend-dot" style="background:var(--blue);"></div>WTI <span class="legend-val" id="legOil"></span></div>
-                <div class="legend-item" id="legSpxWrap" style="display:none;"><div class="legend-dot" style="background:var(--green);"></div>S&amp;P <span class="legend-val" id="legSpx"></span></div>
-            </div>
-            <div class="crosshair-values" id="xhValues"></div>
-            <div class="event-tooltip" id="eventTooltip"></div>
-            <div class="loading-overlay" id="loadingOverlay">
-                <div class="loading-spinner"></div>
-            </div>
-        </div>
-        <div class="corr-bar" id="corrBar">
-            <div class="corr-stat">
-                <span class="corr-stat-label">BTC/Oil correlation:</span>
-                <span class="corr-stat-val" id="corrBtcOil">—</span>
-            </div>
-            <div class="corr-stat">
-                <span class="corr-stat-label">Rolling 90d:</span>
-                <span class="corr-stat-val" id="corrRolling">—</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- TAB 2: PROJECTED -->
-    <div class="tab-panel" id="tab-projected">
-        <div class="coming-soon">
-            <div class="coming-soon-icon">&#128302;</div>
-            <div class="coming-soon-text">Scenario Projections — Coming Next</div>
-        </div>
-    </div>
-
-    <!-- TAB 3: IMPACT -->
-    <div class="tab-panel" id="tab-impact">
-        <div class="coming-soon">
-            <div class="coming-soon-icon">&#128176;</div>
-            <div class="coming-soon-text">Financial Impact — Coming Next</div>
-        </div>
-    </div>
-</div>
-
-<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
-<script src="events-db.js"></script>
-<script src="geo-intel.js"></script>
-<script>
-// ================================================================
-// STATE
-// ================================================================
-let chart, btcSeries, oilSeries, spxSeries;
-let rawBtc = [], rawOil = [], rawSpx = [];
-let normBtc = [], normOil = [], normSpx = [];
-let activeAssets = { btc: true, oil: true, spx: false };
-let currentTf = 2;
-let eventMarkers = [];
-
-// ================================================================
-// TAB SWITCHING
-// ================================================================
-function switchTab(name) {
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('tab-' + name).classList.add('active');
-    document.querySelector(`.tab-btn[onclick*="${name}"]`).classList.add('active');
-    if (name === 'historical' && chart) chart.timeScale().fitContent();
+  );
 }
 
-// ================================================================
-// ASSET TOGGLES
-// ================================================================
-function toggleAsset(asset) {
-    activeAssets[asset] = !activeAssets[asset];
-    const btn = document.querySelector(`.asset-toggle.${asset}`);
-    btn.classList.toggle('active');
-    const series = { btc: btcSeries, oil: oilSeries, spx: spxSeries }[asset];
-    if (series) series.applyOptions({ visible: activeAssets[asset] });
-    document.getElementById('legSpxWrap').style.display = activeAssets.spx ? '' : 'none';
-    updateCorrelation();
-}
+// Polls engine.js LiveData every 60s and renders BTC spot + 24h change + Fear&Greed.
+// Non-destructive: if engine globals or fetches fail, renders nothing.
+function TRLiveStrip() {
+  const T = TR_TOKENS;
+  const [btc, setBtc]   = React.useState(null);   // { price, change24h }
+  const [fng, setFng]   = React.useState(null);   // { value, classification }
 
-// ================================================================
-// TIMEFRAME
-// ================================================================
-function setTimeframe(years) {
-    currentTf = years;
-    document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
-    document.querySelector(`.tf-btn[onclick*="${years}"]`).classList.add('active');
-    applyTimeframe();
-}
-
-function applyTimeframe() {
-    if (!rawBtc.length) return;
-    let startDate;
-    if (currentTf === 0) {
-        startDate = rawBtc[0]?.time;
-    } else {
-        const d = new Date();
-        d.setFullYear(d.getFullYear() - currentTf);
-        startDate = d.toISOString().slice(0, 10);
+  React.useEffect(() => {
+    let active = true;
+    async function tick() {
+      try {
+        if (typeof LiveData !== 'undefined') {
+          const prices = await LiveData.getCryptoPrices();
+          if (active && prices && prices.bitcoin) {
+            setBtc({
+              price: prices.bitcoin.usd,
+              change24h: prices.bitcoin.usd_24h_change,
+            });
+          }
+          const fg = await LiveData.getFearGreed();
+          if (active && fg && fg.data && fg.data[0]) {
+            setFng({
+              value: parseInt(fg.data[0].value, 10),
+              classification: fg.data[0].value_classification,
+            });
+          }
+        }
+      } catch (_) { /* silent — screens fall back to mocks */ }
     }
+    tick();
+    const iv = setInterval(tick, 60_000);
+    return () => { active = false; clearInterval(iv); };
+  }, []);
 
-    normBtc = normalize(rawBtc, startDate);
-    normOil = normalize(rawOil, startDate);
-    normSpx = normalize(rawSpx, startDate);
+  if (!btc && !fng) return null;
 
-    btcSeries.setData(normBtc);
-    oilSeries.setData(normOil);
-    spxSeries.setData(normSpx);
-
-    addEventMarkers(startDate);
-    chart.timeScale().fitContent();
-    updateCorrelation();
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 14,
+      fontFamily: T.mono, fontSize: 11, color: T.textMid,
+    }}>
+      {btc && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ color: '#F7931A', fontSize: 10 }}>●</span>
+          <span style={{ color: T.textDim, letterSpacing: 0.4 }}>BTC</span>
+          <span style={{ color: T.text, fontWeight: 600 }}>
+            ${Math.round(btc.price).toLocaleString('en-US')}
+          </span>
+          <span style={{
+            color: btc.change24h >= 0 ? '#6FCF8E' : '#D96B6B',
+            fontSize: 10.5, fontWeight: 500,
+          }}>
+            {btc.change24h >= 0 ? '+' : ''}{btc.change24h.toFixed(2)}%
+          </span>
+        </div>
+      )}
+      {fng && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ color: T.textDim, letterSpacing: 0.4 }}>F&amp;G</span>
+          <span style={{ color: T.text, fontWeight: 600 }}>{fng.value}</span>
+          <span style={{ color: T.textDim, fontSize: 10, letterSpacing: 0.3, textTransform: 'uppercase' }}>
+            {fng.classification}
+          </span>
+        </div>
+      )}
+    </div>
+  );
 }
 
-function normalize(series, startDate) {
-    const idx = series.findIndex(p => p.time >= startDate);
-    if (idx < 0) return [];
-    const base = series[idx].value;
-    if (!base) return [];
-    return series.slice(idx).map(p => ({
-        time: p.time,
-        value: +( ((p.value - base) / base) * 100 ).toFixed(2)
-    }));
+function TRWrap({ tab, onNav, onOpenSettings, children }) {
+  return (
+    <div style={{ background: TR_TOKENS.ink000, minHeight: 820 }}>
+      <TRHeader tab={tab} onNav={onNav} onOpenSettings={onOpenSettings} />
+      {children}
+    </div>
+  );
 }
 
-// ================================================================
-// CORRELATION
-// ================================================================
-function pearson(a, b) {
-    const mapA = new Map(a.map(p => [p.time, p.value]));
-    const pairs = b.filter(p => mapA.has(p.time)).map(p => [mapA.get(p.time), p.value]);
-    if (pairs.length < 10) return null;
-    const xs = pairs.map(p => p[0]), ys = pairs.map(p => p[1]);
-    const mx = xs.reduce((s, v) => s + v, 0) / xs.length;
-    const my = ys.reduce((s, v) => s + v, 0) / ys.length;
-    const num = xs.reduce((s, v, i) => s + (v - mx) * (ys[i] - my), 0);
-    const den = Math.sqrt(xs.reduce((s, v) => s + (v - mx) ** 2, 0) * ys.reduce((s, v) => s + (v - my) ** 2, 0));
-    return den === 0 ? 0 : num / den;
+function TradeRadarApp() {
+  const [tab, setTab] = React.useState('historical');
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [optionsOpen, setOptionsOpen] = React.useState(false);
+  const [tradeOpen, setTradeOpen] = React.useState(false);
+  const openSettings = () => setSettingsOpen(true);
+  const openOptions  = () => setOptionsOpen(true);
+  const openTrade    = () => setTradeOpen(true);
+
+  // Global triggers — any screen can open Settings, the Tradier chain, or the trade modal.
+  React.useEffect(() => {
+    window.openTRSettings = openSettings;
+    window.openTROptions  = openOptions;
+    window.openTRTrade    = openTrade;
+  }, []);
+
+  let screen;
+  // Screens that render their own TR header via onNav
+  if (tab === 'historical')      screen = <HistoricalScreen       onNav={setTab} />;
+  else if (tab === 'projected')  screen = <ProjectedScreen        onNav={setTab} />;
+  else if (tab === 'impact')     screen = <ImpactScreen           onNav={setTab} />;
+  else if (tab === 'recommend')  screen = <RecommendationsScreen  onNav={setTab} />;
+  // News/Calendar/Signals now render their own 7-tab header + onNav — no TRWrap
+  else if (tab === 'news')     screen = <NewsScreen     onNav={setTab} />;
+  else if (tab === 'calendar') screen = <CalendarScreen onNav={setTab} />;
+  else if (tab === 'signals')  screen = <SignalsScreen  onNav={setTab} />;
+  else screen = <HistoricalScreen onNav={setTab} />;
+
+  return (
+    <>
+      <div className="tr-shell">{screen}</div>
+      <TRSettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <TROptionsChain open={optionsOpen} onClose={() => setOptionsOpen(false)} />
+      <TRTradeModal open={tradeOpen} onClose={() => setTradeOpen(false)} />
+    </>
+  );
 }
 
-function updateCorrelation() {
-    const full = pearson(normBtc, normOil);
-    document.getElementById('corrBtcOil').textContent = full != null ? full.toFixed(3) : '—';
-    document.getElementById('corrBtcOil').style.color = full > 0.3 ? 'var(--green)' : full < -0.3 ? 'var(--red)' : 'var(--text)';
-
-    const last90 = normBtc.slice(-90);
-    const rolling = pearson(last90, normOil.slice(-90));
-    document.getElementById('corrRolling').textContent = rolling != null ? rolling.toFixed(3) : '—';
-    document.getElementById('corrRolling').style.color = rolling > 0.3 ? 'var(--green)' : rolling < -0.3 ? 'var(--red)' : 'var(--text)';
-}
-
-// ================================================================
-// EVENT MARKERS
-// ================================================================
-function addEventMarkers(startDate) {
-    const start = startDate || '2000-01-01';
-    eventMarkers = GEO_EVENTS
-        .filter(e => e.date >= start)
-        .filter(e => e.assets.includes('BTC') || e.assets.includes('OIL'))
-        .map(e => ({
-            time: e.date,
-            position: 'aboveBar',
-            color: e.color || '#f59e0b',
-            shape: 'circle',
-            size: 0.8,
-            text: '',
-            id: e.date
-        }));
-    if (btcSeries && activeAssets.btc) btcSeries.setMarkers(eventMarkers);
-    else if (oilSeries && activeAssets.oil) oilSeries.setMarkers(eventMarkers);
-}
-
-// ================================================================
-// EVENT TOOLTIP
-// ================================================================
-function showEventTooltip(event, x, y) {
-    const tip = document.getElementById('eventTooltip');
-    const cat = GEO_CATEGORIES[event.category] || { label: event.category, color: '#888' };
-    tip.innerHTML = `
-        <div class="event-tooltip-date">${formatDate(event.date)}</div>
-        <div class="event-tooltip-label" style="color:${event.color || cat.color}">${event.label}</div>
-        <div class="event-tooltip-summary">${event.summary}</div>
-        <span class="event-tooltip-tag" style="background:${cat.color}20;color:${cat.color}">${cat.label}</span>
-    `;
-    const chartArea = document.querySelector('.chart-area');
-    const rect = chartArea.getBoundingClientRect();
-    let left = x - rect.left + 12;
-    let top = y - rect.top - 20;
-    if (left + 320 > rect.width) left = left - 340;
-    if (top < 10) top = 10;
-    if (top + 200 > rect.height) top = rect.height - 210;
-    tip.style.left = left + 'px';
-    tip.style.top = top + 'px';
-    tip.classList.add('visible');
-}
-
-function hideEventTooltip() {
-    document.getElementById('eventTooltip').classList.remove('visible');
-}
-
-function formatDate(dateStr) {
-    const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-// ================================================================
-// CROSSHAIR
-// ================================================================
-function setupCrosshair() {
-    chart.subscribeCrosshairMove(param => {
-        if (!param.time || !param.seriesData) {
-            document.getElementById('xhValues').innerHTML = '';
-            hideEventTooltip();
-            return;
-        }
-
-        const dateStr = typeof param.time === 'string' ? param.time
-            : `${param.time.year}-${String(param.time.month).padStart(2,'0')}-${String(param.time.day).padStart(2,'0')}`;
-
-        const btcVal = param.seriesData.get(btcSeries)?.value;
-        const oilVal = param.seriesData.get(oilSeries)?.value;
-        const spxVal = param.seriesData.get(spxSeries)?.value;
-
-        let html = `<div class="xh-date">${formatDate(dateStr)}</div>`;
-        if (activeAssets.btc && btcVal != null)
-            html += `<div class="xh-row" style="color:var(--amber)">BTC ${btcVal >= 0 ? '+' : ''}${btcVal.toFixed(1)}%</div>`;
-        if (activeAssets.oil && oilVal != null)
-            html += `<div class="xh-row" style="color:var(--blue)">OIL ${oilVal >= 0 ? '+' : ''}${oilVal.toFixed(1)}%</div>`;
-        if (activeAssets.spx && spxVal != null)
-            html += `<div class="xh-row" style="color:var(--green)">S&P ${spxVal >= 0 ? '+' : ''}${spxVal.toFixed(1)}%</div>`;
-        document.getElementById('xhValues').innerHTML = html;
-
-        // Check for nearby event
-        const event = GEO_EVENTS.find(e => e.date === dateStr);
-        if (event) {
-            const point = param.point;
-            if (point) {
-                const chartArea = document.querySelector('.chart-area');
-                const rect = chartArea.getBoundingClientRect();
-                showEventTooltip(event, rect.left + point.x, rect.top + point.y);
-            }
-        } else {
-            hideEventTooltip();
-        }
-    });
-}
-
-// ================================================================
-// CHART INIT
-// ================================================================
-async function initChart() {
-    const container = document.getElementById('chartBox');
-
-    chart = LightweightCharts.createChart(container, {
-        layout: {
-            background: { type: 'solid', color: 'transparent' },
-            textColor: '#64748b',
-            fontFamily: 'Inter, sans-serif',
-            fontSize: 11,
-        },
-        grid: {
-            vertLines: { color: 'rgba(255,255,255,0.03)' },
-            horzLines: { color: 'rgba(255,255,255,0.04)' },
-        },
-        crosshair: {
-            mode: LightweightCharts.CrosshairMode.Normal,
-            vertLine: { color: 'rgba(255,255,255,0.15)', width: 1, style: 2, labelBackgroundColor: '#1e293b' },
-            horzLine: { color: 'rgba(255,255,255,0.15)', width: 1, style: 2, labelBackgroundColor: '#1e293b' },
-        },
-        rightPriceScale: {
-            borderColor: 'rgba(255,255,255,0.06)',
-            scaleMargins: { top: 0.1, bottom: 0.1 },
-        },
-        timeScale: {
-            borderColor: 'rgba(255,255,255,0.06)',
-            rightOffset: 5,
-            barSpacing: 6,
-            minBarSpacing: 2,
-        },
-        handleScroll: { vertTouchDrag: true },
-        handleScale: { axisPressedMouseMove: true },
-    });
-
-    // Responsive
-    const ro = new ResizeObserver(() => {
-        chart.applyOptions({ width: container.offsetWidth, height: container.offsetHeight });
-    });
-    ro.observe(container);
-
-    // Zero line as a separate baseline series
-    const zeroLine = chart.addBaselineSeries({
-        baseValue: { type: 'price', price: 0 },
-        topLineColor: 'transparent', bottomLineColor: 'transparent',
-        topFillColor1: 'transparent', topFillColor2: 'transparent',
-        bottomFillColor1: 'transparent', bottomFillColor2: 'transparent',
-        priceLineVisible: true, priceLineColor: 'rgba(255,255,255,0.12)',
-        priceLineStyle: 0, priceLineWidth: 1,
-        lastValueVisible: false,
-    });
-    zeroLine.setData([{ time: '2010-01-01', value: 0 }, { time: '2030-01-01', value: 0 }]);
-
-    // BTC series
-    btcSeries = chart.addLineSeries({
-        color: '#f59e0b',
-        lineWidth: 2,
-        priceLineVisible: false,
-        lastValueVisible: false,
-        crosshairMarkerRadius: 4,
-        crosshairMarkerBorderColor: '#f59e0b',
-        crosshairMarkerBackgroundColor: '#f59e0b',
-    });
-
-    // Oil series
-    oilSeries = chart.addLineSeries({
-        color: '#3b82f6',
-        lineWidth: 2,
-        priceLineVisible: false,
-        lastValueVisible: false,
-        crosshairMarkerRadius: 4,
-        crosshairMarkerBorderColor: '#3b82f6',
-        crosshairMarkerBackgroundColor: '#3b82f6',
-    });
-
-    // S&P series (hidden by default)
-    spxSeries = chart.addLineSeries({
-        color: '#10b981',
-        lineWidth: 2,
-        priceLineVisible: false,
-        lastValueVisible: false,
-        visible: false,
-        crosshairMarkerRadius: 4,
-        crosshairMarkerBorderColor: '#10b981',
-        crosshairMarkerBackgroundColor: '#10b981',
-    });
-
-    setupCrosshair();
-
-    // Fetch data
-    const [btcRaw, oilRaw, spxRaw] = await Promise.all([
-        GeoIntel.fetchBTCHistory(),
-        GeoIntel.fetchFREDSeries('DCOILWTICO', '2010-01-01'),
-        GeoIntel.fetchFREDSeries('SP500', '2010-01-01'),
-    ]);
-
-    rawBtc = btcRaw || [];
-    rawOil = oilRaw || [];
-    rawSpx = spxRaw || [];
-
-    // Hide loading
-    document.getElementById('loadingOverlay').style.display = 'none';
-
-    // Apply default timeframe
-    applyTimeframe();
-}
-
-// ================================================================
-// BOOT
-// ================================================================
-initChart();
+ReactDOM.createRoot(document.getElementById('root')).render(<TradeRadarApp />);
 </script>
 </body>
 </html>

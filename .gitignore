@@ -1,0 +1,14 @@
+.letta/
+
+# Local-only secrets — never commit
+keys.local.js
+.env
+.env.local
+
+# Node dependencies (installed by `npm install` in repo root)
+node_modules/
+npm-debug.log*
+
+# launchd / cron briefing output (keep the directory via .gitkeep)
+logs/
+!logs/.gitkeep

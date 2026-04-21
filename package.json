@@ -1,0 +1,14 @@
+{
+  "name": "traderadar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TradeRadar — live crypto/markets dashboard with daily LLM-consensus email briefing.",
+  "scripts": {
+    "briefing": "node scripts/daily-briefing.js"
+  },
+  "dependencies": {
+    "dotenv": "16.4.5",
+    "node-fetch": "2.7.0",
+    "nodemailer": "6.9.13"
+  }
+}

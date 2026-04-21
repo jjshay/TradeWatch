@@ -801,12 +801,171 @@ const NewsFeed = {
 };
 
 // ========== AI ANALYSIS ENGINE ==========
-const AIAnalysis = {
-    // Keys loaded from localStorage (set via Settings in the app)
-    getKeys() {
+// Tradier wrapper — sandbox/live. Reads key + mode from TR_SETTINGS. Sandbox
+// data is 15-min delayed; production needs paid plan. All endpoints return
+// null on error so screens can fall back to designed defaults.
+const TradierAPI = {
+    _base() {
+        const meta = (window.TR_SETTINGS && window.TR_SETTINGS.meta) || {};
+        return meta.tradierMode === 'live'
+            ? 'https://api.tradier.com/v1'
+            : 'https://sandbox.tradier.com/v1';
+    },
+    _token() {
+        return (window.TR_SETTINGS && window.TR_SETTINGS.keys && window.TR_SETTINGS.keys.tradier) || '';
+    },
+    async _fetch(path) {
+        const token = this._token();
+        if (!token) return null;
         try {
-            return JSON.parse(localStorage.getItem('oilradar_ai_keys') || '{}');
-        } catch { return {}; }
+            const r = await fetch(`${this._base()}${path}`, {
+                headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+            });
+            if (!r.ok) return null;
+            return await r.json();
+        } catch (_) { return null; }
+    },
+    // Trading + account endpoints. Tradier requires form-urlencoded POST bodies
+    // (NOT JSON). Returns parsed JSON or null on error. Caller must handle null.
+    async _send(path, method, formObj) {
+        const token = this._token();
+        if (!token) return null;
+        try {
+            const init = {
+                method,
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/json',
+                },
+            };
+            if (formObj) {
+                init.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+                const body = new URLSearchParams();
+                Object.keys(formObj).forEach(k => {
+                    if (formObj[k] !== undefined && formObj[k] !== null && formObj[k] !== '') {
+                        body.append(k, String(formObj[k]));
+                    }
+                });
+                init.body = body.toString();
+            }
+            const r = await fetch(`${this._base()}${path}`, init);
+            if (!r.ok) {
+                let err = null; try { err = await r.json(); } catch (_) {}
+                return { _error: true, status: r.status, body: err };
+            }
+            return await r.json();
+        } catch (e) { return { _error: true, message: e && e.message }; }
+    },
+    _accountId() {
+        const meta = (window.TR_SETTINGS && window.TR_SETTINGS.meta) || {};
+        return meta.tradierAccount || 'VA43420796';
+    },
+    async getQuote(symbol) {
+        const d = await this._fetch(`/markets/quotes?symbols=${encodeURIComponent(symbol)}`);
+        return d && d.quotes && d.quotes.quote ? d.quotes.quote : null;
+    },
+    async getExpirations(symbol) {
+        const d = await this._fetch(`/markets/options/expirations?symbol=${encodeURIComponent(symbol)}&includeAllRoots=true`);
+        return d && d.expirations && d.expirations.date
+            ? (Array.isArray(d.expirations.date) ? d.expirations.date : [d.expirations.date])
+            : null;
+    },
+    async getChain(symbol, expiration) {
+        const d = await this._fetch(`/markets/options/chains?symbol=${encodeURIComponent(symbol)}&expiration=${encodeURIComponent(expiration)}&greeks=true`);
+        return d && d.options && d.options.option
+            ? (Array.isArray(d.options.option) ? d.options.option : [d.options.option])
+            : null;
+    },
+    // Account balance — normalized for sandbox (margin) and live (cash/pdt) shapes.
+    async getAccount() {
+        const id = this._accountId();
+        const d = await this._fetch(`/accounts/${encodeURIComponent(id)}/balances`);
+        if (!d || !d.balances) return null;
+        const b = d.balances;
+        const sub = b.margin || b.cash || b.pdt || {};
+        return {
+            total_equity: typeof b.total_equity === 'number' ? b.total_equity : null,
+            cash: typeof b.total_cash === 'number' ? b.total_cash
+                : (typeof sub.cash_available === 'number' ? sub.cash_available : null),
+            day_change: typeof b.open_pl === 'number' ? b.open_pl
+                : (typeof b.close_pl === 'number' ? b.close_pl : null),
+            account_number: b.account_number || id,
+            buying_power: typeof sub.stock_buying_power === 'number' ? sub.stock_buying_power
+                : (typeof sub.option_buying_power === 'number' ? sub.option_buying_power : null),
+            raw: b,
+        };
+    },
+    async getPositions() {
+        const id = this._accountId();
+        const d = await this._fetch(`/accounts/${encodeURIComponent(id)}/positions`);
+        if (!d || !d.positions || !d.positions.position) return [];
+        const arr = Array.isArray(d.positions.position) ? d.positions.position : [d.positions.position];
+        return arr.map(p => ({
+            symbol: p.symbol,
+            quantity: p.quantity,
+            cost_basis: p.cost_basis,
+            date_acquired: p.date_acquired,
+            id: p.id,
+        }));
+    },
+    async getOrders() {
+        const id = this._accountId();
+        const d = await this._fetch(`/accounts/${encodeURIComponent(id)}/orders?includeTags=true`);
+        if (!d || !d.orders || !d.orders.order) return [];
+        const arr = Array.isArray(d.orders.order) ? d.orders.order : [d.orders.order];
+        return arr;
+    },
+    // Order construction — handles both equity and option tickets. For options
+    // pass `option_symbol` (OCC format). `class` is auto-derived from presence
+    // of option_symbol unless explicitly overridden.
+    _buildOrderForm({ symbol, side, quantity, type, price, duration, option_symbol, klass, stop }) {
+        const cls = klass || (option_symbol ? 'option' : 'equity');
+        const form = {
+            class: cls,
+            symbol: (symbol || '').toUpperCase(),
+            side: side,
+            quantity: quantity,
+            type: type || 'market',
+            duration: duration || 'day',
+        };
+        if (option_symbol) form.option_symbol = String(option_symbol).toUpperCase();
+        if (form.type === 'limit' || form.type === 'stop_limit') form.price = price;
+        if (form.type === 'stop'  || form.type === 'stop_limit') form.stop  = stop;
+        return form;
+    },
+    async previewOrder(opts) {
+        const id = this._accountId();
+        const form = this._buildOrderForm(opts);
+        return await this._send(`/accounts/${encodeURIComponent(id)}/orders?preview=true`, 'POST', form);
+    },
+    async placeOrder(opts) {
+        const id = this._accountId();
+        const form = this._buildOrderForm(opts);
+        return await this._send(`/accounts/${encodeURIComponent(id)}/orders`, 'POST', form);
+    },
+    async cancelOrder(orderId) {
+        const id = this._accountId();
+        return await this._send(`/accounts/${encodeURIComponent(id)}/orders/${encodeURIComponent(orderId)}`, 'DELETE', null);
+    },
+};
+window.TradierAPI = TradierAPI;
+
+const AIAnalysis = {
+    // Keys come from TR_SETTINGS (new TradeRadar Settings sheet) OR the legacy
+    // oilradar_ai_keys localStorage blob, whichever has a value. TR_SETTINGS wins.
+    getKeys() {
+        let legacy = {};
+        try { legacy = JSON.parse(localStorage.getItem('oilradar_ai_keys') || '{}'); } catch {}
+        const tr = (window.TR_SETTINGS && window.TR_SETTINGS.keys) || {};
+        // Map TR_SETTINGS field names → legacy names where they differ
+        const merged = {
+            ...legacy,
+            claude: tr.claude   || legacy.claude   || '',
+            openai: tr.openai   || legacy.openai   || '',
+            gemini: tr.gemini   || legacy.gemini   || '',
+            grok:   tr.grok     || legacy.grok     || '',
+        };
+        return merged;
     },
     setKeys(keys) {
         localStorage.setItem('oilradar_ai_keys', JSON.stringify(keys));
@@ -814,6 +973,79 @@ const AIAnalysis = {
     get keys() {
         return this.getKeys();
     },
+
+    // Run all configured LLMs in parallel on the same prompt → per-model results
+    // plus a consensus block. Claude + ChatGPT + Gemini (+ optional Grok).
+    async analyzeWithPerplexity(headlines) {
+        try {
+            const resp = await fetch('https://api.perplexity.ai/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.keys.perplexity}`
+                },
+                body: JSON.stringify({
+                    model: 'sonar',
+                    messages: [{ role: 'user', content: this._buildPrompt(headlines) }],
+                    temperature: 0.3,
+                    max_tokens: 1500
+                })
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            const text = data.choices?.[0]?.message?.content || '';
+            return { model: 'Perplexity Sonar', result: this._parseJSON(text), raw: text, error: null };
+        } catch (e) {
+            return { model: 'Perplexity Sonar', result: null, raw: null, error: e.message };
+        }
+    },
+
+    async runMulti(headlines, { excludeGrok = false, excludePerplexity = false } = {}) {
+        const keys = this.getKeys();
+        const skip = (model) => Promise.resolve({ model, result: null, raw: null, error: 'no key' });
+
+        const tasks = {
+            claude: keys.claude ? this.analyzeWithClaude(headlines) : skip('Claude Sonnet'),
+            gpt:    keys.openai ? this.analyzeWithOpenAI(headlines) : skip('GPT-4o Mini'),
+            gemini: keys.gemini ? this.analyzeWithGemini(headlines) : skip('Gemini 2.0 Flash'),
+        };
+        if (!excludeGrok) tasks.grok = keys.grok ? this.analyzeWithGrok(headlines) : skip('Grok 3');
+        if (!excludePerplexity) tasks.perplexity = keys.perplexity ? this.analyzeWithPerplexity(headlines) : skip('Perplexity Sonar');
+
+        const keysArr = Object.keys(tasks);
+        const vals = await Promise.all(keysArr.map(k => tasks[k]));
+        const out = {};
+        keysArr.forEach((k, i) => out[k] = vals[i]);
+
+        // Consensus across whichever models returned valid results
+        const valid = keysArr.filter(k => out[k].result);
+        let consensus = null;
+        if (valid.length >= 2) {
+            const sentiments = valid.map(k => out[k].result.sentiment);
+            const confs = valid.map(k => Number(out[k].result.confidence) || 0);
+            const unique = [...new Set(sentiments)];
+            const agree = unique.length === 1;
+            const avgConf = (confs.reduce((a, b) => a + b, 0) / confs.length).toFixed(1);
+            const modelNames = { claude: 'Claude', gpt: 'GPT', gemini: 'Gemini', grok: 'Grok' };
+            consensus = {
+                agree,
+                sentiment: agree ? unique[0] : unique.join(' vs '),
+                avgConfidence: avgConf,
+                label: agree ? 'ALIGNED' : 'DIVERGENT',
+                modelCount: valid.length,
+                summary: agree
+                    ? `All ${valid.length} models agree: ${unique[0].toUpperCase()}. Avg confidence ${avgConf}/10.`
+                    : `${valid.length} models split — ${valid.map((k, i) => `${modelNames[k]} ${sentiments[i]} (${confs[i]}/10)`).join(' · ')}. Reduce size until alignment.`,
+                opportunities: [].concat(...valid.map(k => out[k].result.opportunities || [])).slice(0, 6),
+                risks:         [].concat(...valid.map(k => out[k].result.risks || [])).slice(0, 6),
+            };
+        }
+
+        return { ...out, consensus };
+    },
+
+    // Backward-compat wrapper
+    async runDual(headlines) { return this.runMulti(headlines); },
 
     _buildPrompt(headlines) {
         return `You are a crypto market analyst. Analyze these recent blockchain/crypto headlines and provide actionable trading insights.
