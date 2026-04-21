@@ -122,7 +122,7 @@ function SignalTile({ sig, onOpen }) {
   );
 }
 
-function SignalsScreen() {
+function SignalsScreen({ onNav }) {
   const [collapsedLanes, setCollapsedLanes] = React.useState(new Set());
   const [openSignal, setOpenSignal] = React.useState(null);
   const [assetFilter, setAssetFilter] = React.useState(null); // 'BTC' | 'OIL' | 'SPX' | null
@@ -341,11 +341,12 @@ function SignalsScreen() {
           background: T.ink200, borderRadius: 10, border: `1px solid ${T.edge}`,
           height: 34, alignItems: 'center',
         }}>
-          {['Historical', 'Projected', 'Impact', 'News', 'Calendar', 'Signals'].map((t, idx) => {
-            const active = idx === 5;
+          {['Historical', 'Projected', 'Impact', 'Recommend', 'News', 'Calendar', 'Signals'].map((t, idx) => {
+            const active = idx === 6;
             return (
-              <div key={t} style={{
-                padding: '0 14px', height: 28, display: 'flex', alignItems: 'center',
+              <div key={t} onClick={() => !active && onNav && onNav(t === 'Recommend' ? 'recommend' : t.toLowerCase())} style={{
+                cursor: active ? 'default' : 'pointer',
+                padding: '0 13px', height: 28, display: 'flex', alignItems: 'center',
                 fontSize: 12.5, fontWeight: 500, borderRadius: 7,
                 background: active ? T.ink400 : 'transparent',
                 color: active ? T.text : T.textMid,

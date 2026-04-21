@@ -220,10 +220,10 @@ function TradeRadarApp() {
   else if (tab === 'projected')  screen = <ProjectedScreen        onNav={setTab} />;
   else if (tab === 'impact')     screen = <ImpactScreen           onNav={setTab} />;
   else if (tab === 'recommend')  screen = <RecommendationsScreen  onNav={setTab} />;
-  // Standalone screens — wrap with shared header
-  else if (tab === 'news')     screen = <TRWrap tab={tab} onNav={setTab} onOpenSettings={openSettings}><NewsScreen     /></TRWrap>;
-  else if (tab === 'calendar') screen = <TRWrap tab={tab} onNav={setTab} onOpenSettings={openSettings}><CalendarScreen /></TRWrap>;
-  else if (tab === 'signals')  screen = <TRWrap tab={tab} onNav={setTab} onOpenSettings={openSettings}><SignalsScreen  /></TRWrap>;
+  // News/Calendar/Signals now render their own 7-tab header + onNav — no TRWrap
+  else if (tab === 'news')     screen = <NewsScreen     onNav={setTab} />;
+  else if (tab === 'calendar') screen = <CalendarScreen onNav={setTab} />;
+  else if (tab === 'signals')  screen = <SignalsScreen  onNav={setTab} />;
   else screen = <HistoricalScreen onNav={setTab} />;
 
   return (

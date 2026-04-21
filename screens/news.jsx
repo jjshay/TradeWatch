@@ -14,7 +14,7 @@ const newsTokens = {
   mono: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
 };
 
-function NewsScreen() {
+function NewsScreen({ onNav }) {
   const T = newsTokens;
   const W = 1280, H = 820;
 
@@ -508,10 +508,11 @@ function NewsScreen() {
           background: T.ink200, borderRadius: 10, border: `1px solid ${T.edge}`,
           height: 34, alignItems: 'center',
         }}>
-          {['Historical', 'Projected', 'Impact', 'News', 'Calendar', 'Signals'].map((t, idx) => {
-            const active = idx === 3;
+          {['Historical', 'Projected', 'Impact', 'Recommend', 'News', 'Calendar', 'Signals'].map((t, idx) => {
+            const active = idx === 4;
             return (
-              <div key={t} style={{
+              <div key={t} onClick={() => !active && onNav && onNav(t === 'Recommend' ? 'recommend' : t.toLowerCase())} style={{
+                cursor: active ? 'default' : 'pointer',
                 padding: '0 13px', height: 28, display: 'flex', alignItems: 'center',
                 fontSize: 12.5, fontWeight: 500, borderRadius: 7,
                 background: active ? T.ink400 : 'transparent',
