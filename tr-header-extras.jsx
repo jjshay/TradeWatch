@@ -956,6 +956,205 @@ function TRWelcome() {
 }
 window.TRWelcome = TRWelcome;
 
+// Live military-aviation tracker over CENTCOM. Polls OpenSky every 2m and
+// renders matching callsigns + quick links to the gold-standard public maps
+// (ADSBExchange military view, FlightRadar24, OpenSky visual).
+function TRFlightTracker({ open, onClose }) {
+  const T = {
+    ink000: '#07090C', ink100: '#0B0E13', ink200: '#10141B', ink300: '#171C24',
+    edge: 'rgba(255,255,255,0.06)', edgeHi: 'rgba(255,255,255,0.10)',
+    text: '#ffffff', textMid: 'rgba(180,188,200,0.75)', textDim: 'rgba(130,138,150,0.55)',
+    signal: '#c9a227', bull: '#6FCF8E', bear: '#D96B6B',
+    mono: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+  };
+  const [data, setData] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    let active = true;
+    let iv = null;
+    const tick = async () => {
+      setLoading(true);
+      try {
+        const d = window.MilitaryFlights ? await window.MilitaryFlights.getMidEast() : null;
+        if (!active) return;
+        if (d) { setData(d); setError(null); }
+        else setError('OpenSky rate-limited or unreachable. Try again in 60s.');
+      } catch (e) { if (active) setError(e.message); }
+      finally { if (active) setLoading(false); }
+    };
+    tick();
+    iv = setInterval(tick, 120_000);
+    return () => { active = false; if (iv) clearInterval(iv); };
+  }, [open]);
+
+  if (!open) return null;
+
+  // Callsign → aircraft-type hint (rough; based on public USAF patterns)
+  const hintFor = (cs) => {
+    const c = cs.toUpperCase();
+    if (c.startsWith('RCH'))   return 'C-17 / C-5 · transport';
+    if (c.startsWith('CNV'))   return 'Navy · P-8 or supply';
+    if (c.startsWith('PAT'))   return 'Army · various';
+    if (c.startsWith('SPAR'))  return 'USAF exec transport';
+    if (c.startsWith('HAVEN')) return 'KC-135 · refueler';
+    if (c.startsWith('BAT'))   return 'Strategic · bomber support';
+    if (c.startsWith('BLUE'))  return 'USAF';
+    if (c.startsWith('RYDR'))  return 'USN · Poseidon';
+    if (c.startsWith('SLAM'))  return 'USAF strategic';
+    if (c.startsWith('GOLD'))  return 'USAF';
+    return '';
+  };
+
+  const publicMaps = [
+    { name: 'ADSBExchange · Military-only', url: 'https://globe.adsbexchange.com/?mil=1', desc: 'The gold standard. Shows military flights even when blocked elsewhere.' },
+    { name: 'FlightRadar24 · Middle East',  url: 'https://www.flightradar24.com/27.5,53.0/6', desc: 'Commercial + some military. Centered on the Gulf.' },
+    { name: 'OpenSky · CENTCOM region',     url: 'https://opensky-network.org/network/explorer?lat=27&lon=50&zoom=5', desc: 'Same data source as this panel — interactive map.' },
+    { name: '@AircraftSpots (X)',           url: 'https://x.com/AircraftSpots', desc: 'Crowd-sourced military aircraft sightings.' },
+    { name: '@Osint613 (X)',                url: 'https://x.com/Osint613', desc: 'OSINT analyst covering Israel + surrounding activity.' },
+  ];
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(7,9,12,0.82)',
+        backdropFilter: 'blur(14px) saturate(160%)', WebkitBackdropFilter: 'blur(14px) saturate(160%)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 90, padding: 40,
+      }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: 780, maxHeight: '90%', overflow: 'auto',
+        background: T.ink100, border: `1px solid ${T.edgeHi}`,
+        borderRadius: 14, padding: '24px 28px', color: T.text,
+        fontFamily: '"Inter Tight", system-ui, sans-serif',
+        boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <div style={{ fontSize: 22, lineHeight: 1, color: T.signal }}>✈</div>
+          <div>
+            <div style={{ fontSize: 10, letterSpacing: 1.2, color: T.textDim, textTransform: 'uppercase', fontWeight: 600, marginBottom: 2 }}>Live Flight Activity · OpenSky</div>
+            <div style={{ fontSize: 17, fontWeight: 500, letterSpacing: -0.2 }}>US Military over CENTCOM</div>
+          </div>
+          {data && (
+            <div style={{
+              marginLeft: 12, padding: '4px 10px',
+              background: (data.usMilCount > 8 ? 'rgba(217,107,107,0.14)' : data.usMilCount > 3 ? 'rgba(201,162,39,0.14)' : 'rgba(111,207,142,0.14)'),
+              border: `0.5px solid ${data.usMilCount > 8 ? 'rgba(217,107,107,0.45)' : data.usMilCount > 3 ? 'rgba(201,162,39,0.45)' : 'rgba(111,207,142,0.45)'}`,
+              borderRadius: 5, fontFamily: T.mono, fontSize: 10.5, fontWeight: 600, letterSpacing: 0.4,
+              color: data.usMilCount > 8 ? T.bear : data.usMilCount > 3 ? T.signal : T.bull,
+            }}>
+              {data.usMilCount} US MIL · {data.total} TOTAL
+            </div>
+          )}
+          <div onClick={onClose} style={{
+            marginLeft: 'auto', width: 28, height: 28, borderRadius: 7,
+            background: T.ink300, border: `1px solid ${T.edge}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', color: T.textMid, fontSize: 13,
+          }}>✕</div>
+        </div>
+
+        <div style={{
+          fontSize: 12, color: T.textMid, lineHeight: 1.55, marginBottom: 14,
+          padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 7,
+        }}>
+          Polls OpenSky Network every 2 min for ADS-B state vectors in the Middle East
+          bounding box (15°–40°N, 30°–65°E). Filters for US-origin callsigns matching
+          known military prefixes (RCH, CNV, PAT, SPAR, HAVEN, BAT, etc.). Many USAF
+          aircraft block their ADS-B in active ops — for the full picture, use
+          ADSBExchange below.
+        </div>
+
+        {loading && !data && (
+          <div style={{ padding: '30px 0', textAlign: 'center', fontFamily: T.mono, fontSize: 11, color: T.textDim }}>POLLING OPENSKY…</div>
+        )}
+        {error && !data && (
+          <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 12, color: T.bear }}>{error}</div>
+        )}
+
+        {data && data.usMil.length > 0 && (
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 10, letterSpacing: 0.9, color: T.textDim, textTransform: 'uppercase', fontWeight: 500, marginBottom: 8 }}>Tracked aircraft · {data.usMil.length}</div>
+            <div style={{
+              display: 'grid', gridTemplateColumns: '100px 1fr 70px 70px', gap: 8,
+              fontSize: 9, letterSpacing: 0.5, color: T.textDim, padding: '4px 10px',
+              borderBottom: `0.5px solid ${T.edgeHi}`,
+            }}>
+              <div>CALLSIGN</div>
+              <div>TYPE / HINT</div>
+              <div style={{ textAlign: 'right' }}>ALT (m)</div>
+              <div style={{ textAlign: 'right' }}>VEL (m/s)</div>
+            </div>
+            {data.usMil.slice(0, 20).map(a => (
+              <div key={a.icao24} style={{
+                display: 'grid', gridTemplateColumns: '100px 1fr 70px 70px', gap: 8,
+                padding: '7px 10px', background: T.ink200,
+                border: `0.5px solid ${T.edge}`, borderRadius: 6, marginBottom: 3,
+                fontFamily: T.mono, fontSize: 10.5, alignItems: 'center',
+              }}>
+                <div style={{ color: T.signal, fontWeight: 600 }}>{a.callsign}</div>
+                <div style={{ color: T.textMid, fontSize: 10 }}>{hintFor(a.callsign) || a.icao24}</div>
+                <div style={{ color: T.text, textAlign: 'right' }}>{a.alt ? Math.round(a.alt).toLocaleString() : '—'}</div>
+                <div style={{ color: T.text, textAlign: 'right' }}>{a.velocity ? Math.round(a.velocity) : '—'}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {data && data.usMilCount === 0 && (
+          <div style={{ padding: '16px 0', fontSize: 12, color: T.textMid, textAlign: 'center' }}>
+            No US military callsigns matched right now. Many USAF ops block ADS-B;
+            ADSBExchange (below) tracks the unblocked set.
+          </div>
+        )}
+
+        {/* External public maps */}
+        <div style={{
+          borderTop: `1px solid ${T.edge}`, paddingTop: 14, marginTop: 10,
+        }}>
+          <div style={{ fontSize: 10, letterSpacing: 0.9, color: T.textDim, textTransform: 'uppercase', fontWeight: 500, marginBottom: 10 }}>Public map sources</div>
+          <div style={{ display: 'grid', gap: 6 }}>
+            {publicMaps.map(m => (
+              <a key={m.url} href={m.url} target="_blank" rel="noopener noreferrer"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 13px', background: T.ink200,
+                  border: `0.5px solid ${T.edge}`, borderRadius: 7,
+                  textDecoration: 'none', color: T.text,
+                }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 500, color: T.signal, marginBottom: 2 }}>{m.name}</div>
+                  <div style={{ fontSize: 10.5, color: T.textMid, lineHeight: 1.45 }}>{m.desc}</div>
+                </div>
+                <div style={{ fontFamily: T.mono, fontSize: 11, color: T.textDim }}>→</div>
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+window.TRFlightTracker = TRFlightTracker;
+
+function TRFlightsButton() {
+  return (
+    <div
+      onClick={() => window.openTRFlights && window.openTRFlights()}
+      title="Live military flight tracker · CENTCOM"
+      style={{
+        padding: '0 10px', height: 26, display: 'flex', alignItems: 'center', gap: 5,
+        background: '#10141B', border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 6, cursor: 'pointer', color: 'rgba(180,188,200,0.75)',
+        fontFamily: '"JetBrains Mono", ui-monospace, monospace', fontSize: 10, fontWeight: 600, letterSpacing: 0.6,
+      }}>✈ FLIGHTS</div>
+  );
+}
+window.TRFlightsButton = TRFlightsButton;
+
 // Reusable star button — toggles saved state on a ticker or option.
 // Parent decides what `saved` + `onToggle` do; this just renders the ★.
 function TRStar({ saved, onToggle, size = 14, title }) {

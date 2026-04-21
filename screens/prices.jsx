@@ -506,7 +506,7 @@ function PricesScreen({ onNav }) {
           background: T.ink200, borderRadius: 10, border: `1px solid ${T.edge}`,
           height: 34, alignItems: 'center',
         }}>
-          {['Historical', 'Projected', 'Impact', 'Recommend', 'News', 'Calendar', 'Signals', 'Prices'].map((t, idx) => {
+          {['Historical', 'Projected', 'Impact', 'Recommend', 'News', 'Calendar', 'Signals', 'Prices', 'Flights'].map((t, idx) => {
             const active = idx === 7;
             const key = t === 'Recommend' ? 'recommend' : t.toLowerCase();
             return (

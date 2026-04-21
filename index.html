@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <style>
   html, body { margin: 0; padding: 0; background: #07090C; font-family: 'Inter Tight', system-ui, sans-serif; color: rgba(235,238,244,0.95); min-height: 100vh; }
   * { box-sizing: border-box; }
@@ -40,6 +42,7 @@
 <script type="text/babel" src="screens/calendar.jsx"></script>
 <script type="text/babel" src="screens/signals.jsx"></script>
 <script type="text/babel" src="screens/prices.jsx"></script>
+<script type="text/babel" src="screens/flights.jsx"></script>
 <script type="text/babel">
 // TradeRadar app shell — unified 7-tab nav. Screens that accept onNav route via
 // the top-level state. Standalone screens (News / Calendar / Signals) are
@@ -63,6 +66,7 @@ const TR_TABS = [
   { key: 'calendar',    label: 'Calendar'    },
   { key: 'signals',     label: 'Signals'     },
   { key: 'prices',      label: 'Prices'      },
+  { key: 'flights',     label: 'Flights'     },
 ];
 
 function TRHeader({ tab, onNav, onOpenSettings }) {
@@ -223,6 +227,7 @@ function TradeRadarApp() {
   else if (tab === 'calendar') screen = <CalendarScreen onNav={setTab} />;
   else if (tab === 'signals')  screen = <SignalsScreen  onNav={setTab} />;
   else if (tab === 'prices')   screen = <PricesScreen   onNav={setTab} />;
+  else if (tab === 'flights')  screen = <FlightsScreen  onNav={setTab} />;
   else screen = <HistoricalScreen onNav={setTab} />;
 
   return (
