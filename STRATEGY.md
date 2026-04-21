@@ -133,4 +133,95 @@ The GeoIntel scenario model lets you stress-test these views against specific ou
 
 ---
 
-*This is not financial advice. Tradewatch is a research and analysis tool. All trading involves risk of loss.*
+*This is not financial advice. TradeRadar is a research and analysis tool. All trading involves risk of loss.*
+
+---
+
+# How TradeRadar Operationalizes the Strategy
+
+The 10-tab UI maps directly to the thesis above. Each tab answers a specific question a macro/event-driven trader needs to answer in a workflow.
+
+## Workflow: from morning open to trade idea
+
+### 1. Open TradeRadar — start at **Summary** (tab 1)
+- Live BTC + Fear & Greed in the snapshot strip
+- Top 8 catalysts pulled from RSS, filtered for Mideast / OPEC / Fed / CLARITY / BTC keywords
+- Three LLMs (Claude / GPT / Gemini) each independently predict BTC + WTI year-end with 3 bullets
+- Consensus band shows: averaged target, ALIGNED vs DIVERGENT, range/spread, **delta since the last refresh**
+- If consensus moved more than ±3% overnight, that's the day's question — what news caused it?
+
+### 2. Drill into the catalyst — **News** (tab 6)
+- Narratives organized into thematic buckets (Fed, CLARITY, Iran, Whales, Trump, etc.)
+- Horizontal article cards with **RISK badges** (LOW / MED / HIGH from importance × impact)
+- Live RSS feed bucket includes 14 sources + StockTwits BTC/SPY streams + 5 Telegram OSINT channels (@whale_alert, @intelslava, @RocketChip, etc.)
+- Double-click an article → **Score with AI** — fans the headline to all 4 main LLMs in parallel; matrix shows per-model sentiment, confidence, 3-line reads, and a consensus footer
+
+### 3. Geopolitical context — **Flights** (tab 10)
+- Embedded ADSBExchange globe with 1-year replay; military-only filter on by default
+- Right-side panel: OpenSky-polled US military aircraft (RCH/CNV/PAT/HAVEN/SPAR/BAT callsigns) + LLM analyst POV structured as: **Operational Read** (refueler-heavy = strike prep, transport-heavy = supply, etc.) → **Trend Delta** vs 24h baseline → **Market Implications** quantified ($/bbl, % BTC) → **Watch For** specific next-step indicators
+- 7-day flight history accumulates in localStorage so trend analysis improves over time
+
+### 4. Find the asset reaction — **Historical** (tab 2)
+- BTC / WTI / SPX / DOW normalized to % from window start
+- ~80 curated event dots pinned to real moments (Fed cuts, Hormuz attacks, ETF approvals, CLARITY votes)
+- Click a series label to focus it — event dots re-anchor to that line, so you can see exactly how oil moved during a Strait escalation vs how BTC moved during the same hours
+
+### 5. Run the scenario — **Projected** (tab 3)
+- 7 driver sliders: BTC Institutional, CLARITY Act, Iran/Strait, Federal Reserve, Trump Policy, Strategic Reserve, Elon Musk
+- Slider state + live news headlines combine into a prompt → all 5 LLMs return projected BTC ranges (base/bull/bear)
+- Consensus narrative under the chart shows **ALIGNED** (high confidence) or **DIVERGENT** (reduce size)
+
+### 6. Cross-asset check — **Impact** (tab 4)
+- Two-stage model: oil drivers → projected WTI → estimated BTC impact per $1 of oil move
+- Both Claude and GPT score every news article's $ impact on each driver; consensus = average
+- Tradier ⚡ TRADE button lets you put on the position from the same screen
+
+### 7. Synthesize — **Recommend** (tab 5)
+- Consensus card on top: aggregated stance, top 4 bullets across all models
+- Five LLM accordions: Claude / GPT / Gemini / Grok / Perplexity each with their own stance, confidence, alloc tilt, why-different, risks
+- Live BTC-tied portfolio (IBIT / MSTR / COIN / BITB / MARA) with Finnhub prices
+
+### 8. Watch real-time confirmation — **Signals** (tab 8)
+- 43 macro tiles in 7 lanes
+- Per-asset weighted score chips (BTC / SPX / OIL / Macro Tilt) — click for LLM rationale on the score
+- Click any individual signal → modal with bigger sparkline + **View Source** link (FRED, CBOE, Glassnode, Polymarket, etc.)
+- Asset-filter pills (BTC / OIL / SPX / All) — instantly slice the dashboard
+
+### 9. Track upcoming catalysts — **Calendar** (tab 7)
+- Live FOMC / CPI / earnings / OPEC events from Finnhub, de-duped against curated baseline
+- Click a day → expected direction on BTC/OIL/SPX in the right panel
+- Add custom events for personal anchors
+
+### 10. Execute — **Prices** (tab 9) + Tradier modal
+- Click any ticker → 1Y chart + 52W HI/LO + ⚡ Options Chain button
+- Star tickers and option contracts → persistent watchlist at top of Prices
+
+---
+
+## Why dual/multi-LLM matters
+
+A single LLM is a smart take. **Two agreeing** is a signal. **Two diverging** is also a signal — it tells you the situation is genuinely ambiguous and you should reduce size.
+
+TradeRadar's `runMulti()` engine calls Claude + GPT + Gemini + (optional) Grok + (optional) Perplexity in parallel, then computes:
+
+- **Aligned** (all sentiments match) → high-conviction setup
+- **Divergent** (split sentiment) → uncertainty premium; size down
+- **Avg confidence** + **range** of price targets → risk band
+
+Used in: Summary, Recommend, Projected narrative, News article scoring, Flights AI POV, Signals chip-click rationale.
+
+---
+
+## Daily ritual
+
+1. **7:00 ET** — daily-briefing.js fires (launchd cron) and emails the digest. Glance on phone before market open.
+2. **9:00 ET** — open Summary. Note any consensus delta since yesterday.
+3. **9:15 ET** — News tab → triage today's catalysts. Score the top 3 with AI.
+4. **9:25 ET** — Flights tab → check OSINT for any geopolitical escalation overnight.
+5. **9:30 ET** — Recommend → one final consensus check, decide trade.
+6. **Throughout day** — Signals + Prices for entries/exits. Watchlist tracks open positions.
+7. **5:00 PM ET** — Calendar → tomorrow's catalysts. Set Telegram alerts for high-importance items.
+
+---
+
+*See [README.md](README.md) for setup instructions and [TECHNICAL.md](TECHNICAL.md) for architecture.*
