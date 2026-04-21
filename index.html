@@ -230,6 +230,7 @@ function TradeRadarApp() {
       <div className="tr-shell">{screen}</div>
       <TRSettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <TROptionsChain open={optionsOpen} onClose={() => setOptionsOpen(false)} initialSymbol={optionsInitialSymbol} />
+      <TRWelcome />
       <TRTradeModal open={tradeOpen} onClose={() => setTradeOpen(false)} />
     </>
   );

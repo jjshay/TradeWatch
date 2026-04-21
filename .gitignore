@@ -12,3 +12,4 @@ npm-debug.log*
 # launchd / cron briefing output (keep the directory via .gitkeep)
 logs/
 !logs/.gitkeep
+.vercel

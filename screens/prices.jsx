@@ -16,18 +16,18 @@ const prT = {
 };
 
 const STOCKS = [
-  { sym: 'SPY',  name: 'S&P 500 ETF' },
-  { sym: 'QQQ',  name: 'Nasdaq 100 ETF' },
-  { sym: 'DIA',  name: 'Dow Jones ETF' },
-  { sym: 'IWM',  name: 'Russell 2000 ETF' },
-  { sym: 'NVDA', name: 'Nvidia' },
-  { sym: 'TSLA', name: 'Tesla' },
-  { sym: 'AAPL', name: 'Apple' },
-  { sym: 'MSFT', name: 'Microsoft' },
-  { sym: 'MSTR', name: 'MicroStrategy' },
-  { sym: 'COIN', name: 'Coinbase' },
-  { sym: 'IBIT', name: 'iShares Bitcoin Trust' },
-  { sym: 'MARA', name: 'Marathon Digital' },
+  { sym: 'SPY',  name: 'S&P 500 ETF',          demo: { price: 580.12, change: +0.42 } },
+  { sym: 'QQQ',  name: 'Nasdaq 100 ETF',       demo: { price: 498.40, change: +0.61 } },
+  { sym: 'DIA',  name: 'Dow Jones ETF',        demo: { price: 440.88, change: +0.22 } },
+  { sym: 'IWM',  name: 'Russell 2000 ETF',     demo: { price: 228.15, change: -0.33 } },
+  { sym: 'NVDA', name: 'Nvidia',               demo: { price: 142.80, change: +2.14 } },
+  { sym: 'TSLA', name: 'Tesla',                demo: { price: 258.46, change: +1.02 } },
+  { sym: 'AAPL', name: 'Apple',                demo: { price: 232.95, change: +0.18 } },
+  { sym: 'MSFT', name: 'Microsoft',            demo: { price: 438.20, change: +0.74 } },
+  { sym: 'MSTR', name: 'MicroStrategy',        demo: { price: 341.22, change: +3.80 } },
+  { sym: 'COIN', name: 'Coinbase',             demo: { price: 268.40, change: +1.95 } },
+  { sym: 'IBIT', name: 'iShares Bitcoin Trust', demo: { price: 54.82, change: +2.14 } },
+  { sym: 'MARA', name: 'Marathon Digital',     demo: { price: 21.75, change: +4.25 } },
 ];
 
 // Stooq is CORS-enabled and serves free CSV futures quotes. Finnhub free
@@ -411,13 +411,19 @@ function PricesScreen({ onNav }) {
     { refreshKey: 'prices' }
   );
 
-  // Build per-tile data
-  const stocksData = STOCKS.map(s => ({
-    ...s,
-    price:  stockQuotes && stockQuotes[s.sym] ? stockQuotes[s.sym].price  : null,
-    change: stockQuotes && stockQuotes[s.sym] ? stockQuotes[s.sym].change : null,
-    color: s.sym === 'MSTR' || s.sym === 'COIN' || s.sym === 'IBIT' || s.sym === 'MARA' ? T.btc : T.spx,
-  }));
+  // Demo mode: when no Finnhub key, fall back to sample prices so tiles
+  // don't render as empty dashes. _demo flag used to show a tag on the tile.
+  const demoMode = !finnhubKey;
+  const stocksData = STOCKS.map(s => {
+    const live = stockQuotes && stockQuotes[s.sym];
+    return {
+      ...s,
+      price:  live ? live.price  : (demoMode && s.demo ? s.demo.price  : null),
+      change: live ? live.change : (demoMode && s.demo ? s.demo.change : null),
+      color: s.sym === 'MSTR' || s.sym === 'COIN' || s.sym === 'IBIT' || s.sym === 'MARA' ? T.btc : T.spx,
+      _demo: !live && demoMode,
+    };
+  });
   const futuresData = FUTURES.map(f => ({
     ...f,
     price:  futuresQuotes && futuresQuotes[f.sym] ? futuresQuotes[f.sym].price  : null,
@@ -630,7 +636,7 @@ function PricesScreen({ onNav }) {
           </div>
         )}
 
-        <Lane title="Stocks &amp; ETFs" desc="Equities · Bitcoin-adjacent tickers · Finnhub quotes · click for 1Y + options" data={stocksData} kind="stock" />
+        <Lane title="Stocks &amp; ETFs" desc={demoMode ? "DEMO prices — add Finnhub key in ⚙ for live" : "Equities · Bitcoin-adjacent tickers · Finnhub quotes · click for 1Y + options"} data={stocksData} kind="stock" />
         <Lane title="Futures &amp; Commodities" desc="Oil, gold, silver, copper, index futures, DXY · Stooq 1Y daily" data={futuresData} kind="future" />
         <Lane title="Crypto" desc="Top 10 by liquidity · CoinGecko · click for 1Y chart" data={cryptoData} kind="crypto" />
         <div style={{ height: 12 }} />

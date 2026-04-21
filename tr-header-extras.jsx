@@ -856,6 +856,106 @@ function TRTradeButton() {
 }
 window.TRTradeButton = TRTradeButton;
 
+// First-visit welcome modal — gently tells new users to paste keys for full
+// functionality. Dismissal persisted in localStorage so it never re-shows.
+function TRWelcome() {
+  const T = {
+    ink000: '#07090C', ink100: '#0B0E13', ink200: '#10141B', ink300: '#171C24',
+    edge: 'rgba(255,255,255,0.06)', edgeHi: 'rgba(255,255,255,0.10)',
+    text: '#ffffff', textMid: 'rgba(180,188,200,0.75)', textDim: 'rgba(130,138,150,0.55)',
+    signal: '#c9a227', bull: '#6FCF8E',
+    mono: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+  };
+  const [show, setShow] = React.useState(() => {
+    try {
+      return localStorage.getItem('tr_welcomed') !== 'true';
+    } catch { return false; }
+  });
+  if (!show) return null;
+
+  const dismiss = (opened) => {
+    try { localStorage.setItem('tr_welcomed', 'true'); } catch {}
+    setShow(false);
+    if (opened && window.openTRSettings) setTimeout(window.openTRSettings, 100);
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(7,9,12,0.85)',
+      backdropFilter: 'blur(14px) saturate(160%)', WebkitBackdropFilter: 'blur(14px) saturate(160%)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 120, padding: 40,
+    }}>
+      <div style={{
+        width: 560, background: T.ink100, border: `1px solid ${T.edgeHi}`,
+        borderRadius: 14, padding: '32px 36px', color: T.text,
+        fontFamily: '"Inter Tight", system-ui, sans-serif',
+        boxShadow: '0 32px 100px rgba(0,0,0,0.7)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+          <img src="assets/gg-logo.png" alt="" style={{ width: 52, height: 52, objectFit: 'contain', filter: 'drop-shadow(0 0 12px rgba(201,162,39,0.35))' }} />
+          <div>
+            <div style={{ fontSize: 10, letterSpacing: 1.4, color: T.signal, textTransform: 'uppercase', fontWeight: 600, fontFamily: T.mono, marginBottom: 4 }}>Welcome to</div>
+            <div style={{ fontSize: 22, fontWeight: 500, letterSpacing: -0.3 }}>TradeRadar</div>
+          </div>
+        </div>
+
+        <div style={{ fontSize: 14.5, lineHeight: 1.6, color: T.textMid, marginBottom: 18 }}>
+          A trading dashboard that fuses real-time crypto + macro data with multi-LLM consensus analysis.
+          Built for traders who want to see cause before price.
+        </div>
+
+        <div style={{
+          background: T.ink200, border: `1px solid ${T.edge}`, borderRadius: 10,
+          padding: '14px 16px', marginBottom: 18,
+        }}>
+          <div style={{ fontSize: 10, letterSpacing: 1, color: T.textDim, textTransform: 'uppercase', fontWeight: 600, marginBottom: 8 }}>What works out of the box</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 12, color: T.text, marginBottom: 12 }}>
+            <div><span style={{ color: T.bull, marginRight: 6 }}>✓</span>Crypto prices (top 10)</div>
+            <div><span style={{ color: T.bull, marginRight: 6 }}>✓</span>Futures + commodities</div>
+            <div><span style={{ color: T.bull, marginRight: 6 }}>✓</span>Live news RSS feed</div>
+            <div><span style={{ color: T.bull, marginRight: 6 }}>✓</span>BTC + Fear &amp; Greed</div>
+          </div>
+
+          <div style={{ fontSize: 10, letterSpacing: 1, color: T.textDim, textTransform: 'uppercase', fontWeight: 600, marginBottom: 8 }}>Add your keys in ⚙ for</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 12, color: T.textMid }}>
+            <div>• Stock prices (Finnhub, free)</div>
+            <div>• Options chains (Tradier)</div>
+            <div>• Multi-LLM rationale</div>
+            <div>• AI recommendations</div>
+          </div>
+        </div>
+
+        <div style={{ fontSize: 11, color: T.textDim, lineHeight: 1.55, marginBottom: 20, padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 7 }}>
+          Your API keys live only in this browser's localStorage — never sent to any TradeRadar server.
+          No tracking, no telemetry.
+        </div>
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div
+            onClick={() => dismiss(false)}
+            style={{
+              flex: 1, padding: '12px 16px',
+              background: T.ink300, border: `1px solid ${T.edge}`,
+              borderRadius: 8, textAlign: 'center', cursor: 'pointer',
+              fontSize: 12.5, fontWeight: 500, color: T.textMid,
+            }}>Continue in demo mode</div>
+          <div
+            onClick={() => dismiss(true)}
+            style={{
+              flex: 1, padding: '12px 16px',
+              background: T.signal, color: T.ink000,
+              borderRadius: 8, textAlign: 'center', cursor: 'pointer',
+              fontSize: 12.5, fontWeight: 600, letterSpacing: 0.2,
+              boxShadow: 'inset 0 0.5px 0 rgba(255,255,255,0.3)',
+            }}>⚙ Add API keys</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+window.TRWelcome = TRWelcome;
+
 // Reusable star button — toggles saved state on a ticker or option.
 // Parent decides what `saved` + `onToggle` do; this just renders the ★.
 function TRStar({ saved, onToggle, size = 14, title }) {

@@ -740,13 +740,24 @@ const Backtester = {
 // ========== NEWS FEED AGGREGATOR ==========
 const NewsFeed = {
     feeds: [
-        { name: 'CoinDesk', url: 'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml', color: '#0052ff' },
-        { name: 'CoinTelegraph', url: 'https://cointelegraph.com/rss', color: '#f7931a' },
-        { name: 'CryptoSlate', url: 'https://cryptoslate.com/feed/', color: '#3861fb' },
-        { name: 'Decrypt', url: 'https://decrypt.co/feed', color: '#2aeaff' },
-        { name: 'Bitcoin Magazine', url: 'https://bitcoinmagazine.com/.rss/full/', color: '#f7931a' },
-        { name: 'CCN', url: 'https://www.ccn.com/news/crypto-news/feeds/', color: '#e91e63' },
-        { name: 'CryptoPanic', url: 'https://cryptopanic.com/feed/', color: '#49eacb' }
+        // Crypto-dedicated
+        { name: 'CoinDesk',         url: 'https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml', color: '#0052ff' },
+        { name: 'CoinTelegraph',    url: 'https://cointelegraph.com/rss',             color: '#f7931a' },
+        { name: 'CryptoSlate',      url: 'https://cryptoslate.com/feed/',             color: '#3861fb' },
+        { name: 'Decrypt',          url: 'https://decrypt.co/feed',                   color: '#2aeaff' },
+        { name: 'Bitcoin Magazine', url: 'https://bitcoinmagazine.com/.rss/full/',    color: '#f7931a' },
+        { name: 'The Block',        url: 'https://www.theblock.co/rss.xml',           color: '#1652f0' },
+        { name: 'CryptoPanic',      url: 'https://cryptopanic.com/feed/',             color: '#49eacb' },
+        // Macro / markets
+        { name: 'Reuters Markets',  url: 'https://feeds.reuters.com/reuters/businessNews', color: '#ff6600' },
+        { name: 'Yahoo Finance',    url: 'https://finance.yahoo.com/news/rssindex',   color: '#720e9e' },
+        { name: 'ZeroHedge',        url: 'https://feeds.feedburner.com/zerohedge/feed', color: '#c9a227' },
+        { name: 'MarketWatch',      url: 'https://www.marketwatch.com/rss/topstories', color: '#00a038' },
+        // Reddit communities (via native RSS)
+        { name: 'r/Bitcoin',        url: 'https://www.reddit.com/r/Bitcoin/.rss',     color: '#ff4500' },
+        { name: 'r/wallstreetbets', url: 'https://www.reddit.com/r/wallstreetbets/.rss', color: '#ff4500' },
+        { name: 'r/CryptoCurrency', url: 'https://www.reddit.com/r/CryptoCurrency/.rss', color: '#ff4500' },
+        { name: 'r/stocks',         url: 'https://www.reddit.com/r/stocks/.rss',      color: '#ff4500' }
     ],
     cache: { articles: [], time: 0 },
     cacheExpiry: 10 * 60 * 1000, // 10 min cache
@@ -756,9 +767,14 @@ const NewsFeed = {
             return this.cache.articles;
         }
         const allArticles = [];
-        const results = await Promise.allSettled(
-            this.feeds.map(feed => this._fetchFeed(feed))
-        );
+        // RSS feeds + StockTwits trader streams for BTC + SPY + crypto beta tickers.
+        const results = await Promise.allSettled([
+            ...this.feeds.map(feed => this._fetchFeed(feed)),
+            this.fetchStockTwits('BTC.X'),
+            this.fetchStockTwits('SPY'),
+            this.fetchStockTwits('MSTR'),
+            this.fetchStockTwits('NVDA'),
+        ]);
         for (const r of results) {
             if (r.status === 'fulfilled' && r.value) {
                 allArticles.push(...r.value);
@@ -775,6 +791,26 @@ const NewsFeed = {
         deduped.sort((a, b) => b.date - a.date);
         this.cache = { articles: deduped, time: Date.now() };
         return deduped;
+    },
+
+    // StockTwits — free public stream API for trader chatter per symbol.
+    // Use 'BTC.X' for Bitcoin, 'SPY' for S&P, 'AAPL' for a stock, etc.
+    async fetchStockTwits(symbol = 'BTC.X') {
+        try {
+            const r = await fetch(`https://api.stocktwits.com/api/2/streams/symbol/${symbol}.json`);
+            if (!r.ok) return [];
+            const j = await r.json();
+            if (!j || !j.messages) return [];
+            return j.messages.slice(0, 15).map(m => ({
+                title:       m.body || '',
+                link:        `https://stocktwits.com/${m.user?.username || ''}/message/${m.id}`,
+                description: `@${m.user?.username || 'trader'} · ${m.entities?.sentiment?.basic || 'neutral'} · ${m.user?.followers || 0} followers`,
+                date:        new Date(m.created_at),
+                source:      `StockTwits · $${symbol}`,
+                sourceColor: '#40c4ff',
+                thumbnail:   m.user?.avatar_url || '',
+            }));
+        } catch (e) { return []; }
     },
 
     async _fetchFeed(feed) {
