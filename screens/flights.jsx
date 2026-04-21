@@ -331,24 +331,36 @@ function FlightsScreen({ onNav }) {
 
       {/* Body: map + AI panel */}
       <div style={{ display: 'flex', height: H - 52 - 50 }}>
-        {/* MAP */}
+        {/* MAP — ADSBExchange globe embedded. Has 1-year replay built in.
+            URL params: replay = open scrubbable history · lat/lon/zoom =
+            center on CENTCOM bbox · mil=1 = military-only filter. */}
         <div style={{ flex: 1, position: 'relative', background: T.ink200 }}>
-          <div ref={mapElRef} style={{ width: '100%', height: '100%', background: '#0a0d13' }} />
-          {loading && !data && (
-            <div style={{
-              position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: T.mono, fontSize: 11, color: T.textDim, letterSpacing: 0.5,
-              background: 'rgba(10,13,19,0.8)',
-            }}>POLLING OPENSKY…</div>
-          )}
+          <iframe
+            src={`https://globe.adsbexchange.com/?replay&lat=27&lon=50&zoom=5${period !== 'now' ? '&mil=1' : ''}`}
+            style={{ width: '100%', height: '100%', border: 'none', background: '#0a0d13' }}
+            title="ADSBExchange live + replay"
+            allow="geolocation"
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+          />
+          {/* Hidden Leaflet container — kept so existing mapRef effects don't blow up. */}
+          <div ref={mapElRef} style={{ position: 'absolute', width: 1, height: 1, top: -9999, left: -9999 }} />
           {error && !data && (
             <div style={{
               position: 'absolute', top: 20, left: 20, right: 20,
               padding: '12px 16px', background: 'rgba(217,107,107,0.12)',
               border: '0.5px solid rgba(217,107,107,0.45)', borderRadius: 8,
-              fontSize: 12, color: T.bear,
+              fontSize: 12, color: T.bear, zIndex: 5,
             }}>{error}</div>
           )}
+          <div style={{
+            position: 'absolute', bottom: 10, left: 10, zIndex: 5,
+            background: 'rgba(7,9,12,0.7)', backdropFilter: 'blur(6px)',
+            padding: '6px 10px', borderRadius: 6,
+            border: '0.5px solid rgba(255,255,255,0.12)',
+            fontFamily: T.mono, fontSize: 9.5, color: T.textMid, letterSpacing: 0.3,
+          }}>
+            ADSBExchange · {period === 'now' ? 'live' : `${period.toUpperCase()} replay · military only`}
+          </div>
         </div>
 
         {/* AI INSIGHT */}
