@@ -13,7 +13,7 @@
 // }
 
 const TR_DEFAULT_SETTINGS = {
-  keys: { coingecko: '', tradier: '', polygon: '', claude: '', openai: '', gemini: '', grok: '', perplexity: '', alpaca: '', finnhub: '', newsapi: '', newsdata: '', bitly: '' },
+  keys: { coingecko: '', tradier: '', polygon: '', claude: '', openai: '', gemini: '', grok: '', perplexity: '', alpaca: '', finnhub: '', newsapi: '', newsdata: '', bitly: '', telegramBot: '', telegramChatId: '' },
   refresh: {
     header: 60, historical: 300, news: 180, calendar: 600,
     signals: 120, impact: 60, projected: 600, recommend: 600, prices: 30,
@@ -209,6 +209,22 @@ async function trTestProvider(k, key) {
       const r = await fetch('https://api-ssl.bitly.com/v4/user', { headers: { Authorization: `Bearer ${key}` } });
       return { ok: r.ok, ms: Date.now() - t0, detail: r.ok ? 'ok' : `HTTP ${r.status}` };
     }
+    if (k === 'telegramBot') {
+      const r = await fetch(`https://api.telegram.org/bot${key}/getMe`);
+      const j = await r.json();
+      return { ok: !!j.ok, ms: Date.now() - t0, detail: j.ok ? `@${j.result.username}` : (j.description || 'failed') };
+    }
+    if (k === 'telegramChatId') {
+      // Try to send a test message using stored bot + this chat id
+      const botToken = (window.TR_SETTINGS?.keys?.telegramBot) || '';
+      if (!botToken) return { ok: false, detail: 'bot token missing' };
+      const r = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: key, text: '✅ TradeRadar alert test — if you see this, you are wired up.' }),
+      });
+      const j = await r.json();
+      return { ok: !!j.ok, ms: Date.now() - t0, detail: j.ok ? 'sent' : (j.description || 'failed') };
+    }
     if (k === 'coingecko') {
       const r = await fetch(`https://api.coingecko.com/api/v3/ping?x_cg_demo_api_key=${key}`);
       return { ok: r.ok, ms: Date.now() - t0, detail: r.ok ? 'ok' : `HTTP ${r.status}` };
@@ -270,7 +286,9 @@ function TRSettingsSheet({ open, onClose }) {
     { k: 'perplexity', label: 'Perplexity API Key',          hint: 'Search-augmented LLM for fact-checked takes' },
     { k: 'newsapi',    label: 'NewsAPI Key (newsapi.org)',   hint: 'Aggregated global news beyond crypto RSS' },
     { k: 'newsdata',   label: 'NewsData Key (newsdata.io)',  hint: 'Alternative news aggregator, richer metadata' },
-    { k: 'bitly',      label: 'Bitly API Key',               hint: 'Auto-shorten article links for sharing' },
+    { k: 'bitly',          label: 'Bitly API Key',            hint: 'Auto-shorten article links for sharing' },
+    { k: 'telegramBot',    label: 'Telegram Bot Token',       hint: 'Create via @BotFather — pushes alerts to your Telegram' },
+    { k: 'telegramChatId', label: 'Telegram Chat ID',         hint: 'DM your bot any message, then test below to auto-grab it' },
   ];
 
   const refreshRows = [

@@ -757,7 +757,13 @@ const NewsFeed = {
         { name: 'r/Bitcoin',        url: 'https://www.reddit.com/r/Bitcoin/.rss',     color: '#ff4500' },
         { name: 'r/wallstreetbets', url: 'https://www.reddit.com/r/wallstreetbets/.rss', color: '#ff4500' },
         { name: 'r/CryptoCurrency', url: 'https://www.reddit.com/r/CryptoCurrency/.rss', color: '#ff4500' },
-        { name: 'r/stocks',         url: 'https://www.reddit.com/r/stocks/.rss',      color: '#ff4500' }
+        { name: 'r/stocks',         url: 'https://www.reddit.com/r/stocks/.rss',      color: '#ff4500' },
+        // Telegram public channels (via RSSHub CORS proxy) — OSINT + crypto signals
+        { name: 'TG · @whale_alert',       url: 'https://rsshub.app/telegram/channel/whale_alert',      color: '#26a5e4' },
+        { name: 'TG · @intelslava',        url: 'https://rsshub.app/telegram/channel/intelslava',       color: '#26a5e4' },
+        { name: 'TG · @RocketChip',        url: 'https://rsshub.app/telegram/channel/RocketChip_bsky',  color: '#26a5e4' },
+        { name: 'TG · @CryptoSlate',       url: 'https://rsshub.app/telegram/channel/CryptoSlate',      color: '#26a5e4' },
+        { name: 'TG · @CoinDeskNews',      url: 'https://rsshub.app/telegram/channel/CoinDeskNews',     color: '#26a5e4' }
     ],
     cache: { articles: [], time: 0 },
     cacheExpiry: 10 * 60 * 1000, // 10 min cache
@@ -837,6 +843,44 @@ const NewsFeed = {
 };
 
 // ========== AI ANALYSIS ENGINE ==========
+// Telegram — outbound alerts via Bot API. User creates a bot at @BotFather,
+// pastes the token + their chat_id in Settings. Then signals can push notes.
+// To get chat_id: DM your bot any message, then fetch getUpdates.
+const TelegramAlert = {
+    token() {
+        return (window.TR_SETTINGS && window.TR_SETTINGS.keys && window.TR_SETTINGS.keys.telegramBot) || '';
+    },
+    chatId() {
+        return (window.TR_SETTINGS && window.TR_SETTINGS.keys && window.TR_SETTINGS.keys.telegramChatId) || '';
+    },
+    async send(text, { parseMode = 'HTML' } = {}) {
+        const token = this.token();
+        const chat  = this.chatId();
+        if (!token || !chat) return { ok: false, error: 'no bot token or chat id' };
+        try {
+            const url = `https://api.telegram.org/bot${token}/sendMessage`;
+            const r = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chat, text, parse_mode: parseMode, disable_web_page_preview: true }),
+            });
+            const j = await r.json();
+            return { ok: j.ok === true, result: j };
+        } catch (e) { return { ok: false, error: e.message }; }
+    },
+    // Pull last 5 messages the bot received — useful to grab your own chat_id.
+    async getUpdates() {
+        const token = this.token();
+        if (!token) return null;
+        try {
+            const r = await fetch(`https://api.telegram.org/bot${token}/getUpdates?limit=5`);
+            const j = await r.json();
+            return j;
+        } catch (e) { return null; }
+    },
+};
+window.TelegramAlert = TelegramAlert;
+
 // MilitaryFlights — pulls live ADS-B state vectors from OpenSky Network.
 // Free public API, no key required. Bounded query over the CENTCOM/Middle East
 // theater (Iran, Iraq, Saudi, Gulf, eastern Med). Filters for US-origin
