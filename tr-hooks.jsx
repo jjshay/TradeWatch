@@ -16,7 +16,7 @@ const TR_DEFAULT_SETTINGS = {
   keys: { coingecko: '', tradier: '', polygon: '', claude: '', openai: '', gemini: '', grok: '', perplexity: '', alpaca: '', finnhub: '', newsapi: '', newsdata: '', bitly: '' },
   refresh: {
     header: 60, historical: 300, news: 180, calendar: 600,
-    signals: 120, impact: 60, projected: 600, recommend: 600,
+    signals: 120, impact: 60, projected: 600, recommend: 600, prices: 30,
   },
   sources: { stocks: 'yahoo', options: 'tradier' },
 };
@@ -231,6 +231,7 @@ function TRSettingsSheet({ open, onClose }) {
     { k: 'projected',  label: 'Projected (AI narrative)' },
     { k: 'calendar',   label: 'Calendar events' },
     { k: 'recommend',  label: 'Recommend (AI consensus)' },
+    { k: 'prices',     label: 'Prices tab (stocks + futures + crypto)' },
   ];
 
   return (

@@ -39,6 +39,7 @@
 <script type="text/babel" src="screens/news.jsx"></script>
 <script type="text/babel" src="screens/calendar.jsx"></script>
 <script type="text/babel" src="screens/signals.jsx"></script>
+<script type="text/babel" src="screens/prices.jsx"></script>
 <script type="text/babel">
 // TradeRadar app shell — unified 7-tab nav. Screens that accept onNav route via
 // the top-level state. Standalone screens (News / Calendar / Signals) are
@@ -61,6 +62,7 @@ const TR_TABS = [
   { key: 'news',        label: 'News'        },
   { key: 'calendar',    label: 'Calendar'    },
   { key: 'signals',     label: 'Signals'     },
+  { key: 'prices',      label: 'Prices'      },
 ];
 
 function TRHeader({ tab, onNav, onOpenSettings }) {
@@ -232,6 +234,7 @@ function TradeRadarApp() {
   else if (tab === 'news')     screen = <NewsScreen     onNav={setTab} />;
   else if (tab === 'calendar') screen = <CalendarScreen onNav={setTab} />;
   else if (tab === 'signals')  screen = <SignalsScreen  onNav={setTab} />;
+  else if (tab === 'prices')   screen = <PricesScreen   onNav={setTab} />;
   else screen = <HistoricalScreen onNav={setTab} />;
 
   return (
