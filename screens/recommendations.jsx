@@ -129,7 +129,7 @@ function RecommendationsScreen({ onNav }) {
     { refreshKey: 'recommend' }
   );
 
-  const PORTFOLIO = PORTFOLIO_BASE.map(p => {
+  const livePortfolio = PORTFOLIO_BASE.map(p => {
     const live = livePortfolioPrices && livePortfolioPrices[p.ticker];
     return live ? { ...p, price: live.price, chg: live.changePct, _live: true } : p;
   });
@@ -429,7 +429,7 @@ function RecommendationsScreen({ onNav }) {
           <div>
             <DeviceLabel T={T} text="Desktop · web app" />
             <DesktopFrame T={T}>
-              <PortfolioDesktop T={T} />
+              <PortfolioDesktop T={T} portfolio={livePortfolio} />
             </DesktopFrame>
           </div>
 
@@ -438,7 +438,7 @@ function RecommendationsScreen({ onNav }) {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <DeviceLabel T={T} text="Mobile · iPhone" center />
               <MobileFrame T={T}>
-                <PortfolioMobile T={T} />
+                <PortfolioMobile T={T} portfolio={livePortfolio} />
               </MobileFrame>
             </div>
           </div>
@@ -632,7 +632,8 @@ function MobileFrame({ T, children }) {
   );
 }
 
-function PortfolioDesktop({ T }) {
+function PortfolioDesktop({ T, portfolio }) {
+  const PORTFOLIO = portfolio || [];
   const totalValue = 248750;
   const dayChg = +5240;
   const dayPct = +2.15;
@@ -701,7 +702,8 @@ function PortfolioDesktop({ T }) {
   );
 }
 
-function PortfolioMobile({ T }) {
+function PortfolioMobile({ T, portfolio }) {
+  const PORTFOLIO = portfolio || [];
   const totalValue = 248750;
   return (
     <div style={{
