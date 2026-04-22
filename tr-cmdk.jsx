@@ -70,6 +70,31 @@
       run: ({ onClose }) => { if (window.openTRAlerts) window.openTRAlerts(); onClose && onClose(); },
     },
     {
+      key: 'act:congress', icon: '🏛', label: 'Congress Trading', hint: 'Pelosi / Vance / Crenshaw filings',
+      keywords: 'congress pelosi capitol trades politicians stock disclosure',
+      run: ({ onClose }) => { if (window.openTRCongress) window.openTRCongress(); onClose && onClose(); },
+    },
+    {
+      key: 'act:prediction', icon: '🎯', label: 'Prediction Markets', hint: 'Kalshi + Polymarket live odds',
+      keywords: 'prediction kalshi polymarket fed odds election bet',
+      run: ({ onClose }) => { if (window.openTRPrediction) window.openTRPrediction(); onClose && onClose(); },
+    },
+    {
+      key: 'act:tanker', icon: '🚢', label: 'Tanker Tracker', hint: 'Strait of Hormuz shipping',
+      keywords: 'tanker ship hormuz oil vlcc ais marine',
+      run: ({ onClose }) => { if (window.openTRTanker) window.openTRTanker(); onClose && onClose(); },
+    },
+    {
+      key: 'act:etf', icon: '💰', label: 'ETF Flows', hint: 'BTC + ETH daily net by issuer',
+      keywords: 'etf flows ibit fbtc farside bitcoin ethereum',
+      run: ({ onClose }) => { if (window.openTRETF) window.openTRETF(); onClose && onClose(); },
+    },
+    {
+      key: 'act:funding', icon: '📊', label: 'Funding Rates', hint: 'Cross-exchange BTC/ETH perp funding',
+      keywords: 'funding perp binance bybit okx dydx rate',
+      run: ({ onClose }) => { if (window.openTRFunding) window.openTRFunding(); onClose && onClose(); },
+    },
+    {
       key: 'act:refresh',
       icon: '↻',
       label: 'Refresh',

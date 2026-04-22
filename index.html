@@ -45,6 +45,12 @@
 <script src="engine/markets.js"></script>
 <script src="engine/intel.js"></script>
 <script src="engine/ai.js"></script>
+<!-- Extended data modules (each attaches its namespace to window) -->
+<script src="engine/congress.js"></script>
+<script src="engine/prediction-markets.js"></script>
+<script src="engine/tankers.js"></script>
+<script src="engine/etf-flows.js"></script>
+<script src="engine/funding.js"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -58,6 +64,12 @@
 <script type="text/babel" src="tr-shortcuts.jsx"></script>
 <script type="text/babel" src="tr-alerts.jsx"></script>
 <script type="text/babel" src="tr-cmdk.jsx"></script>
+<!-- Extended panels — each exports a modal + global opener -->
+<script type="text/babel" src="tr-congress-panel.jsx"></script>
+<script type="text/babel" src="tr-prediction-panel.jsx"></script>
+<script type="text/babel" src="tr-tanker-panel.jsx"></script>
+<script type="text/babel" src="tr-etf-panel.jsx"></script>
+<script type="text/babel" src="tr-funding-panel.jsx"></script>
 <!-- Local-only key bootstrap (gitignored) — pre-fills localStorage.tr_settings
      so the Settings sheet loads with JJ's API keys on first page load. -->
 <script src="keys.local.js"></script>
@@ -234,8 +246,13 @@ function TradeRadarApp() {
   const [optionsOpen, setOptionsOpen] = React.useState(false);
   const [optionsInitialSymbol, setOptionsInitialSymbol] = React.useState(null);
   const [tradeOpen, setTradeOpen] = React.useState(false);
-  const [alertsOpen, setAlertsOpen] = React.useState(false);
-  const [cmdkOpen, setCmdkOpen] = React.useState(false);
+  const [alertsOpen, setAlertsOpen]     = React.useState(false);
+  const [cmdkOpen, setCmdkOpen]         = React.useState(false);
+  const [congressOpen, setCongressOpen] = React.useState(false);
+  const [predOpen, setPredOpen]         = React.useState(false);
+  const [tankerOpen, setTankerOpen]     = React.useState(false);
+  const [etfOpen, setEtfOpen]           = React.useState(false);
+  const [fundingOpen, setFundingOpen]   = React.useState(false);
   const openSettings = () => setSettingsOpen(true);
   const openOptions  = (symbol) => { if (symbol) setOptionsInitialSymbol(symbol); setOptionsOpen(true); };
   const openTrade    = () => setTradeOpen(true);
@@ -249,12 +266,21 @@ function TradeRadarApp() {
     window.openTRTrade    = openTrade;
     window.openTRAlerts   = openAlerts;
     window.openTRCmdK     = openCmdK;
+    window.openTRCongress   = () => setCongressOpen(true);
+    window.openTRPrediction = () => setPredOpen(true);
+    window.openTRTanker     = () => setTankerOpen(true);
+    window.openTRETF        = () => setEtfOpen(true);
+    window.openTRFunding    = () => setFundingOpen(true);
 
     // Listen for palette/alert events fired from shortcuts or buttons
-    const onCmdk   = () => setCmdkOpen(true);
-    const onAlerts = () => setAlertsOpen(true);
-    window.addEventListener('tr:open-cmdk',   onCmdk);
-    window.addEventListener('tr:open-alerts', onAlerts);
+    const onCmdk     = () => setCmdkOpen(true);
+    const onAlerts   = () => setAlertsOpen(true);
+    const onTanker   = () => setTankerOpen(true);
+    const onFunding  = () => setFundingOpen(true);
+    window.addEventListener('tr:open-cmdk',    onCmdk);
+    window.addEventListener('tr:open-alerts',  onAlerts);
+    window.addEventListener('tr:tanker:open',  onTanker);
+    window.addEventListener('tr:open-funding', onFunding);
 
     // Keyboard shortcuts — 1-9/0 = tabs, / or Cmd+K = palette, R = refresh, Cmd+, = settings
     let cleanup = null;
@@ -268,8 +294,10 @@ function TradeRadarApp() {
     }
 
     return () => {
-      window.removeEventListener('tr:open-cmdk',   onCmdk);
-      window.removeEventListener('tr:open-alerts', onAlerts);
+      window.removeEventListener('tr:open-cmdk',    onCmdk);
+      window.removeEventListener('tr:open-alerts',  onAlerts);
+      window.removeEventListener('tr:tanker:open',  onTanker);
+      window.removeEventListener('tr:open-funding', onFunding);
       if (cleanup) cleanup();
     };
   }, []);
@@ -303,8 +331,13 @@ function TradeRadarApp() {
       <TROptionsChain open={optionsOpen} onClose={() => setOptionsOpen(false)} initialSymbol={optionsInitialSymbol} />
       <TRWelcome />
       <TRTradeModal open={tradeOpen} onClose={() => setTradeOpen(false)} />
-      {window.TRAlertsPanel && <window.TRAlertsPanel open={alertsOpen} onClose={() => setAlertsOpen(false)} />}
-      {window.TRCmdK       && <window.TRCmdK       open={cmdkOpen}   onClose={() => setCmdkOpen(false)} onNav={setTab} />}
+      {window.TRAlertsPanel     && <window.TRAlertsPanel     open={alertsOpen}   onClose={() => setAlertsOpen(false)} />}
+      {window.TRCmdK            && <window.TRCmdK            open={cmdkOpen}     onClose={() => setCmdkOpen(false)}   onNav={setTab} />}
+      {window.TRCongressPanel   && <window.TRCongressPanel   open={congressOpen} onClose={() => setCongressOpen(false)} />}
+      {window.TRPredictionPanel && <window.TRPredictionPanel open={predOpen}     onClose={() => setPredOpen(false)} />}
+      {window.TRTankerPanel     && <window.TRTankerPanel     open={tankerOpen}   onClose={() => setTankerOpen(false)} />}
+      {window.TRETFPanel        && <window.TRETFPanel        open={etfOpen}      onClose={() => setEtfOpen(false)} />}
+      {window.TRFundingPanel    && <window.TRFundingPanel    open={fundingOpen}  onClose={() => setFundingOpen(false)} />}
     </>
   );
 }
