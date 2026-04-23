@@ -129,6 +129,8 @@ function ImpactScreen({ onNav }) {
   const [activeIdx, setActiveIdx] = React.useState(0);
   const [dragIdx, setDragIdx] = React.useState(null);
   const [readSet, setReadSet] = React.useState(() => new Set());
+  // Accordion: which driver's news panel is expanded. Default to highest-weight driver (Iran / Strait).
+  const [expandedDriver, setExpandedDriver] = React.useState('Iran / Strait');
 
   const MAX_WEIGHT = 0.25;
   const trackRefs = React.useRef({});
@@ -238,99 +240,190 @@ function ImpactScreen({ onNav }) {
             letterSpacing: -0.2, marginBottom: 14,
           }}>Weighted $/bbl sums to projected WTI</div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 20, overflowY: 'auto', flex: 1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingBottom: 20, overflowY: 'auto', flex: 1 }}>
             {drivers.map((d, idx) => {
               const active = idx === activeIdx;
+              const isOpen = expandedDriver === d.name;
               const tier = iDriverTier(d.val);
               const weight = OIL_DRIVER_WEIGHTS[d.name] || 0;
               const barW = (weight / MAX_WEIGHT) * 100;
               const implied = oilDriverImpliedDollar(d.name);
               const contrib = oilMath.contribs[idx].contrib;
               return (
-                <div key={d.name}
-                  onClick={() => setActiveIdx(idx)}
-                  style={{
-                    background: active ? T.ink300 : T.ink200,
-                    border: `1px solid ${active ? T.edgeHi : T.edge}`,
-                    borderRadius: 10, padding: '10px 14px 12px',
-                    boxShadow: active ? `inset 0 0.5px 0 rgba(255,255,255,0.08)` : 'none',
-                    cursor: 'pointer',
-                    transition: 'background 140ms ease, border-color 140ms ease',
-                  }}>
-                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-                    <div style={{ fontSize: 12.5, fontWeight: 500, color: T.text }}>{d.name}</div>
-                    <div style={{
-                      marginLeft: 8, fontFamily: T.mono, fontSize: 8.5, fontWeight: 600,
-                      letterSpacing: 0.8, color: tier.color,
-                    }}>{tier.tag}</div>
-                    <div style={{
-                      marginLeft: 'auto', fontFamily: T.mono, fontSize: 10.5,
-                      fontWeight: 600, color: contrib > 0 ? T.bull : contrib < 0 ? T.bear : T.textMid,
-                      letterSpacing: 0.3, minWidth: 60, textAlign: 'right',
-                    }}>{fmtDollar(contrib)}/bbl</div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <div style={{
-                      fontFamily: T.mono, fontSize: 8.5, color: T.textDim,
-                      letterSpacing: 0.6, fontWeight: 600, width: 44,
-                    }}>WEIGHT</div>
-                    <div style={{
-                      flex: 1, height: 4, background: 'rgba(255,255,255,0.04)',
-                      borderRadius: 2, overflow: 'hidden',
-                    }}>
+                <div key={d.name} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {/* Accordion header — driver tile */}
+                  <div
+                    onClick={() => {
+                      setActiveIdx(idx);
+                      setExpandedDriver(isOpen ? null : d.name);
+                    }}
+                    style={{
+                      background: isOpen ? T.ink200 : T.ink100,
+                      border: `1px solid ${isOpen ? T.signal + '55' : T.edge}`,
+                      borderRadius: 8, padding: '10px 14px',
+                      boxShadow: isOpen ? `0 0 0 1px rgba(201,162,39,0.12), inset 0 0.5px 0 rgba(255,255,255,0.06)` : 'none',
+                      cursor: 'pointer',
+                      transition: 'background 160ms cubic-bezier(0.2,0.7,0.2,1), border-color 160ms cubic-bezier(0.2,0.7,0.2,1)',
+                    }}
+                    onMouseEnter={(e) => { if (!isOpen) e.currentTarget.style.background = T.ink200; }}
+                    onMouseLeave={(e) => { if (!isOpen) e.currentTarget.style.background = T.ink100; }}>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 500, color: T.text }}>{d.name}</div>
                       <div style={{
-                        height: '100%', width: `${barW}%`,
-                        background: active ? T.signal : 'rgba(232,184,74,0.5)',
-                        borderRadius: 2,
-                        transition: 'width 200ms ease, background 140ms ease',
+                        marginLeft: 8, fontFamily: T.mono, fontSize: 8.5, fontWeight: 600,
+                        letterSpacing: 0.8, color: tier.color,
+                      }}>{tier.tag}</div>
+                      <div style={{
+                        marginLeft: 'auto', fontFamily: T.mono, fontSize: 10.5,
+                        fontWeight: 600, color: contrib > 0 ? T.bull : contrib < 0 ? T.bear : T.textMid,
+                        letterSpacing: 0.3, minWidth: 60, textAlign: 'right',
+                      }}>{fmtDollar(contrib)}/bbl</div>
+                      <div style={{
+                        marginLeft: 10, fontFamily: T.mono, fontSize: 12,
+                        color: T.textMid, width: 12, textAlign: 'center',
+                        transition: 'transform 160ms cubic-bezier(0.2,0.7,0.2,1)',
+                      }}>{isOpen ? '▾' : '▸'}</div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <div style={{
+                        fontFamily: T.mono, fontSize: 8.5, color: T.textDim,
+                        letterSpacing: 0.6, fontWeight: 600, width: 44,
+                      }}>WEIGHT</div>
+                      <div style={{
+                        flex: 1, height: 4, background: 'rgba(255,255,255,0.04)',
+                        borderRadius: 2, overflow: 'hidden',
+                      }}>
+                        <div style={{
+                          height: '100%', width: `${barW}%`,
+                          background: isOpen ? T.signal : 'rgba(232,184,74,0.5)',
+                          borderRadius: 2,
+                          transition: 'width 200ms ease, background 140ms ease',
+                        }} />
+                      </div>
+                      <div style={{
+                        fontFamily: T.mono, fontSize: 10, color: isOpen ? T.signal : T.textMid,
+                        fontWeight: 500, width: 32, textAlign: 'right',
+                      }}>{Math.round(weight * 100)}%</div>
+                    </div>
+
+                    <div
+                      ref={el => trackRefs.current[idx] = el}
+                      onPointerDown={(e) => { e.stopPropagation(); handlePointerDown(idx)(e); }}
+                      onClick={(e) => e.stopPropagation()}
+                      tabIndex={0}
+                      onKeyDown={handleKeyDown(idx)}
+                      role="slider" aria-valuemin={0} aria-valuemax={100}
+                      aria-valuenow={d.val} aria-label={d.name}
+                      style={{ position: 'relative', height: 18, marginBottom: 4, cursor: 'pointer', touchAction: 'none', outline: 'none' }}>
+                      <div style={{
+                        position: 'absolute', top: 8, left: 0, right: 0, height: 2,
+                        background: 'rgba(255,255,255,0.06)', borderRadius: 1,
+                      }} />
+                      <div style={{
+                        position: 'absolute', top: 8, left: 0, width: `${d.val}%`, height: 2,
+                        background: tier.color,
+                        opacity: active ? 1 : 0.55,
+                        borderRadius: 1,
+                        transition: dragIdx === idx ? 'none' : 'width 120ms ease, background 140ms ease',
+                      }} />
+                      <div style={{
+                        position: 'absolute', top: 2, left: `calc(${d.val}% - 7px)`,
+                        width: 14, height: 14, borderRadius: 7,
+                        background: tier.color,
+                        boxShadow: active
+                          ? `0 0 0 4px ${tier.color}26, 0 2px 4px rgba(0,0,0,0.5), inset 0 0.5px 0 rgba(255,255,255,0.3)`
+                          : '0 2px 4px rgba(0,0,0,0.5), inset 0 0.5px 0 rgba(255,255,255,0.3)',
+                        transition: dragIdx === idx ? 'none' : 'left 120ms ease, background 140ms ease, box-shadow 140ms ease',
                       }} />
                     </div>
+
                     <div style={{
-                      fontFamily: T.mono, fontSize: 10, color: active ? T.signal : T.textMid,
-                      fontWeight: 500, width: 32, textAlign: 'right',
-                    }}>{Math.round(weight * 100)}%</div>
+                      display: 'flex', justifyContent: 'space-between',
+                      fontFamily: T.mono, fontSize: 9, color: T.textDim, letterSpacing: 0.4,
+                      pointerEvents: 'none',
+                    }}>
+                      <span>{d.low.toUpperCase()}</span>
+                      <span>NEWS {fmtDollar(implied)}/bbl</span>
+                      <span>{d.high.toUpperCase()}</span>
+                    </div>
                   </div>
 
-                  <div
-                    ref={el => trackRefs.current[idx] = el}
-                    onPointerDown={handlePointerDown(idx)}
-                    tabIndex={0}
-                    onKeyDown={handleKeyDown(idx)}
-                    role="slider" aria-valuemin={0} aria-valuemax={100}
-                    aria-valuenow={d.val} aria-label={d.name}
-                    style={{ position: 'relative', height: 18, marginBottom: 4, cursor: 'pointer', touchAction: 'none', outline: 'none' }}>
+                  {/* Accordion body — news for this driver */}
+                  {isOpen && (
                     <div style={{
-                      position: 'absolute', top: 8, left: 0, right: 0, height: 2,
-                      background: 'rgba(255,255,255,0.06)', borderRadius: 1,
-                    }} />
-                    <div style={{
-                      position: 'absolute', top: 8, left: 0, width: `${d.val}%`, height: 2,
-                      background: tier.color,
-                      opacity: active ? 1 : 0.55,
-                      borderRadius: 1,
-                      transition: dragIdx === idx ? 'none' : 'width 120ms ease, background 140ms ease',
-                    }} />
-                    <div style={{
-                      position: 'absolute', top: 2, left: `calc(${d.val}% - 7px)`,
-                      width: 14, height: 14, borderRadius: 7,
-                      background: tier.color,
-                      boxShadow: active
-                        ? `0 0 0 4px ${tier.color}26, 0 2px 4px rgba(0,0,0,0.5), inset 0 0.5px 0 rgba(255,255,255,0.3)`
-                        : '0 2px 4px rgba(0,0,0,0.5), inset 0 0.5px 0 rgba(255,255,255,0.3)',
-                      transition: dragIdx === idx ? 'none' : 'left 120ms ease, background 140ms ease, box-shadow 140ms ease',
-                    }} />
-                  </div>
-
-                  <div style={{
-                    display: 'flex', justifyContent: 'space-between',
-                    fontFamily: T.mono, fontSize: 9, color: T.textDim, letterSpacing: 0.4,
-                    pointerEvents: 'none',
-                  }}>
-                    <span>{d.low.toUpperCase()}</span>
-                    <span>NEWS {fmtDollar(implied)}/bbl</span>
-                    <span>{d.high.toUpperCase()}</span>
-                  </div>
+                      background: T.ink100, border: `1px solid ${T.edge}`,
+                      borderRadius: 8, padding: '10px 12px',
+                      display: 'flex', flexDirection: 'column', gap: 5,
+                    }}>
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        fontFamily: T.mono, fontSize: 9, color: T.textDim,
+                        letterSpacing: 0.5, marginBottom: 2,
+                      }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: 3, background: T.claude }} />CLAUDE
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: 3, background: T.gpt }} />GPT
+                        </span>
+                        <span style={{ marginLeft: 'auto' }}>DBL-CLICK TO OPEN</span>
+                      </div>
+                      {(OIL_DRIVER_NEWS[d.name] || []).map((n, i) => {
+                        const isRead = readSet.has(n.url);
+                        const isNew = n.date === I_TODAY;
+                        const sourceColor = isRead ? T.signal : (isNew ? '#4EA076' : T.textMid);
+                        const cons = iConsensus(n);
+                        return (
+                          <div key={i}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReadSet(prev => { const next = new Set(prev); next.add(n.url); return next; });
+                            }}
+                            onDoubleClick={(e) => { e.stopPropagation(); window.open(n.url, '_blank', 'noopener,noreferrer'); }}
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: '46px 74px 1fr 46px 46px 50px',
+                              gap: 6, alignItems: 'baseline',
+                              padding: '6px 8px',
+                              background: T.ink200,
+                              border: `0.5px solid ${T.edge}`,
+                              borderRadius: 6, cursor: 'pointer', userSelect: 'none',
+                              transition: 'background 140ms ease, border-color 140ms ease',
+                            }}>
+                            <div style={{ fontFamily: T.mono, fontSize: 9.5, color: T.textDim, letterSpacing: 0.3 }}>
+                              {n.date.slice(5)}
+                            </div>
+                            <div style={{
+                              display: 'flex', alignItems: 'center', gap: 5,
+                              fontFamily: T.mono, fontSize: 9.5, color: sourceColor, fontWeight: 500,
+                              letterSpacing: 0.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>
+                              {isNew && !isRead && <span style={{
+                                width: 5, height: 5, borderRadius: 3, background: '#4EA076',
+                                boxShadow: '0 0 5px rgba(78,160,118,0.8)', flexShrink: 0,
+                              }} />}
+                              {n.source}
+                            </div>
+                            <div style={{ fontSize: 10.5, color: T.text, lineHeight: 1.35 }}>{n.headline}</div>
+                            <div style={{
+                              fontFamily: T.mono, fontSize: 9.5, fontWeight: 500, color: T.claude,
+                              textAlign: 'right', letterSpacing: 0.3,
+                            }}>{fmtDollar(n.claude)}</div>
+                            <div style={{
+                              fontFamily: T.mono, fontSize: 9.5, fontWeight: 500, color: T.gpt,
+                              textAlign: 'right', letterSpacing: 0.3,
+                            }}>{fmtDollar(n.gpt)}</div>
+                            <div style={{
+                              fontFamily: T.mono, fontSize: 10, fontWeight: 600,
+                              color: cons > 0 ? T.bull : cons < 0 ? T.bear : T.textMid,
+                              textAlign: 'right', letterSpacing: 0.3,
+                            }}>{fmtDollar(cons)}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -531,93 +624,6 @@ function ImpactScreen({ onNav }) {
             </div>
           </div>
 
-          {/* Active driver news */}
-          <div style={{
-            background: T.ink100, border: `1px solid ${T.edge}`,
-            borderRadius: 10, padding: '14px 18px 16px', flex: 1,
-            display: 'flex', flexDirection: 'column', minHeight: 0,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-              <div style={{
-                fontSize: 9.5, letterSpacing: 1, color: T.textDim,
-                textTransform: 'uppercase', fontWeight: 600,
-              }}>Latest · {drivers[activeIdx].name}</div>
-              <div style={{
-                marginLeft: 10, fontFamily: T.mono, fontSize: 10,
-                color: activeImplied > 0 ? T.bull : activeImplied < 0 ? T.bear : T.textMid,
-                fontWeight: 600, letterSpacing: 0.3,
-              }}>CONSENSUS {fmtDollar(activeImplied)}/BBL</div>
-              <div style={{
-                marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12,
-                fontFamily: T.mono, fontSize: 9, color: T.textDim, letterSpacing: 0.5,
-              }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: 3, background: T.claude }} />CLAUDE
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: 3, background: T.gpt }} />GPT
-                </span>
-                <span>DBL-CLICK TO OPEN</span>
-              </div>
-            </div>
-            <div style={{
-              flex: 1, display: 'flex', flexDirection: 'column', gap: 5,
-              overflowY: 'auto', overflowX: 'hidden', paddingRight: 4,
-            }}>
-              {(OIL_DRIVER_NEWS[drivers[activeIdx].name] || []).map((n, i) => {
-                const isRead = readSet.has(n.url);
-                const isNew = n.date === I_TODAY;
-                const sourceColor = isRead ? T.signal : (isNew ? '#4EA076' : T.textMid);
-                const cons = iConsensus(n);
-                return (
-                  <div key={i}
-                    onClick={() => {
-                      setReadSet(prev => { const next = new Set(prev); next.add(n.url); return next; });
-                    }}
-                    onDoubleClick={() => window.open(n.url, '_blank', 'noopener,noreferrer')}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '54px 90px 1fr 56px 56px 60px',
-                      gap: 10, alignItems: 'baseline',
-                      padding: '7px 10px',
-                      background: T.ink200,
-                      border: `0.5px solid ${T.edge}`,
-                      borderRadius: 8, cursor: 'pointer', userSelect: 'none',
-                      transition: 'background 140ms ease, border-color 140ms ease',
-                    }}>
-                    <div style={{ fontFamily: T.mono, fontSize: 10, color: T.textDim, letterSpacing: 0.3 }}>
-                      {n.date.slice(5)}
-                    </div>
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: 5,
-                      fontFamily: T.mono, fontSize: 10, color: sourceColor, fontWeight: 500,
-                      letterSpacing: 0.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
-                      {isNew && !isRead && <span style={{
-                        width: 5, height: 5, borderRadius: 3, background: '#4EA076',
-                        boxShadow: '0 0 5px rgba(78,160,118,0.8)', flexShrink: 0,
-                      }} />}
-                      {n.source}
-                    </div>
-                    <div style={{ fontSize: 11, color: T.text, lineHeight: 1.4 }}>{n.headline}</div>
-                    <div style={{
-                      fontFamily: T.mono, fontSize: 10, fontWeight: 500, color: T.claude,
-                      textAlign: 'right', letterSpacing: 0.3,
-                    }}>{fmtDollar(n.claude)}</div>
-                    <div style={{
-                      fontFamily: T.mono, fontSize: 10, fontWeight: 500, color: T.gpt,
-                      textAlign: 'right', letterSpacing: 0.3,
-                    }}>{fmtDollar(n.gpt)}</div>
-                    <div style={{
-                      fontFamily: T.mono, fontSize: 10.5, fontWeight: 600,
-                      color: cons > 0 ? T.bull : cons < 0 ? T.bear : T.textMid,
-                      textAlign: 'right', letterSpacing: 0.3,
-                    }}>{fmtDollar(cons)}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
 
         </div>
       </div>

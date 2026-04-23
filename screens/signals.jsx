@@ -163,6 +163,14 @@ function SignalsScreen({ onNav }) {
   const [openSignal, setOpenSignal] = React.useState(null);
   const [assetFilter, setAssetFilter] = React.useState(null); // 'BTC' | 'OIL' | 'SPX' | null
   const [openRationale, setOpenRationale] = React.useState(null); // { scope, name, score, label, tiles, loading, text, model }
+  const [metaTab, setMetaTab] = React.useState('macro'); // 'macro' | 'flow' | 'geo'
+
+  // Meta-tab → lane-id mapping. Controls which of the 7 lanes render at once.
+  const metaTabLanes = {
+    macro: ['fed', 'equity'],
+    flow:  ['crypto', 'reg'],
+    geo:   ['geo', 'china', 'oil'],
+  };
 
   // LIVE — BTC spot + 24h change (CoinGecko)
   const { data: livePrices } = (window.useAutoUpdate || (() => ({})))(
@@ -599,6 +607,34 @@ function SignalsScreen({ onNav }) {
         overflowY: 'auto', overflowX: 'hidden',
         display: 'flex', flexDirection: 'column', gap: 14,
       }}>
+        {/* META-TABS — group the 7 lanes under 3 buckets so only 2-3 render at a time */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 2 }}>
+          {[
+            { k: 'macro', label: 'MACRO' },
+            { k: 'flow',  label: 'FLOW'  },
+            { k: 'geo',   label: 'GEO'   },
+          ].map(mt => {
+            const on = metaTab === mt.k;
+            const count = metaTabLanes[mt.k].length;
+            return (
+              <div key={mt.k}
+                onClick={() => setMetaTab(mt.k)}
+                style={{
+                  padding: '7px 16px', fontSize: 11, fontWeight: 600, letterSpacing: 0.5,
+                  fontFamily: T.mono, borderRadius: 7, cursor: 'pointer',
+                  background: on ? T.signal : T.ink200,
+                  color: on ? T.ink000 : T.textMid,
+                  border: '1px solid ' + (on ? T.signal : T.edge),
+                  transition: 'background 160ms cubic-bezier(0.2,0.7,0.2,1), color 160ms cubic-bezier(0.2,0.7,0.2,1), border-color 160ms cubic-bezier(0.2,0.7,0.2,1)',
+                  display: 'flex', alignItems: 'baseline', gap: 6,
+                }}>
+                <span>{mt.label}</span>
+                <span style={{ fontSize: 9, opacity: 0.7 }}>· {count} LANES</span>
+              </div>
+            );
+          })}
+        </div>
+
         {/* Asset filter pills — unified pill style shared across Signals/News/Calendar/Prices */}
         <div style={{ display: 'flex', gap: 6, marginBottom: -4 }}>
           {[{ k: null, label: 'All' }, { k: 'BTC', label: 'BTC' }, { k: 'OIL', label: 'OIL' }, { k: 'SPX', label: 'SPX' }].map(p => {
@@ -624,7 +660,7 @@ function SignalsScreen({ onNav }) {
           )}
         </div>
 
-        {lanes.map(lane => {
+        {lanes.filter(lane => metaTabLanes[metaTab].includes(lane.id)).map(lane => {
           const collapsed = collapsedLanes.has(lane.id);
           const visibleSigs = lane.signals.filter(filterSig);
           if (assetFilter && visibleSigs.length === 0) return null;

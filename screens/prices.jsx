@@ -345,6 +345,7 @@ function PricesScreen({ onNav }) {
   const T = prT;
   const W = 1280, H = 820;
   const [openTicker, setOpenTicker] = React.useState(null);
+  const [activeLane, setActiveLane] = React.useState('stocks');
   const wl = typeof useTRWatchlist !== 'undefined' ? useTRWatchlist() : null;
 
   const finnhubKey = (window.TR_SETTINGS && window.TR_SETTINGS.keys && window.TR_SETTINGS.keys.finnhub) || '';
@@ -625,9 +626,67 @@ function PricesScreen({ onNav }) {
           </div>
         )}
 
-        <Lane title="Stocks &amp; ETFs" desc={demoMode ? "DEMO prices — add Finnhub key in ⚙ for live" : "Equities · Bitcoin-adjacent tickers · Finnhub quotes · click for 1Y + options"} data={stocksData} kind="stock" />
-        <Lane title="Futures &amp; Commodities" desc="Oil, gold, silver, copper, index futures, DXY · Stooq 1Y daily" data={futuresData} kind="future" />
-        <Lane title="Crypto" desc="Top 10 by liquidity · CoinGecko · click for 1Y chart" data={cryptoData} kind="crypto" />
+        {/* Tab strip — switch between lanes */}
+        {(() => {
+          const tabs = [
+            { id: 'stocks', label: 'Stocks', count: stocksData.length },
+            { id: 'futures', label: 'Futures · Commods', count: futuresData.length },
+            { id: 'crypto', label: 'Crypto', count: cryptoData.length },
+          ];
+          return (
+            <div style={{ display: 'flex', gap: 4 }}>
+              {tabs.map(tab => {
+                const isActive = activeLane === tab.id;
+                return (
+                  <div
+                    key={tab.id}
+                    onClick={() => setActiveLane(tab.id)}
+                    onMouseEnter={e => {
+                      if (!isActive) {
+                        e.currentTarget.style.borderColor = T.edgeHi;
+                        e.currentTarget.style.color = T.text;
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (!isActive) {
+                        e.currentTarget.style.borderColor = T.edge;
+                        e.currentTarget.style.color = T.textMid;
+                      }
+                    }}
+                    style={{
+                      padding: '7px 16px',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      letterSpacing: 0.5,
+                      fontFamily: T.mono,
+                      borderRadius: 7,
+                      cursor: 'pointer',
+                      transition: 'background 160ms cubic-bezier(0.2,0.7,0.2,1), color 160ms cubic-bezier(0.2,0.7,0.2,1), border-color 160ms cubic-bezier(0.2,0.7,0.2,1)',
+                      background: isActive ? T.signal : T.ink200,
+                      color: isActive ? T.ink000 : T.textMid,
+                      border: '1px solid ' + (isActive ? T.signal : T.edge),
+                      textTransform: 'uppercase',
+                    }}>
+                    {tab.label}
+                    <span style={{ fontSize: 9, opacity: 0.7, marginLeft: 6 }}>
+                      · {tab.count}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        {activeLane === 'stocks' && (
+          <Lane title="Stocks &amp; ETFs" desc={demoMode ? "DEMO prices — add Finnhub key in ⚙ for live" : "Equities · Bitcoin-adjacent tickers · Finnhub quotes · click for 1Y + options"} data={stocksData} kind="stock" />
+        )}
+        {activeLane === 'futures' && (
+          <Lane title="Futures &amp; Commodities" desc="Oil, gold, silver, copper, index futures, DXY · Stooq 1Y daily" data={futuresData} kind="future" />
+        )}
+        {activeLane === 'crypto' && (
+          <Lane title="Crypto" desc="Top 10 by liquidity · CoinGecko · click for 1Y chart" data={cryptoData} kind="crypto" />
+        )}
         <div style={{ height: 12 }} />
 
         <PriceDetailModal open={!!openTicker} onClose={() => setOpenTicker(null)} ticker={openTicker} />
