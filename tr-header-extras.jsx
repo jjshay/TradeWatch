@@ -9,15 +9,25 @@ function TRLiveStripInline() {
   };
   const [btc, setBtc] = React.useState(null);
   const [fng, setFng] = React.useState(null);
+  const [lastUpdate, setLastUpdate] = React.useState(null);
+  const [, setNow] = React.useState(0);
 
   React.useEffect(() => {
     let active = true;
     async function tick() {
       try {
         if (typeof LiveData !== 'undefined') {
+          // Primary: CoinGecko (includes 24h change). Fallback: Coinbase spot.
           const prices = await LiveData.getCryptoPrices();
           if (active && prices && prices.bitcoin) {
             setBtc({ price: prices.bitcoin.usd, change24h: prices.bitcoin.usd_24h_change });
+            setLastUpdate(Date.now());
+          } else {
+            const spot = await LiveData.getBTCPrice();
+            if (active && spot) {
+              setBtc(prev => ({ price: spot, change24h: prev ? prev.change24h : 0 }));
+              setLastUpdate(Date.now());
+            }
           }
           const fg = await LiveData.getFearGreed();
           if (active && fg && fg.data && fg.data[0]) {
@@ -27,13 +37,28 @@ function TRLiveStripInline() {
       } catch (_) {}
     }
     tick();
-    const iv = setInterval(tick, 60_000);
-    return () => { active = false; clearInterval(iv); };
+    // Poll every 30s. Cache TTL (45s for crypto prices) means ~every other
+    // poll actually hits the network — balances freshness vs rate limits.
+    const iv = setInterval(tick, 30_000);
+    // Separate 5s timer just to re-render the "Xs ago" age string.
+    const ageTick = setInterval(() => setNow(t => t + 1), 5_000);
+    return () => { active = false; clearInterval(iv); clearInterval(ageTick); };
   }, []);
 
   if (!btc && !fng) return null;
+  const ageSecs = lastUpdate ? Math.round((Date.now() - lastUpdate) / 1000) : null;
+  const ageTxt = ageSecs == null ? ''
+               : ageSecs < 60   ? `${ageSecs}s`
+               : ageSecs < 3600 ? `${Math.round(ageSecs / 60)}m`
+               :                  `${Math.round(ageSecs / 3600)}h`;
+  const ageColor = ageSecs == null ? T.textDim
+                 : ageSecs < 90   ? '#6FCF8E'   // fresh
+                 : ageSecs < 300  ? '#c9a227'   // stale
+                 :                  '#D96B6B';  // very stale
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontFamily: T.mono, fontSize: 11 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontFamily: T.mono, fontSize: 11 }}
+      title={lastUpdate ? 'BTC updated ' + new Date(lastUpdate).toLocaleTimeString() : ''}>
       {btc && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <span style={{ color: '#F7931A', fontSize: 10 }}>●</span>
@@ -44,6 +69,11 @@ function TRLiveStripInline() {
           <span style={{ color: btc.change24h >= 0 ? '#6FCF8E' : '#D96B6B', fontSize: 10.5 }}>
             {btc.change24h >= 0 ? '+' : ''}{btc.change24h.toFixed(2)}%
           </span>
+          {ageTxt && (
+            <span style={{ color: ageColor, fontSize: 9, letterSpacing: 0.3, opacity: 0.9 }}>
+              · {ageTxt}
+            </span>
+          )}
         </div>
       )}
       {fng && (

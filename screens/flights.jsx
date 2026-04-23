@@ -36,6 +36,31 @@ function callsignHint(cs) {
   return '';
 }
 
+// Color-coded aircraft categories — trader-friendly buckets so you can
+// tell at a glance what the posture is. Colors match the on-map legend.
+function aircraftCategory(cs) {
+  const c = (cs || '').toUpperCase();
+  if (/^HAVEN|^KC|^PACK|^QID/.test(c))                    return { cat: 'REFUELER',  color: '#E85D75', label: 'Refueler · strike-ops prep' };
+  if (/^BAT|^SLAM|^BONE|^DOOM|^NOBLE|^STEEL/.test(c))     return { cat: 'BOMBER',    color: '#D96B6B', label: 'Bomber / strategic' };
+  if (/^CNV|^RYDR|^POSEIDON|^NAVY/.test(c))               return { cat: 'PATROL',    color: '#5FC9C2', label: 'Navy patrol · P-8 ASW' };
+  if (/^RCH|^BOXR|^MOOSE|^PEACH/.test(c))                 return { cat: 'TRANSPORT', color: '#c9a227', label: 'Transport · C-17/C-5' };
+  if (/^SPAR|^BLUE|^GOLD|^MAGMA/.test(c))                 return { cat: 'EXEC',      color: '#B07BE6', label: 'Exec / VIP transport' };
+  if (/^DRAGON|^OLIVE|^SEMPRA|^HAWK|^HAMMER/.test(c))     return { cat: 'ISR',       color: '#6FCF8E', label: 'ISR / recon' };
+  return                                                     { cat: 'OTHER',     color: '#9AA3B2', label: 'Other US military' };
+}
+
+// Legend definitions — single source of truth for the on-map key
+// and the right-side aircraft list color stripes.
+const AIRCRAFT_LEGEND = [
+  { cat: 'REFUELER',  color: '#E85D75', label: 'Refueler' },
+  { cat: 'BOMBER',    color: '#D96B6B', label: 'Bomber / Strategic' },
+  { cat: 'PATROL',    color: '#5FC9C2', label: 'Navy Patrol (P-8)' },
+  { cat: 'TRANSPORT', color: '#c9a227', label: 'Transport (C-17/C-5)' },
+  { cat: 'EXEC',      color: '#B07BE6', label: 'Exec / VIP' },
+  { cat: 'ISR',       color: '#6FCF8E', label: 'ISR / Recon' },
+  { cat: 'OTHER',     color: '#9AA3B2', label: 'Other US Mil' },
+];
+
 // Persistent history — append every poll, cap at ~20k records (7d at 2min = 5040).
 function loadFlightHistory() {
   try { return JSON.parse(localStorage.getItem('tr_flight_history') || '[]'); } catch { return []; }
@@ -382,14 +407,14 @@ function FlightsScreen({ onNav }) {
 
       {/* Body: map + AI panel */}
       <div style={{ display: 'flex', height: H - 52 - 50 }}>
-        {/* MAP — ADSBExchange globe embedded. Has 1-year replay built in.
-            URL params: replay = open scrubbable history · lat/lon/zoom =
-            center on CENTCOM bbox · mil=1 = military-only filter. */}
+        {/* MAP — ADSBExchange globe embedded. Centered on Iran, always
+            military-only (mil=1). Zoom 6 = Iran + Gulf + eastern Iraq fills
+            the viewport. URL params: replay = scrubbable history. */}
         <div style={{ flex: 1, position: 'relative', background: T.ink200 }}>
           <iframe
-            src={`https://globe.adsbexchange.com/?replay&lat=27&lon=50&zoom=5${period !== 'now' ? '&mil=1' : ''}`}
+            src={`https://globe.adsbexchange.com/?replay&lat=32&lon=53&zoom=6&mil=1`}
             style={{ width: '100%', height: '100%', border: 'none', background: '#0a0d13' }}
-            title="ADSBExchange live + replay"
+            title="ADSBExchange Iran · military only"
             allow="geolocation"
             sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
           />
@@ -403,6 +428,45 @@ function FlightsScreen({ onNav }) {
               fontSize: 12, color: T.bear, zIndex: 5,
             }}>{error}</div>
           )}
+
+          {/* COLOR KEY — legend overlay (top-right) */}
+          <div style={{
+            position: 'absolute', top: 12, right: 12, zIndex: 5,
+            background: 'rgba(7,9,12,0.85)', backdropFilter: 'blur(10px) saturate(150%)',
+            WebkitBackdropFilter: 'blur(10px) saturate(150%)',
+            padding: '10px 12px', borderRadius: 8,
+            border: '0.5px solid rgba(255,255,255,0.12)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+            minWidth: 168,
+          }}>
+            <div style={{
+              fontSize: 9, letterSpacing: 1.2, color: T.signal,
+              textTransform: 'uppercase', fontWeight: 700, marginBottom: 8,
+              fontFamily: T.mono,
+            }}>Aircraft Key</div>
+            {AIRCRAFT_LEGEND.map(l => (
+              <div key={l.cat} style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '3px 0', fontFamily: T.mono, fontSize: 9.5,
+                color: T.textMid, letterSpacing: 0.2,
+              }}>
+                <div style={{
+                  width: 10, height: 10, borderRadius: 2, background: l.color,
+                  boxShadow: `0 0 6px ${l.color}88`,
+                  flexShrink: 0,
+                }} />
+                <div style={{ color: T.text, fontSize: 10 }}>{l.label}</div>
+              </div>
+            ))}
+            <div style={{
+              marginTop: 8, paddingTop: 8, borderTop: `0.5px solid ${T.edge}`,
+              fontSize: 8.5, color: T.textDim, letterSpacing: 0.3,
+              fontFamily: T.mono, lineHeight: 1.4,
+            }}>
+              Map uses ADSBExchange altitude palette.<br />Category colors show on right panel list.
+            </div>
+          </div>
+
           <div style={{
             position: 'absolute', bottom: 10, left: 10, zIndex: 5,
             background: 'rgba(7,9,12,0.7)', backdropFilter: 'blur(6px)',
@@ -411,7 +475,7 @@ function FlightsScreen({ onNav }) {
             fontFamily: T.mono, fontSize: 9.5, color: T.textMid, letterSpacing: 0.3,
           }}>
             <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-              ADSBExchange · {period === 'now' ? 'live' : `${period.toUpperCase()} replay · military only`}
+              IRAN · MIL ONLY · {period === 'now' ? 'live' : `${period.toUpperCase()} replay`}
               {typeof TRInfoIcon !== 'undefined' && window.TR_EXPLAIN && window.TR_EXPLAIN['flight-adsbex'] && (
                 <TRInfoIcon text={window.TR_EXPLAIN['flight-adsbex']} size={9} />
               )}
@@ -492,21 +556,28 @@ function FlightsScreen({ onNav }) {
               <div style={{ fontSize: 9.5, letterSpacing: 0.9, color: T.textDim, textTransform: 'uppercase', fontWeight: 600, marginBottom: 8 }}>
                 Tracked · {data.usMil.length}
               </div>
-              {data.usMil.slice(0, 12).map(a => (
-                <div key={a.icao24} style={{
-                  display: 'grid', gridTemplateColumns: '74px 1fr 50px',
-                  gap: 6, padding: '5px 0', fontFamily: T.mono, fontSize: 10.5,
-                  borderBottom: `0.5px solid ${T.edge}`,
-                }}>
-                  <div style={{ color: T.signal, fontWeight: 600 }}>{a.callsign}</div>
-                  <div style={{ color: T.textMid, fontSize: 9.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {callsignHint(a.callsign) || a.icao24}
+              {data.usMil.slice(0, 12).map(a => {
+                const cat = aircraftCategory(a.callsign);
+                return (
+                  <div key={a.icao24} title={cat.label} style={{
+                    display: 'grid', gridTemplateColumns: '8px 74px 1fr 50px',
+                    gap: 6, padding: '5px 0', fontFamily: T.mono, fontSize: 10.5,
+                    borderBottom: `0.5px solid ${T.edge}`, alignItems: 'center',
+                  }}>
+                    <div style={{
+                      width: 4, height: 14, background: cat.color, borderRadius: 1,
+                      boxShadow: `0 0 4px ${cat.color}88`,
+                    }} />
+                    <div style={{ color: T.signal, fontWeight: 600 }}>{a.callsign}</div>
+                    <div style={{ color: T.textMid, fontSize: 9.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {callsignHint(a.callsign) || a.icao24}
+                    </div>
+                    <div style={{ color: T.text, textAlign: 'right', fontSize: 10 }}>
+                      {a.alt ? Math.round(a.alt / 1000) + 'k' : '—'}
+                    </div>
                   </div>
-                  <div style={{ color: T.text, textAlign: 'right', fontSize: 10 }}>
-                    {a.alt ? Math.round(a.alt / 1000) + 'k' : '—'}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

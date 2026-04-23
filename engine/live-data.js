@@ -1,10 +1,11 @@
 // ========== LIVE DATA API ==========
 const LiveData = {
     cache: {},
-    cacheExpiry: 5 * 60 * 1000, // 5 min cache
+    cacheExpiry: 5 * 60 * 1000, // 5 min default; live tickers override
 
-    async _fetch(url, cacheKey) {
-        if (this.cache[cacheKey] && Date.now() - this.cache[cacheKey].time < this.cacheExpiry) {
+    async _fetch(url, cacheKey, ttlMs) {
+        const ttl = ttlMs != null ? ttlMs : this.cacheExpiry;
+        if (this.cache[cacheKey] && Date.now() - this.cache[cacheKey].time < ttl) {
             return this.cache[cacheKey].data;
         }
         try {
@@ -19,11 +20,11 @@ const LiveData = {
         }
     },
 
-    // CoinGecko: current prices
+    // CoinGecko: current prices — 45s TTL so header ticker stays fresh
     async getCryptoPrices() {
         const ids = 'bitcoin,matic-network,render-token,chainlink,kaspa';
         const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true`;
-        return this._fetch(url, 'crypto_prices');
+        return this._fetch(url, 'crypto_prices', 45_000);
     },
 
     // CoinGecko: historical prices (up to 365 days)
@@ -38,7 +39,7 @@ const LiveData = {
         return this._fetch(url, 'crypto_global');
     },
 
-    // Alternative.me: Fear & Greed Index
+    // Alternative.me: Fear & Greed Index — refreshes daily, 5m cache is fine
     async getFearGreed() {
         const url = 'https://api.alternative.me/fng/?limit=30&format=json';
         return this._fetch(url, 'fear_greed');
@@ -54,10 +55,10 @@ const LiveData = {
         return metrics;
     },
 
-    // Coinbase ticker (backup price source)
+    // Coinbase ticker (backup price source) — 30s TTL for live tickers
     async getBTCPrice() {
         const url = 'https://api.coinbase.com/v2/prices/BTC-USD/spot';
-        const data = await this._fetch(url, 'btc_spot');
+        const data = await this._fetch(url, 'btc_spot', 30_000);
         return data?.data?.amount ? parseFloat(data.data.amount) : null;
     },
 

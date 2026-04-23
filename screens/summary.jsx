@@ -343,6 +343,19 @@ function SummaryScreen({ onNav }) {
 
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
           {typeof TRGearInline !== 'undefined' && <TRGearInline />}
+          {typeof window.trIsLocalHost === 'function' && window.trIsLocalHost() && (
+            <div
+              onClick={() => window.openTRSelfTest && window.openTRSelfTest()}
+              title="In-house self-test · LLM reviews every feature"
+              style={{
+                padding: '5px 12px',
+                background: 'rgba(217,107,107,0.14)',
+                color: T.bear,
+                border: `0.5px solid ${T.bear}55`,
+                borderRadius: 6, fontSize: 11, fontWeight: 700, letterSpacing: 0.8,
+                cursor: 'pointer', fontFamily: T.mono,
+              }}>⚡ TEST</div>
+          )}
           <div
             onClick={runBriefing}
             style={{
