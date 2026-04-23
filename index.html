@@ -76,7 +76,57 @@
 <script src="engine/journal.js"></script>
 </head>
 <body>
-<div id="root"></div>
+<div id="root">
+  <!-- Boot splash — shown until React mounts. React replaces #root contents. -->
+  <div id="tr-boot-splash" style="
+    position: fixed; inset: 0;
+    background: #07090C;
+    display: flex; align-items: center; justify-content: center; flex-direction: column;
+    font-family: 'Inter Tight', system-ui, sans-serif;
+    z-index: 10000;
+  ">
+    <div style="
+      width: 64px; height: 64px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(201,162,39,0.35) 0%, rgba(201,162,39,0) 70%);
+      animation: tw-pulse 1.6s ease-in-out infinite;
+      margin-bottom: 18px;
+    "></div>
+    <div style="
+      font-size: 10px; letter-spacing: 2.4px;
+      color: #c9a227; font-weight: 700;
+      text-transform: uppercase; font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 6px;
+    ">TradeRadar</div>
+    <div id="tr-boot-status" style="
+      font-size: 12px; color: rgba(180,188,200,0.6);
+      letter-spacing: 0.4px; margin-bottom: 14px;
+    ">Compiling… ~10-20s on first load</div>
+    <div style="width: 260px; height: 2px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden;">
+      <div id="tr-boot-bar" style="
+        height: 100%; width: 0%;
+        background: linear-gradient(90deg, rgba(201,162,39,0) 0%, #c9a227 50%, rgba(201,162,39,0) 100%);
+        transition: width 400ms cubic-bezier(0.2,0.7,0.2,1);
+      "></div>
+    </div>
+    <div style="
+      font-size: 9.5px; color: rgba(130,138,150,0.55);
+      letter-spacing: 0.3px; margin-top: 16px; font-family: 'JetBrains Mono', monospace;
+    ">Fusing real-time crypto + macro · multi-LLM consensus</div>
+  </div>
+  <script>
+    // Animate the progress bar while JSX compiles. Resets when React mounts
+    // (the #tr-boot-splash element gets replaced by React's tree).
+    (function () {
+      var pct = 0;
+      var id = setInterval(function () {
+        var bar = document.getElementById('tr-boot-bar');
+        if (!bar) { clearInterval(id); return; }
+        pct = Math.min(92, pct + (pct < 50 ? 4 : pct < 80 ? 2 : 0.8));
+        bar.style.width = pct + '%';
+      }, 400);
+    })();
+  </script>
+</div>
 <!-- Utility layer: cache + logger (plain JS, no JSX) -->
 <script src="tr-cache.js"></script>
 <script src="tr-logger.js"></script>
