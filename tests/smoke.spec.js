@@ -92,6 +92,16 @@ for (const tab of TABS) {
     let ok = false;
     let notes = '';
     try {
+      // Pre-dismiss the first-visit welcome modal and any other first-run
+      // gates. Without this, their zIndex:120 overlay intercepts every
+      // click in a fresh CI browser.
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('tr_welcomed', 'true');
+          localStorage.setItem('tr_tour_done', 'true');
+          localStorage.setItem('tr_onboarded', 'true');
+        } catch (_) {}
+      });
       await page.goto('/', { waitUntil: 'domcontentloaded' });
 
       // The app boots via Babel-standalone — give React a beat to mount the shell.
