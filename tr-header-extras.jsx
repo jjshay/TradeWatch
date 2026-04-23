@@ -116,6 +116,10 @@ function TRGearInline() {
       {btn('⌘K', 'Command palette (⌘K or /)',    () => window.openTRCmdK    && window.openTRCmdK(),    10)}
       {btn('📘', 'Trade journal (J)',             () => window.openTRJournal && window.openTRJournal(),  12)}
       {btn('🔔',  'Alerts · Telegram triggers',   () => window.openTRAlerts  && window.openTRAlerts())}
+      {btn('↻',  'Replay walkthrough on this tab', () => {
+        const cur = window.TR_CURRENT_TAB || 'drivers';
+        window.openTRWalkthrough && window.openTRWalkthrough(cur);
+      }, 14)}
       {btn('⚙',  'Settings · refresh · API keys',() => window.openTRSettings && window.openTRSettings(), 14)}
     </div>
   );

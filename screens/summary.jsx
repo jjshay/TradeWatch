@@ -352,6 +352,7 @@ function SummaryScreen({ onNav }) {
           {typeof TRGearInline !== 'undefined' && <TRGearInline />}
           {typeof window.trIsLocalHost === 'function' && window.trIsLocalHost() && (
             <div
+              data-walk="summary-test"
               onClick={() => window.openTRSelfTest && window.openTRSelfTest()}
               title="In-house self-test · LLM reviews every feature"
               style={{
@@ -365,6 +366,7 @@ function SummaryScreen({ onNav }) {
               }}>⚡ TEST</div>
           )}
           <div
+            data-walk="summary-refresh"
             onClick={runBriefing}
             style={{
               padding: '5px 12px', background: T.signal, color: T.ink000,
@@ -465,7 +467,7 @@ function SummaryScreen({ onNav }) {
 
           {/* RIGHT: three LLM predictions */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, flex: 1 }}>
+            <div data-walk="llm-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, flex: 1 }}>
               <PredictionCard brand={T.claude} brandName="Claude" rec={preds.claude} prev={prevPreds?.claude} T={T} />
               <PredictionCard brand={T.gpt}    brandName="ChatGPT" rec={preds.gpt}    prev={prevPreds?.gpt}    T={T} />
               <PredictionCard brand={T.gemini} brandName="Gemini" rec={preds.gemini} prev={prevPreds?.gemini} T={T} />

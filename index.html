@@ -122,6 +122,8 @@
 <!-- Porsche polish: shared UI kit, mobile nav, panel launcher, trade journal -->
 <script type="text/babel" src="tr-explain.jsx"></script>
 <script type="text/babel" src="tr-selftest.jsx"></script>
+<script type="text/babel" src="tr-walkthrough.jsx"></script>
+<script type="text/babel" src="tr-walkthrough-content.jsx"></script>
 <script type="text/babel" src="tr-ui.jsx"></script>
 <script type="text/babel" src="tr-mobile.jsx"></script>
 <script type="text/babel" src="tr-panel-launcher.jsx"></script>
@@ -299,7 +301,17 @@ function TRWrap({ tab, onNav, onOpenSettings, children }) {
 }
 
 function TradeRadarApp() {
-  const [tab, setTab] = React.useState('drivers');
+  const [tab, _setTab] = React.useState('drivers');
+  // Wrap setTab so walkthrough host + any other listener can react to
+  // tab changes globally. Also stash current tab for the initial fire.
+  const setTab = React.useCallback((t) => {
+    _setTab(t);
+    try {
+      window.TR_CURRENT_TAB = t;
+      window.dispatchEvent(new CustomEvent('tr:tab-changed', { detail: { tab: t } }));
+    } catch (_) {}
+  }, []);
+  React.useEffect(() => { window.TR_CURRENT_TAB = tab; }, []);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [optionsOpen, setOptionsOpen] = React.useState(false);
   const [optionsInitialSymbol, setOptionsInitialSymbol] = React.useState(null);

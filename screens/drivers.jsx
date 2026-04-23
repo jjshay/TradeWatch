@@ -539,13 +539,13 @@ function DriversScreen({ onNav }) {
             fontSize: 9, letterSpacing: 1.2, color: T.signal,
             textTransform: 'uppercase', fontWeight: 600, marginBottom: 8,
           }}>Regime · top-of-book</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+          <div data-walk="regime-strip" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
             {groupTiles('regime').map(ReportingTile)}
           </div>
         </div>
 
         {/* Three asset columns */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, flex: 1 }}>
+        <div data-walk="asset-columns" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, flex: 1 }}>
           {[
             { k: 'btc', label: '₿ BTC',   color: T.btc },
             { k: 'wti', label: '🛢 WTI',  color: T.oil },

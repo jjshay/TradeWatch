@@ -433,7 +433,7 @@ function FlightsScreen({ onNav }) {
           )}
 
           {/* COLOR KEY — legend overlay (top-right) */}
-          <div style={{
+          <div data-walk="flights-legend" style={{
             position: 'absolute', top: 12, right: 12, zIndex: 5,
             background: 'rgba(7,9,12,0.85)', backdropFilter: 'blur(10px) saturate(150%)',
             WebkitBackdropFilter: 'blur(10px) saturate(150%)',

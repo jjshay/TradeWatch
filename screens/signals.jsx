@@ -527,7 +527,7 @@ function SignalsScreen({ onNav }) {
       </div>
 
       {/* Composite strip */}
-      <div style={{
+      <div data-walk="composite-strip" style={{
         height: 60, display: 'flex',
         borderBottom: `1px solid ${T.edge}`, background: T.ink100,
       }}>
@@ -608,7 +608,7 @@ function SignalsScreen({ onNav }) {
         display: 'flex', flexDirection: 'column', gap: 14,
       }}>
         {/* META-TABS — group the 7 lanes under 3 buckets so only 2-3 render at a time */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 2 }}>
+        <div data-walk="meta-tabs" style={{ display: 'flex', gap: 4, marginBottom: 2 }}>
           {[
             { k: 'macro', label: 'MACRO' },
             { k: 'flow',  label: 'FLOW'  },

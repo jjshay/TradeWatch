@@ -240,7 +240,7 @@ function ImpactScreen({ onNav }) {
             letterSpacing: -0.2, marginBottom: 14,
           }}>Weighted $/bbl sums to projected WTI</div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingBottom: 20, overflowY: 'auto', flex: 1 }}>
+          <div data-walk="driver-accordion" style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingBottom: 20, overflowY: 'auto', flex: 1 }}>
             {drivers.map((d, idx) => {
               const active = idx === activeIdx;
               const isOpen = expandedDriver === d.name;

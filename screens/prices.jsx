@@ -634,7 +634,7 @@ function PricesScreen({ onNav }) {
             { id: 'crypto', label: 'Crypto', count: cryptoData.length },
           ];
           return (
-            <div style={{ display: 'flex', gap: 4 }}>
+            <div data-walk="prices-tabs" style={{ display: 'flex', gap: 4 }}>
               {tabs.map(tab => {
                 const isActive = activeLane === tab.id;
                 return (
