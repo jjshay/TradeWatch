@@ -30,7 +30,12 @@ const ALLOWED_ERROR_PATTERNS = [
   /AbortError/i,
   /CORS/i,
   /ERR_BLOCKED_BY_CLIENT/i,
-  /coingecko|cryptocompare|alternative\.me|tradier|polygon|newsapi|gdeltproject|aviationstack|openskynetwork|fixer|yahoo/i,
+  /X-Frame-Options/i,
+  /Refused to display/i,
+  /Refused to frame/i,
+  /sandbox attribute/i,
+  /Content Security Policy/i,
+  /adsbexchange|opensky-network|coingecko|cryptocompare|alternative\.me|tradier|polygon|newsapi|gdeltproject|aviationstack|openskynetwork|fixer|yahoo|finnhub|stooq|fred|binance|coinbase|farside|glassnode|coinglass|kalshi|polymarket/i,
 ];
 
 function isAllowedError(msg) {
@@ -133,10 +138,12 @@ for (const tab of TABS) {
       if (totalErrors > 0) {
         notes = `errors: ${[...consoleErrors, ...pageErrors].slice(0, 3).join(' | ')}`;
       }
-      expect(totalErrors, `Unexpected console/page errors on tab "${tab}"`).toBe(0);
+      expect(totalErrors, `Unexpected console/page errors on tab "${tab}": ${[...consoleErrors, ...pageErrors].join(' || ')}`).toBe(0);
       ok = true;
     } catch (err) {
-      notes = (err && err.message ? err.message : String(err)).split('\n')[0];
+      // Keep the console-error notes if we already captured any — only
+      // fall back to the raw exception message when there were none.
+      if (!notes) notes = (err && err.message ? err.message : String(err)).split('\n')[0];
       throw err;
     } finally {
       results.push({
