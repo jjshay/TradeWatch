@@ -163,7 +163,12 @@ function PredictionCard({ brand, brandName, rec, prev, T }) {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <div style={{ width: 7, height: 7, borderRadius: 4, background: brand }} />
-        <div style={{ fontSize: 13, fontWeight: 500, color: T.text }}>{brandName}</div>
+        <div style={{ fontSize: 13, fontWeight: 500, color: T.text, display: 'flex', alignItems: 'center' }}>
+          {brandName}
+          {typeof TRInfoIcon !== 'undefined' && window.TR_EXPLAIN && (
+            <TRInfoIcon text={window.TR_EXPLAIN['llm-' + brandName.toLowerCase().replace('chatgpt', 'gpt')]} size={10} />
+          )}
+        </div>
         {rec.sentiment && (
           <div style={{
             marginLeft: 'auto', padding: '2px 7px',
@@ -451,7 +456,11 @@ function SummaryScreen({ onNav }) {
                   background: `linear-gradient(90deg, transparent 0%, ${T.signal} 50%, transparent 100%)`,
                 }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <div style={{ fontSize: 10, letterSpacing: 1.2, color: T.signal, textTransform: 'uppercase', fontWeight: 600 }}>Consensus · {consensus.count} models</div>
+                  <div style={{ fontSize: 10, letterSpacing: 1.2, color: T.signal, textTransform: 'uppercase', fontWeight: 600, display: 'inline-flex', alignItems: 'center' }}>
+                    Consensus · {consensus.count} models
+                    {typeof TRInfoIcon !== 'undefined' && window.TR_EXPLAIN &&
+                      <TRInfoIcon text={window.TR_EXPLAIN['consensus']} size={10} />}
+                  </div>
                   <div style={{
                     padding: '2px 8px',
                     background: consensus.aligned ? 'rgba(111,207,142,0.18)' : 'rgba(217,107,107,0.18)',

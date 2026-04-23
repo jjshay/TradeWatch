@@ -17,7 +17,7 @@ function arrow(sig) { return sig === 'long' ? '↑' : sig === 'short' ? '↓' : 
 function sigColor(T, sig) { return sig === 'long' ? T.bull : sig === 'short' ? T.bear : T.neutral; }
 
 // Driver tile — self-contained cell. `loader` returns { value, delta, signal, note }.
-function DriverTile({ label, kicker, loader, onClick, T, bgAccent }) {
+function DriverTile({ label, kicker, loader, onClick, T, bgAccent, explainKey }) {
   const [state, setState] = React.useState({ loading: true });
   React.useEffect(() => {
     let active = true;
@@ -50,8 +50,12 @@ function DriverTile({ label, kicker, loader, onClick, T, bgAccent }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <div style={{
           fontSize: 9.5, letterSpacing: 0.5, color: T.textMid,
-          fontWeight: 500, lineHeight: 1.3, flex: 1,
-        }}>{label}</div>
+          fontWeight: 500, lineHeight: 1.3, flex: 1, display: 'flex', alignItems: 'center',
+        }}>
+          {label}
+          {explainKey && typeof TRInfoIcon !== 'undefined' && window.TR_EXPLAIN && window.TR_EXPLAIN[explainKey] &&
+            <TRInfoIcon text={window.TR_EXPLAIN[explainKey]} size={10} />}
+        </div>
         <div style={{
           fontFamily: T.mono, fontSize: 14, fontWeight: 700,
           color: col, lineHeight: 1,
@@ -108,7 +112,7 @@ function DriversScreen({ onNav }) {
   const DRIVERS = [
     // ─── REGIME ───
     {
-      id: 'regime-dxy', group: 'regime', label: 'DXY · Dollar Index', kicker: 'Strong USD = headwind for BTC/oil',
+      id: 'regime-dxy', explain: 'dxy', group: 'regime', label: 'DXY · Dollar Index', kicker: 'Strong USD = headwind for BTC/oil',
       onOpen: () => window.openTRFRED && window.openTRFRED(),
       load: async () => {
         const k = window.TR_SETTINGS?.keys?.finnhub;
@@ -125,7 +129,7 @@ function DriversScreen({ onNav }) {
       },
     },
     {
-      id: 'regime-vix', group: 'regime', label: 'VIX · Equity Fear', kicker: 'VIX >20 = risk-off',
+      id: 'regime-vix', explain: 'vix', group: 'regime', label: 'VIX · Equity Fear', kicker: 'VIX >20 = risk-off',
       onOpen: () => onNav && onNav('signals'),
       load: async () => {
         const k = window.TR_SETTINGS?.keys?.finnhub;
@@ -142,7 +146,7 @@ function DriversScreen({ onNav }) {
       },
     },
     {
-      id: 'regime-fg', group: 'regime', label: 'Fear & Greed', kicker: 'Contrarian at extremes',
+      id: 'regime-fg', explain: 'fng', group: 'regime', label: 'Fear & Greed', kicker: 'Contrarian at extremes',
       onOpen: () => onNav && onNav('summary'),
       load: async () => {
         if (typeof LiveData === 'undefined') return {};
@@ -158,7 +162,7 @@ function DriversScreen({ onNav }) {
       },
     },
     {
-      id: 'regime-gdelt', group: 'regime', label: 'GDELT Tone · World', kicker: 'Global conflict heat',
+      id: 'regime-gdelt', explain: 'gdelt', group: 'regime', label: 'GDELT Tone · World', kicker: 'Global conflict heat',
       onOpen: () => window.openTRGDELT && window.openTRGDELT(),
       load: async () => {
         if (typeof GDELTData === 'undefined') return {};
@@ -179,7 +183,7 @@ function DriversScreen({ onNav }) {
 
     // ═══ BTC ═══
     {
-      id: 'btc-ibit', group: 'btc', label: 'IBIT · ETF Net Flow', kicker: '7-day institutional demand',
+      id: 'btc-ibit', explain: 'ibit-flow', group: 'btc', label: 'IBIT · ETF Net Flow', kicker: '7-day institutional demand',
       onOpen: () => window.openTRETF && window.openTRETF(),
       load: async () => {
         if (typeof ETFFlows === 'undefined') return {};
@@ -197,7 +201,7 @@ function DriversScreen({ onNav }) {
       },
     },
     {
-      id: 'btc-funding', group: 'btc', label: 'BTC Perp Funding · Avg', kicker: 'Leverage crowding',
+      id: 'btc-funding', explain: 'btc-funding', group: 'btc', label: 'BTC Perp Funding · Avg', kicker: 'Leverage crowding',
       onOpen: () => window.openTRFunding && window.openTRFunding(),
       load: async () => {
         if (typeof FundingRates === 'undefined') return {};
@@ -217,7 +221,7 @@ function DriversScreen({ onNav }) {
       },
     },
     {
-      id: 'btc-reserves', group: 'btc', label: 'BTC on Exchanges', kicker: 'Outflows = accumulation',
+      id: 'btc-reserves', explain: 'btc-reserves', group: 'btc', label: 'BTC on Exchanges', kicker: 'Outflows = accumulation',
       onOpen: () => window.openTRReserves && window.openTRReserves(),
       load: async () => {
         if (typeof ExchangeReserves === 'undefined') return {};
@@ -234,7 +238,7 @@ function DriversScreen({ onNav }) {
       },
     },
     {
-      id: 'btc-stables', group: 'btc', label: 'Stablecoin Supply · USDT', kicker: 'Fresh liquidity',
+      id: 'btc-stables', explain: 'btc-stables', group: 'btc', label: 'Stablecoin Supply · USDT', kicker: 'Fresh liquidity',
       onOpen: () => window.openTRStables && window.openTRStables(),
       load: async () => {
         if (typeof StableData === 'undefined') return {};
@@ -252,7 +256,7 @@ function DriversScreen({ onNav }) {
       },
     },
     {
-      id: 'btc-policy', group: 'btc', label: 'CLARITY Act · Senate', kicker: 'Binary regulatory catalyst',
+      id: 'btc-policy', explain: 'btc-policy', group: 'btc', label: 'CLARITY Act · Senate', kicker: 'Binary regulatory catalyst',
       onOpen: () => window.openTRPrediction && window.openTRPrediction(),
       load: async () => {
         if (typeof PredictionMarkets === 'undefined') return {};
@@ -273,7 +277,7 @@ function DriversScreen({ onNav }) {
 
     // ═══ WTI Oil ═══
     {
-      id: 'oil-hormuz', group: 'wti', label: 'Hormuz · US MIL flights', kicker: 'Live CENTCOM aircraft',
+      id: 'oil-hormuz', explain: 'hormuz-mil', group: 'wti', label: 'Hormuz · US MIL flights', kicker: 'Live CENTCOM aircraft',
       onOpen: () => onNav && onNav('flights'),
       load: async () => {
         if (typeof MilitaryFlights === 'undefined') return {};
@@ -291,7 +295,7 @@ function DriversScreen({ onNav }) {
       },
     },
     {
-      id: 'oil-wti', group: 'wti', label: 'WTI Spot', kicker: 'Underlying price',
+      id: 'oil-wti', explain: 'wti-spot', group: 'wti', label: 'WTI Spot', kicker: 'Underlying price',
       onOpen: () => onNav && onNav('prices'),
       load: async () => {
         try {
@@ -312,7 +316,7 @@ function DriversScreen({ onNav }) {
       },
     },
     {
-      id: 'oil-dxy', group: 'wti', label: 'DXY (inverse)', kicker: 'Stronger $ = oil headwind',
+      id: 'oil-dxy', explain: 'oil-dxy', group: 'wti', label: 'DXY (inverse)', kicker: 'Stronger $ = oil headwind',
       onOpen: () => window.openTRFRED && window.openTRFRED(),
       load: async () => {
         const k = window.TR_SETTINGS?.keys?.finnhub;
@@ -329,7 +333,7 @@ function DriversScreen({ onNav }) {
       },
     },
     {
-      id: 'oil-opec', group: 'wti', label: 'Brent − WTI Spread', kicker: 'Global supply tightness proxy',
+      id: 'oil-opec', explain: 'opec', group: 'wti', label: 'Brent − WTI Spread', kicker: 'Global supply tightness proxy',
       onOpen: () => window.openTROPEC && window.openTROPEC(),
       load: async () => {
         // Free, no-key proxy via Stooq futures quotes.
@@ -355,7 +359,7 @@ function DriversScreen({ onNav }) {
       },
     },
     {
-      id: 'oil-iran', group: 'wti', label: 'Iran Nuclear · Deadline', kicker: 'JCPOA-2 countdown',
+      id: 'oil-iran', explain: 'iran-deadline', group: 'wti', label: 'Iran Nuclear · Deadline', kicker: 'JCPOA-2 countdown',
       onOpen: () => onNav && onNav('calendar'),
       load: async () => {
         const deadline = new Date('2026-04-27T00:00:00Z');
@@ -371,7 +375,7 @@ function DriversScreen({ onNav }) {
 
     // ═══ SPX ═══
     {
-      id: 'spx-10y', group: 'spx', label: '10Y Treasury', kicker: 'Discount rate for multiples',
+      id: 'spx-10y', explain: 'spx-10y', group: 'spx', label: '10Y Treasury', kicker: 'Discount rate for multiples',
       onOpen: () => window.openTRTreasury && window.openTRTreasury(),
       load: async () => {
         const k = window.TR_SETTINGS?.keys?.finnhub;
@@ -389,7 +393,7 @@ function DriversScreen({ onNav }) {
       },
     },
     {
-      id: 'spx-hy', group: 'spx', label: 'HY Credit Spread', kicker: 'Risk-off canary',
+      id: 'spx-hy', explain: 'spx-hy', group: 'spx', label: 'HY Credit Spread', kicker: 'Risk-off canary',
       onOpen: () => window.openTRFRED && window.openTRFRED(),
       load: async () => {
         if (typeof window.FREDData === 'undefined') return {};
@@ -410,7 +414,7 @@ function DriversScreen({ onNav }) {
       },
     },
     {
-      id: 'spx-2s10s', group: 'spx', label: '2s10s Spread', kicker: 'Recession lead',
+      id: 'spx-2s10s', explain: 'spx-2s10s', group: 'spx', label: '2s10s Spread', kicker: 'Recession lead',
       onOpen: () => window.openTRRecession && window.openTRRecession(),
       load: async () => {
         if (typeof window.FREDData === 'undefined') return {};
@@ -431,7 +435,7 @@ function DriversScreen({ onNav }) {
       },
     },
     {
-      id: 'spx-vix', group: 'spx', label: 'VIX', kicker: 'Fear regime',
+      id: 'spx-vix', explain: 'spx-vix', group: 'spx', label: 'VIX', kicker: 'Fear regime',
       onOpen: () => onNav && onNav('signals'),
       load: async () => {
         const k = window.TR_SETTINGS?.keys?.finnhub;
@@ -448,7 +452,7 @@ function DriversScreen({ onNav }) {
       },
     },
     {
-      id: 'spx-recession', group: 'spx', label: 'NY Fed Recession Prob', kicker: '12-month ahead',
+      id: 'spx-recession', explain: 'spx-recession', group: 'spx', label: 'NY Fed Recession Prob', kicker: '12-month ahead',
       onOpen: () => window.openTRRecession && window.openTRRecession(),
       load: async () => {
         if (typeof window.FREDData === 'undefined') return {};
@@ -486,6 +490,7 @@ function DriversScreen({ onNav }) {
       T={T}
       label={d.label}
       kicker={d.kicker}
+      explainKey={d.explain}
       onClick={d.onOpen}
       bgAccent
       loader={async () => {
