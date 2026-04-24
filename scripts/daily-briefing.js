@@ -325,6 +325,78 @@ async function callGrok(prompt) {
     } catch (e) { console.warn('[grok]', e.message); return null; }
 }
 
+// ─────────── EXECUTIVE SUMMARY (TL;DR) ───────────
+// Builds a prompt combining regime, positions, catalysts, verdict — asks the
+// LLM for a one-sentence market read + top 3 ranked recs + risk level chip.
+function buildExecSummaryPrompt({ btc, macro, catalysts, userPositions, consensus, verdict, positionAnalysis }) {
+    const regime = consensus ? consensus.regime : 'MIXED';
+    const btcLine = btc ? `BTC $${Math.round(btc.price).toLocaleString()} (24h ${btc.change >= 0 ? '+' : ''}${btc.change?.toFixed(2)}%)` : 'BTC —';
+    const wtiLine = macro.wti ? `WTI $${macro.wti.latest.toFixed(2)} (${macro.wti.deltaPct >= 0 ? '+' : ''}${macro.wti.deltaPct?.toFixed(2)}%)` : 'WTI —';
+    const vixLine = macro.vix ? `VIX ${macro.vix.latest.toFixed(2)}` : 'VIX —';
+
+    const posLines = positionAnalysis.rows.map(r => {
+        return `  - ${r.label} · mkt ${fmt$(r.currentValue)} · cost ${fmt$(r.costBasis)} · P&L ${fmt$(r.pnl)} (${fmtPct(r.pnlPct)}) · ${r.portfolioPct.toFixed(1)}% of book`;
+    }).join('\n');
+
+    const catLines = catalysts.slice(0, 3).map((c, i) => `${i + 1}. [${c.source}] ${c.title}`).join('\n') || '(none high-relevance overnight)';
+
+    return `You are the lead portfolio strategist writing the TL;DR at the top of a daily briefing. A busy reader should know exactly what to do in the first 150 words.
+
+MARKET SNAPSHOT:
+  ${btcLine}
+  ${wtiLine}
+  ${vixLine}
+  Regime (LLM consensus, ${consensus ? consensus.n : 0}/4 models): ${regime}
+  Overall verdict: ${verdict.label} · score ${verdict.score}/100
+  ${consensus ? `Model-implied YE: BTC ${fmt$(consensus.btc)} / WTI ${fmt$2(consensus.wti)}` : 'No live consensus'}
+
+USER POSITIONS (total book ${fmt$(positionAnalysis.totalMkt)}, cash ${positionAnalysis.cashPct.toFixed(0)}%):
+${posLines}
+
+TOP OVERNIGHT CATALYSTS:
+${catLines}
+
+CONSTRAINTS:
+  - Any ADD or BUY recommendation requires HIGH or MEDIUM conviction. If conviction is low across the board, the top rec should be "HOLD / STAND DOWN / PRESERVE CASH".
+  - Recommendations must be concrete: ticker / instrument, action, size in $ or %, one-line rationale.
+  - Actions must be one of: BUY, SELL, HOLD, ADD, TRIM, CUT.
+  - Risk level must be one of: LOW, MODERATE, ELEVATED, HIGH.
+  - Be specific — no generic filler. If the right move is to do nothing, say that plainly.
+
+Respond with RAW JSON only — no markdown, no code fences, no prose:
+{
+  "read": "<one-sentence market synthesis — the overall verdict in plain English>",
+  "risk_level": "<LOW|MODERATE|ELEVATED|HIGH>",
+  "risk_rationale": "<one sentence: why this risk level right now>",
+  "recommendations": [
+    { "rank": 1, "instrument": "<e.g. BTC direct>", "action": "<BUY|SELL|HOLD|ADD|TRIM|CUT>", "size": "<$1500 or 5% of portfolio>", "rationale": "<one line>" },
+    { "rank": 2, "instrument": "...", "action": "...", "size": "...", "rationale": "..." },
+    { "rank": 3, "instrument": "...", "action": "...", "size": "...", "rationale": "..." }
+  ]
+}`;
+}
+
+// Claude primary, GPT fallback. Returns null if both fail.
+async function buildExecSummary(ctx) {
+    const prompt = buildExecSummaryPrompt(ctx);
+    try {
+        const claude = await callClaude(prompt);
+        if (claude && claude.read && Array.isArray(claude.recommendations)) {
+            console.log('[briefing] exec summary: Claude ok');
+            return claude;
+        }
+    } catch (e) { console.warn('[briefing] exec summary Claude error:', e.message); }
+    try {
+        const gpt = await callOpenAI(prompt);
+        if (gpt && gpt.read && Array.isArray(gpt.recommendations)) {
+            console.log('[briefing] exec summary: GPT fallback ok');
+            return gpt;
+        }
+    } catch (e) { console.warn('[briefing] exec summary GPT error:', e.message); }
+    console.warn('[briefing] exec summary: both LLMs failed');
+    return null;
+}
+
 // ─────────── DRIVER MAP (Section 3) ───────────
 // Mock-for-now: produce plausible prev→current signal shifts keyed off macro tiles.
 function computeDrivers({ macro, btcPrice, consensus }) {
@@ -474,8 +546,71 @@ function computeVerdict(consensus, btc, drivers) {
 
 // ─────────── HTML RENDER ───────────
 function renderHTML(ctx) {
-    const { btc, macro, catalysts, models, consensus, drivers, verdict, positionAnalysis, userPositions } = ctx;
+    const { btc, macro, catalysts, models, consensus, drivers, verdict, positionAnalysis, userPositions, execSummary } = ctx;
     const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+
+    // ── EXECUTIVE SUMMARY (TL;DR) card ──
+    let execSummaryHTML = '';
+    if (execSummary && execSummary.read && Array.isArray(execSummary.recommendations)) {
+        const riskLevel = String(execSummary.risk_level || 'MODERATE').toUpperCase();
+        const riskColor = riskLevel === 'LOW' ? C.bull
+            : riskLevel === 'HIGH' ? C.bear
+            : riskLevel === 'ELEVATED' ? C.bear
+            : C.signal; // MODERATE
+        const actionColor = (a) => {
+            const u = String(a || '').toUpperCase();
+            if (u === 'BUY' || u === 'ADD') return C.bull;
+            if (u === 'SELL' || u === 'TRIM' || u === 'CUT') return C.bear;
+            return C.signal; // HOLD / other
+        };
+        const recsHTML = execSummary.recommendations.slice(0, 3).map((r, i) => {
+            const rank = r.rank || (i + 1);
+            const ac = actionColor(r.action);
+            return `
+                <div style="display:block;padding:10px 0;border-top:1px solid ${C.line}">
+                    <table role="presentation" style="width:100%;border-collapse:collapse"><tr>
+                        <td style="width:28px;vertical-align:top;padding-right:10px">
+                            <div style="width:24px;height:24px;border-radius:50%;background:${C.signal};color:${C.ink000};font-family:Menlo,monospace;font-size:12px;font-weight:700;text-align:center;line-height:24px">${rank}</div>
+                        </td>
+                        <td style="vertical-align:top">
+                            <div style="font-size:13px;line-height:1.45">
+                                <b style="color:${C.text}">${escHTML(r.instrument || '—')}</b>
+                                <span style="display:inline-block;padding:2px 8px;margin-left:8px;background:${ac}20;border:1px solid ${ac};border-radius:4px;color:${ac};font-size:10px;font-weight:700;letter-spacing:1px">${escHTML(String(r.action || '').toUpperCase())}</span>
+                                <span style="margin-left:8px;font-family:Menlo,monospace;font-size:12px;color:${C.muted}">${escHTML(r.size || '')}</span>
+                            </div>
+                            <div style="font-size:12px;color:${C.muted};margin-top:4px;line-height:1.55">${escHTML(r.rationale || '')}</div>
+                        </td>
+                    </tr></table>
+                </div>`;
+        }).join('');
+
+        execSummaryHTML = `
+  <div style="background:${C.ink200};border:2px solid ${C.signal};border-radius:10px;padding:20px;margin-bottom:18px">
+    <div style="font-size:11px;letter-spacing:1.4px;color:${C.signal};text-transform:uppercase;font-weight:700;margin-bottom:10px">
+        \u26A1 Today's Play
+    </div>
+    <div style="font-size:14px;line-height:1.45;color:${C.text};margin-bottom:14px">
+        ${escHTML(execSummary.read)}
+    </div>
+    <div style="margin-top:4px">
+        ${recsHTML}
+    </div>
+    <div style="margin-top:14px;text-align:right">
+        <span style="display:inline-block;padding:4px 10px;background:${riskColor}20;border:1px solid ${riskColor};border-radius:4px;color:${riskColor};font-size:10px;font-weight:700;letter-spacing:1.2px">RISK: ${escHTML(riskLevel)}</span>
+        <div style="font-size:11px;color:${C.muted};margin-top:6px;line-height:1.5;text-align:right">${escHTML(execSummary.risk_rationale || '')}</div>
+    </div>
+  </div>`;
+    } else {
+        execSummaryHTML = `
+  <div style="background:${C.ink200};border:2px solid ${C.signal};border-radius:10px;padding:20px;margin-bottom:18px">
+    <div style="font-size:11px;letter-spacing:1.4px;color:${C.signal};text-transform:uppercase;font-weight:700;margin-bottom:10px">
+        \u26A1 Today's Play
+    </div>
+    <div style="font-size:13px;line-height:1.5;color:${C.muted}">
+        Exec summary unavailable — see individual sections below.
+    </div>
+  </div>`;
+    }
 
     // Section 1 — Overnight Updates
     const newsHTML = catalysts.length
@@ -639,6 +774,9 @@ function renderHTML(ctx) {
     <tr>${tilesHTML || `<td style="padding:14px;color:${C.muted};font-size:12px">Market data unavailable.</td>`}</tr>
   </table>
 
+  <!-- EXECUTIVE SUMMARY / TL;DR -->
+  ${execSummaryHTML}
+
   ${section(1, 'Overnight Updates', newsHTML)}
   ${section(2, 'LLM Thought Shift (4-way)', thoughtShiftHTML)}
   ${section(3, 'Model Impact · Drivers',
@@ -710,8 +848,13 @@ function renderHTML(ctx) {
     const verdict   = computeVerdict(consensus, btc, drivers);
     const positionAnalysis = analyzePositions(userPositions, btc, consensus);
 
+    console.log('[briefing] synthesizing exec summary (Claude primary, GPT fallback)…');
+    const execSummary = await buildExecSummary({
+        btc, macro, catalysts, userPositions, consensus, verdict, positionAnalysis,
+    });
+
     const html = renderHTML({
-        btc, macro, catalysts, models, consensus, drivers, verdict, positionAnalysis, userPositions,
+        btc, macro, catalysts, models, consensus, drivers, verdict, positionAnalysis, userPositions, execSummary,
     });
 
     const tx = nodemailer.createTransport({
