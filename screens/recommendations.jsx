@@ -1,6 +1,7 @@
 // RecommendationsScreen — Tab 4: LLM Recommendations (Consensus + Claude/GPT accordions)
-// on the left, and a 5-investment BTC-tied portfolio rendered on both desktop (top-right)
-// and mobile (bottom-right) form factors.
+// on the left, a My Positions tracker (user's real book, localStorage-backed)
+// at the top-right, and a 5-investment BTC-tied SUGGESTED portfolio rendered on
+// both desktop and mobile form factors below.
 
 const rcTokens = {
   ink000: '#07090C', ink100: '#0B0E13', ink200: '#10141B', ink300: '#171C24', ink400: '#1E2430',
@@ -18,14 +19,65 @@ const rcTokens = {
   mono: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
 };
 
-// 5 illustrative investments, all tied to BTC.
-const PORTFOLIO_BASE = [
+// PORTFOLIO_SUGGESTED — NOT the user's real book.
+// This is a hardcoded AI-suggestion watchlist (BTC-tied ideas) kept as tickers
+// the LLM can reason about in the "Illustrative" rails below. The user's real
+// positions live in localStorage under `tr_positions_v1` and render in the
+// MyPositions panel at the top of the right column.
+const PORTFOLIO_SUGGESTED = [
   { ticker: 'IBIT',   name: 'iShares Bitcoin Trust ETF',      alloc: 35, price: 54.82,  chg: +2.14, thesis: 'Direct spot exposure. 14d inflow streak.' },
   { ticker: 'MSTR',   name: 'MicroStrategy (BTC treasury)',    alloc: 25, price: 1842.50, chg: +3.80, thesis: '2.4× leveraged beta to BTC via treasury.' },
   { ticker: 'COIN',   name: 'Coinbase — crypto platform',     alloc: 15, price: 268.40,  chg: +1.95, thesis: 'CLARITY passage = multiple expansion.' },
   { ticker: 'BITB',   name: 'Bitwise Bitcoin ETF',             alloc: 15, price: 61.22,   chg: +2.08, thesis: 'Lower-fee spot ETF diversifier.' },
   { ticker: 'MARA',   name: 'Marathon Digital (miner)',       alloc: 10, price: 21.75,   chg: +4.25, thesis: 'High beta post-halving operating leverage.' },
 ];
+
+// Seed positions written on FIRST LOAD only (when tr_positions_v1 is absent).
+const DEFAULT_POSITIONS = [
+  { id: 'p_btc_seed',    type: 'crypto', sym: 'BTC',  qty: 0.011, basis: 98818, label: 'Direct BTC' },
+  { id: 'p_coin_seed',   type: 'option', sym: 'COIN', right: 'call', strike: 240, expiry: '2026-12-18', contracts: 2, premium: 1525, label: 'COIN Dec 2026 $240C' },
+  { id: 'p_cash_seed',   type: 'cash',   amount: 4350, label: 'Cash' },
+];
+
+// Ticker → CoinGecko id map for the crypto quote leg.
+const COINGECKO_MAP = {
+  BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', DOGE: 'dogecoin',
+  XRP: 'ripple', ADA: 'cardano', AVAX: 'avalanche-2', LINK: 'chainlink',
+  MATIC: 'matic-network', LTC: 'litecoin', BCH: 'bitcoin-cash', DOT: 'polkadot',
+  ATOM: 'cosmos', UNI: 'uniswap', NEAR: 'near', APT: 'aptos', ARB: 'arbitrum',
+  OP: 'optimism', SUI: 'sui',
+};
+
+const POSITIONS_LS_KEY = 'tr_positions_v1';
+
+function loadPositions() {
+  try {
+    const raw = localStorage.getItem(POSITIONS_LS_KEY);
+    if (!raw) {
+      localStorage.setItem(POSITIONS_LS_KEY, JSON.stringify(DEFAULT_POSITIONS));
+      return DEFAULT_POSITIONS.slice();
+    }
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+    return DEFAULT_POSITIONS.slice();
+  } catch (_) {
+    return DEFAULT_POSITIONS.slice();
+  }
+}
+
+function savePositions(list) {
+  try { localStorage.setItem(POSITIONS_LS_KEY, JSON.stringify(list)); } catch (_) {}
+}
+
+function newPositionId() {
+  return 'p_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 1e6).toString(36);
+}
+
+function makeBlankPosition(type) {
+  if (type === 'crypto') return { id: newPositionId(), type: 'crypto', sym: 'BTC', qty: 0, basis: 0, label: '' };
+  if (type === 'option') return { id: newPositionId(), type: 'option', sym: 'COIN', right: 'call', strike: 0, expiry: '', contracts: 1, premium: 0, label: '' };
+  return { id: newPositionId(), type: 'cash', amount: 0, label: 'Cash' };
+}
 
 const CONSENSUS = {
   stance: 'CONSTRUCTIVE',
@@ -105,44 +157,174 @@ function RecommendationsScreen({ onNav }) {
 
   const [openAccordion, setOpenAccordion] = React.useState('claude'); // 'claude' | 'gpt' | null
 
-  // LIVE — portfolio ticker prices via Finnhub
-  const finnhubKey = (window.TR_SETTINGS && window.TR_SETTINGS.keys && window.TR_SETTINGS.keys.finnhub) || '';
-  const { data: livePortfolioPrices } = (window.useAutoUpdate || (() => ({})))(
-    `recommend-portfolio-${finnhubKey ? 'on' : 'off'}`,
+  // ── MY POSITIONS (user's real book, localStorage-backed) ──────────────────
+  const [positions, setPositions] = React.useState(() => loadPositions());
+  const [editMode, setEditMode] = React.useState(false);
+
+  // Persist on every change.
+  React.useEffect(() => { savePositions(positions); }, [positions]);
+
+  const updatePosition = (id, patch) => {
+    setPositions(list => list.map(p => p.id === id ? { ...p, ...patch } : p));
+  };
+  const deletePosition = (id) => {
+    setPositions(list => list.filter(p => p.id !== id));
+  };
+  const addPosition = (type) => {
+    setPositions(list => [...list, makeBlankPosition(type)]);
+  };
+
+  // ── LIVE QUOTES ──────────────────────────────────────────────────────────
+  // Crypto leg — prefer LiveData.getCryptoPrices() if present, else direct CG.
+  const cryptoSymsNeeded = React.useMemo(() => {
+    const set = new Set();
+    positions.forEach(p => {
+      if (p.type === 'crypto' && p.sym) set.add(p.sym.toUpperCase());
+    });
+    return Array.from(set);
+  }, [positions]);
+
+  const { data: cryptoQuotes } = (window.useAutoUpdate || (() => ({})))(
+    `recommend-positions-crypto-${cryptoSymsNeeded.join(',')}`,
     async () => {
-      if (!finnhubKey) return null;
-      const syms = PORTFOLIO_BASE.map(p => p.ticker);
-      const results = {};
-      for (const sym of syms) {
+      if (!cryptoSymsNeeded.length) return {};
+      // Preferred path: shared LiveData helper.
+      try {
+        if (window.LiveData && typeof window.LiveData.getCryptoPrices === 'function') {
+          const all = await window.LiveData.getCryptoPrices();
+          if (all && typeof all === 'object') {
+            const out = {};
+            cryptoSymsNeeded.forEach(sym => {
+              const cgId = COINGECKO_MAP[sym];
+              if (cgId && all[cgId] && typeof all[cgId].usd === 'number') {
+                out[sym] = all[cgId].usd;
+              }
+            });
+            if (Object.keys(out).length) return out;
+          }
+        }
+      } catch (_) { /* fall through */ }
+      // Fallback: direct CoinGecko simple/price.
+      try {
+        const ids = cryptoSymsNeeded.map(s => COINGECKO_MAP[s]).filter(Boolean).join(',');
+        if (!ids) return {};
+        const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
+        if (!r.ok) return {};
+        const j = await r.json();
+        const out = {};
+        cryptoSymsNeeded.forEach(sym => {
+          const cgId = COINGECKO_MAP[sym];
+          if (cgId && j[cgId] && typeof j[cgId].usd === 'number') out[sym] = j[cgId].usd;
+        });
+        return out;
+      } catch (_) { return {}; }
+    },
+    { refreshKey: 'recommend' }
+  );
+
+  // Finnhub leg — for option underlyings AND the suggested-portfolio tickers.
+  const finnhubKey = (window.TR_SETTINGS && window.TR_SETTINGS.keys && window.TR_SETTINGS.keys.finnhub) || '';
+
+  const stockSymsNeeded = React.useMemo(() => {
+    const set = new Set();
+    positions.forEach(p => {
+      if (p.type === 'option' && p.sym) set.add(p.sym.toUpperCase());
+    });
+    // Also include the hardcoded suggestion list so the existing panels still live-quote.
+    PORTFOLIO_SUGGESTED.forEach(p => set.add(p.ticker));
+    return Array.from(set);
+  }, [positions]);
+
+  const { data: stockQuotes } = (window.useAutoUpdate || (() => ({})))(
+    `recommend-positions-stocks-${finnhubKey ? 'on' : 'off'}-${stockSymsNeeded.join(',')}`,
+    async () => {
+      if (!finnhubKey || !stockSymsNeeded.length) return null;
+      const out = {};
+      for (const sym of stockSymsNeeded) {
         try {
           const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${sym}&token=${finnhubKey}`);
           if (r.ok) {
             const q = await r.json();
             if (q && typeof q.c === 'number' && q.c > 0) {
-              results[sym] = { price: q.c, changePct: q.dp };
+              out[sym] = { price: q.c, changePct: q.dp };
             }
           }
         } catch (_) { /* skip */ }
       }
-      return Object.keys(results).length ? results : null;
+      return Object.keys(out).length ? out : null;
     },
     { refreshKey: 'recommend' }
   );
 
-  const livePortfolio = PORTFOLIO_BASE.map(p => {
-    const live = livePortfolioPrices && livePortfolioPrices[p.ticker];
+  // Derive mark + P&L for each position.
+  const enrichedPositions = positions.map(p => {
+    if (p.type === 'crypto') {
+      const sym = (p.sym || '').toUpperCase();
+      const qty = Number(p.qty) || 0;
+      const basisPer = Number(p.basis) || 0;
+      const mark = cryptoQuotes && cryptoQuotes[sym];
+      const basisTotal = qty * basisPer;
+      if (typeof mark === 'number' && mark > 0) {
+        const currentValue = qty * mark;
+        const pnl = currentValue - basisTotal;
+        const pnlPct = basisTotal > 0 ? (pnl / basisTotal) * 100 : 0;
+        return { ...p, _mark: mark, _currentValue: currentValue, _basisTotal: basisTotal, _pnl: pnl, _pnlPct: pnlPct, _live: true, _detail: `${qty} ${sym} @ $${basisPer.toLocaleString()}` };
+      }
+      return { ...p, _mark: null, _currentValue: basisTotal, _basisTotal: basisTotal, _pnl: 0, _pnlPct: 0, _live: false, _detail: `${qty} ${sym} @ $${basisPer.toLocaleString()}`, _estimate: true };
+    }
+    if (p.type === 'option') {
+      const sym = (p.sym || '').toUpperCase();
+      const contracts = Number(p.contracts) || 0;
+      const premium = Number(p.premium) || 0; // premium per contract (total paid per contract)
+      const strike = Number(p.strike) || 0;
+      const basisTotal = contracts * premium;
+      const under = stockQuotes && stockQuotes[sym];
+      if (under && typeof under.price === 'number' && under.price > 0) {
+        // MVP mark = intrinsic value (rough). For puts: max(0, strike - spot) * 100.
+        const intrinsic = p.right === 'put'
+          ? Math.max(0, strike - under.price)
+          : Math.max(0, under.price - strike);
+        const currentValue = intrinsic * 100 * contracts;
+        const pnl = currentValue - basisTotal;
+        const pnlPct = basisTotal > 0 ? (pnl / basisTotal) * 100 : 0;
+        return { ...p, _mark: under.price, _currentValue: currentValue, _basisTotal: basisTotal, _pnl: pnl, _pnlPct: pnlPct, _live: true, _estimate: true, _detail: `${contracts}× ${sym} ${(p.right || 'call').toUpperCase()} $${strike} ${p.expiry || ''}` };
+      }
+      return { ...p, _mark: null, _currentValue: basisTotal, _basisTotal: basisTotal, _pnl: 0, _pnlPct: 0, _live: false, _estimate: true, _detail: `${contracts}× ${sym} ${(p.right || 'call').toUpperCase()} $${strike} ${p.expiry || ''}` };
+    }
+    // cash
+    const amount = Number(p.amount) || 0;
+    return { ...p, _mark: null, _currentValue: amount, _basisTotal: amount, _pnl: 0, _pnlPct: 0, _live: true, _detail: 'USD' };
+  });
+
+  const summary = (() => {
+    let total = 0, basis = 0, cash = 0, crypto = 0, option = 0;
+    enrichedPositions.forEach(p => {
+      total += p._currentValue;
+      basis += p._basisTotal;
+      if (p.type === 'cash') cash += p._currentValue;
+      else if (p.type === 'crypto') crypto += p._currentValue;
+      else if (p.type === 'option') option += p._currentValue;
+    });
+    const pnl = total - basis;
+    const pnlPct = basis > 0 ? (pnl / basis) * 100 : 0;
+    const pct = (x) => total > 0 ? (x / total) * 100 : 0;
+    return { total, basis, pnl, pnlPct, cashPct: pct(cash), cryptoPct: pct(crypto), optionPct: pct(option) };
+  })();
+
+  // ── SUGGESTED PORTFOLIO (LLM watchlist) ──────────────────────────────────
+  const livePortfolio = PORTFOLIO_SUGGESTED.map(p => {
+    const live = stockQuotes && stockQuotes[p.ticker];
     return live ? { ...p, price: live.price, chg: live.changePct, _live: true } : p;
   });
 
-  // LIVE — dual-LLM pass. Pulls fresh headlines from engine.js NewsFeed, fans
-  // them out to Claude + ChatGPT in parallel, returns both + a consensus block.
+  // ── LIVE DUAL-LLM RECS ───────────────────────────────────────────────────
   const { data: dual, loading: aiLoading, lastFetch: aiLastFetch, error: aiError } =
     (window.useAutoUpdate || (() => ({})))(
       'recommend-dual-llm',
       async () => {
         if (typeof NewsFeed === 'undefined' || typeof AIAnalysis === 'undefined') return null;
         const keys = AIAnalysis.getKeys();
-        if (!keys.claude && !keys.openai && !keys.gemini) return null; // no keys → design defaults
+        if (!keys.claude && !keys.openai && !keys.gemini) return null;
         const articles = await NewsFeed.fetchAll();
         if (!articles || !articles.length) return null;
         return await AIAnalysis.runMulti(articles.slice(0, 15), { full: true });
@@ -150,7 +332,6 @@ function RecommendationsScreen({ onNav }) {
       { refreshKey: 'recommend' }
     );
 
-  // If we got live results, override the hardcoded design blocks.
   const claudeRec = (dual && dual.claude && dual.claude.result) ? {
     stance: (dual.claude.result.sentiment || 'neutral').toUpperCase(),
     confidence: Math.round((dual.claude.result.confidence || 0) * 10),
@@ -243,7 +424,7 @@ function RecommendationsScreen({ onNav }) {
         <TRTabBar current="recommend" onNav={onNav} />
 
         <div style={{ marginLeft: 'auto', fontFamily: T.mono, fontSize: 11, color: T.textMid, letterSpacing: 0.4 }}>
-          <span style={{ color: T.signal }}>●</span>&nbsp; LLM RECOMMENDATIONS · BTC-TIED PORTFOLIO
+          <span style={{ color: T.signal }}>●</span>&nbsp; MY POSITIONS · LLM RECOMMENDATIONS
         </div>
       </div>
 
@@ -385,15 +566,29 @@ function RecommendationsScreen({ onNav }) {
           <div style={{ height: 20 }} />
         </div>
 
-        {/* RIGHT — Portfolio on desktop frame (top) + mobile frame (bottom) */}
+        {/* RIGHT — My Positions (top) + Suggested portfolio below */}
         <div style={{
           flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14,
           background: T.ink000, overflowY: 'auto', overflowX: 'hidden', minWidth: 0,
         }}>
+
+          {/* MY POSITIONS PANEL */}
+          <MyPositionsPanel
+            T={T}
+            positions={enrichedPositions}
+            summary={summary}
+            editMode={editMode}
+            onToggleEdit={() => setEditMode(m => !m)}
+            onUpdate={updatePosition}
+            onDelete={deletePosition}
+            onAdd={addPosition}
+            finnhubKey={finnhubKey}
+          />
+
           <div style={{
             fontSize: 10, letterSpacing: 1, color: T.textDim,
-            textTransform: 'uppercase', fontWeight: 500, marginBottom: -4,
-          }}>Illustrative Portfolio · BTC-Tied · Across Devices</div>
+            textTransform: 'uppercase', fontWeight: 500, marginBottom: -4, marginTop: 6,
+          }}>Suggested Ideas · BTC-Tied · Across Devices</div>
 
           {/* Desktop frame */}
           <div>
@@ -419,6 +614,304 @@ function RecommendationsScreen({ onNav }) {
     </div>
   );
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MY POSITIONS — user's real book, localStorage-backed
+// ═══════════════════════════════════════════════════════════════════════════
+
+function MyPositionsPanel({ T, positions, summary, editMode, onToggleEdit, onUpdate, onDelete, onAdd, finnhubKey }) {
+  const pnlColor = summary.pnl >= 0 ? T.bull : T.bear;
+  const fmtMoney = (x) => {
+    const n = Number(x) || 0;
+    const sign = n < 0 ? '-' : '';
+    return sign + '$' + Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  };
+  const fmtPct = (x) => `${(x >= 0 ? '+' : '')}${(Number(x) || 0).toFixed(2)}%`;
+
+  return (
+    <div style={{
+      background: T.ink100,
+      border: `1px solid ${T.edge}`,
+      borderRadius: 10,
+      padding: '14px 16px 14px',
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <div style={{
+          fontSize: 10, letterSpacing: 1.2, color: T.signal,
+          textTransform: 'uppercase', fontWeight: 600,
+        }}>My Positions</div>
+        <div style={{
+          fontFamily: T.mono, fontSize: 9, color: T.textDim, letterSpacing: 0.5,
+        }}>{positions.length} {positions.length === 1 ? 'POS' : 'POS'} · LIVE</div>
+        {!finnhubKey && (
+          <div style={{
+            fontFamily: T.mono, fontSize: 9, color: T.textDim, letterSpacing: 0.5,
+            padding: '2px 6px', borderRadius: 4, border: `0.5px solid ${T.edge}`,
+          }}>NO FINNHUB KEY · EST</div>
+        )}
+        <button
+          onClick={onToggleEdit}
+          style={{
+            marginLeft: 'auto',
+            background: editMode ? `${T.signal}1a` : 'transparent',
+            border: `0.5px solid ${editMode ? T.signal : T.edge}`,
+            color: editMode ? T.signal : T.textMid,
+            padding: '4px 10px', borderRadius: 6,
+            fontFamily: T.mono, fontSize: 9.5, fontWeight: 600,
+            letterSpacing: 0.5, cursor: 'pointer',
+          }}>
+          {editMode ? '✓ DONE' : '✎ EDIT'}
+        </button>
+      </div>
+
+      {/* Summary strip */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10,
+        marginBottom: 14,
+      }}>
+        <SummaryTile T={T} label="TOTAL VALUE" value={fmtMoney(summary.total)} accent={T.text} />
+        <SummaryTile T={T} label="UNREALIZED P&L" value={`${fmtMoney(summary.pnl)} · ${fmtPct(summary.pnlPct)}`} accent={pnlColor} />
+        <SummaryTile T={T} label="MIX · CRYPTO / OPT / CASH"
+          value={`${summary.cryptoPct.toFixed(0)}% · ${summary.optionPct.toFixed(0)}% · ${summary.cashPct.toFixed(0)}%`}
+          accent={T.signal} />
+        <SummaryTile T={T} label="BASIS" value={fmtMoney(summary.basis)} accent={T.textMid} />
+      </div>
+
+      {/* Column headers */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: editMode
+          ? '60px 70px 1fr 90px 90px 90px 70px 24px'
+          : '60px 70px 1fr 90px 90px 90px 70px',
+        gap: 8, padding: '0 10px 6px',
+        fontFamily: T.mono, fontSize: 8.5, color: T.textDim, letterSpacing: 0.7, fontWeight: 600,
+      }}>
+        <div>TYPE</div>
+        <div>SYMBOL</div>
+        <div>DETAIL</div>
+        <div style={{ textAlign: 'right' }}>BASIS</div>
+        <div style={{ textAlign: 'right' }}>CURRENT</div>
+        <div style={{ textAlign: 'right' }}>P&L $</div>
+        <div style={{ textAlign: 'right' }}>P&L %</div>
+        {editMode && <div />}
+      </div>
+
+      {/* Rows */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {positions.length === 0 && (
+          <div style={{
+            padding: '18px 10px', textAlign: 'center', fontSize: 11, color: T.textDim,
+            border: `0.5px dashed ${T.edge}`, borderRadius: 7,
+          }}>
+            No positions yet. Use the +Position buttons below to add one.
+          </div>
+        )}
+        {positions.map(p => (
+          <PositionRow
+            key={p.id}
+            T={T}
+            p={p}
+            editMode={editMode}
+            onUpdate={onUpdate}
+            onDelete={onDelete}
+            fmtMoney={fmtMoney}
+            fmtPct={fmtPct}
+          />
+        ))}
+      </div>
+
+      {/* Add buttons */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <AddButton T={T} onClick={() => onAdd('crypto')} label="+ Crypto" />
+        <AddButton T={T} onClick={() => onAdd('option')} label="+ Option" />
+        <AddButton T={T} onClick={() => onAdd('cash')} label="+ Cash" />
+      </div>
+    </div>
+  );
+}
+
+function SummaryTile({ T, label, value, accent }) {
+  return (
+    <div style={{
+      background: T.ink200, border: `0.5px solid ${T.edge}`,
+      borderRadius: 7, padding: '8px 10px',
+    }}>
+      <div style={{
+        fontFamily: T.mono, fontSize: 8.5, color: T.textDim,
+        letterSpacing: 0.6, fontWeight: 600, marginBottom: 3,
+      }}>{label}</div>
+      <div style={{
+        fontFamily: T.mono, fontSize: 13, color: accent, fontWeight: 600, letterSpacing: -0.2,
+      }}>{value}</div>
+    </div>
+  );
+}
+
+function AddButton({ T, onClick, label }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background: 'transparent', border: `0.5px dashed ${T.edge}`,
+        color: T.textMid, padding: '6px 12px', borderRadius: 6,
+        fontFamily: T.mono, fontSize: 10, fontWeight: 600,
+        letterSpacing: 0.5, cursor: 'pointer',
+      }}>
+      {label}
+    </button>
+  );
+}
+
+function PositionRow({ T, p, editMode, onUpdate, onDelete, fmtMoney, fmtPct }) {
+  const pnlColor = p._pnl > 0 ? T.bull : (p._pnl < 0 ? T.bear : T.textMid);
+  const typeLabel = p.type === 'crypto' ? 'CRYPTO' : p.type === 'option' ? 'OPTION' : 'CASH';
+  const typeColor = p.type === 'crypto' ? T.btc : p.type === 'option' ? T.signal : T.textMid;
+
+  const inputStyle = {
+    background: T.ink300, border: `0.5px solid ${T.edge}`, color: T.text,
+    borderRadius: 4, padding: '3px 6px', fontFamily: T.mono, fontSize: 10.5,
+    width: '100%', boxSizing: 'border-box',
+  };
+
+  const cols = editMode
+    ? '60px 70px 1fr 90px 90px 90px 70px 24px'
+    : '60px 70px 1fr 90px 90px 90px 70px';
+
+  return (
+    <div style={{
+      display: 'grid', gridTemplateColumns: cols, gap: 8,
+      padding: '8px 10px', alignItems: 'center',
+      background: T.ink200, border: `0.5px solid ${T.edge}`, borderRadius: 7,
+    }}>
+      {/* TYPE badge */}
+      <div style={{
+        fontFamily: T.mono, fontSize: 9, fontWeight: 600, color: typeColor,
+        letterSpacing: 0.6, textAlign: 'left',
+      }}>{typeLabel}</div>
+
+      {/* SYMBOL */}
+      <div>
+        {editMode && p.type !== 'cash' ? (
+          <input
+            value={p.sym || ''}
+            onChange={e => onUpdate(p.id, { sym: e.target.value.toUpperCase() })}
+            style={inputStyle}
+          />
+        ) : (
+          <div style={{ fontFamily: T.mono, fontSize: 11.5, fontWeight: 600, color: T.text, letterSpacing: 0.3 }}>
+            {p.type === 'cash' ? 'USD' : (p.sym || '—')}
+          </div>
+        )}
+      </div>
+
+      {/* DETAIL — per-type editor or readonly description */}
+      <div style={{ minWidth: 0 }}>
+        {editMode ? (
+          <PositionDetailEditor T={T} p={p} onUpdate={onUpdate} inputStyle={inputStyle} />
+        ) : (
+          <div style={{ fontSize: 11, color: T.textMid, lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {p.label ? <span style={{ color: T.text, fontWeight: 500 }}>{p.label}</span> : null}
+            {p.label && <span style={{ color: T.textDim }}> · </span>}
+            <span>{p._detail}</span>
+            {p._estimate && <span style={{ color: T.textDim }}> · (est)</span>}
+          </div>
+        )}
+      </div>
+
+      {/* BASIS */}
+      <div style={{ fontFamily: T.mono, fontSize: 11, color: T.textMid, textAlign: 'right' }}>
+        {fmtMoney(p._basisTotal)}
+      </div>
+
+      {/* CURRENT */}
+      <div style={{ fontFamily: T.mono, fontSize: 11, color: T.text, textAlign: 'right', fontWeight: 500 }}>
+        {fmtMoney(p._currentValue)}
+      </div>
+
+      {/* P&L $ */}
+      <div style={{ fontFamily: T.mono, fontSize: 11, color: pnlColor, textAlign: 'right', fontWeight: 600 }}>
+        {p.type === 'cash' ? '—' : fmtMoney(p._pnl)}
+      </div>
+
+      {/* P&L % */}
+      <div style={{ fontFamily: T.mono, fontSize: 11, color: pnlColor, textAlign: 'right', fontWeight: 600 }}>
+        {p.type === 'cash' ? '—' : fmtPct(p._pnlPct)}
+      </div>
+
+      {/* DELETE */}
+      {editMode && (
+        <button
+          onClick={() => onDelete(p.id)}
+          title="Delete position"
+          style={{
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            color: T.bear, fontFamily: T.mono, fontSize: 14, fontWeight: 600, padding: 0,
+          }}>×</button>
+      )}
+    </div>
+  );
+}
+
+function PositionDetailEditor({ T, p, onUpdate, inputStyle }) {
+  if (p.type === 'crypto') {
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.3fr', gap: 4 }}>
+        <input placeholder="Qty" value={p.qty ?? ''}
+          onChange={e => onUpdate(p.id, { qty: parseFloat(e.target.value) || 0 })}
+          style={inputStyle} />
+        <input placeholder="Basis $/unit" value={p.basis ?? ''}
+          onChange={e => onUpdate(p.id, { basis: parseFloat(e.target.value) || 0 })}
+          style={inputStyle} />
+        <input placeholder="Label" value={p.label || ''}
+          onChange={e => onUpdate(p.id, { label: e.target.value })}
+          style={inputStyle} />
+      </div>
+    );
+  }
+  if (p.type === 'option') {
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: '56px 56px 100px 56px 72px 1fr', gap: 4 }}>
+        <select value={p.right || 'call'}
+          onChange={e => onUpdate(p.id, { right: e.target.value })}
+          style={{ ...inputStyle, padding: '3px 4px' }}>
+          <option value="call">call</option>
+          <option value="put">put</option>
+        </select>
+        <input placeholder="Strike" value={p.strike ?? ''}
+          onChange={e => onUpdate(p.id, { strike: parseFloat(e.target.value) || 0 })}
+          style={inputStyle} />
+        <input type="date" value={p.expiry || ''}
+          onChange={e => onUpdate(p.id, { expiry: e.target.value })}
+          style={inputStyle} />
+        <input placeholder="#" value={p.contracts ?? ''}
+          onChange={e => onUpdate(p.id, { contracts: parseInt(e.target.value) || 0 })}
+          style={inputStyle} />
+        <input placeholder="Prem/ct" value={p.premium ?? ''}
+          onChange={e => onUpdate(p.id, { premium: parseFloat(e.target.value) || 0 })}
+          style={inputStyle} />
+        <input placeholder="Label" value={p.label || ''}
+          onChange={e => onUpdate(p.id, { label: e.target.value })}
+          style={inputStyle} />
+      </div>
+    );
+  }
+  // cash
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 4 }}>
+      <input placeholder="Amount" value={p.amount ?? ''}
+        onChange={e => onUpdate(p.id, { amount: parseFloat(e.target.value) || 0 })}
+        style={inputStyle} />
+      <input placeholder="Label" value={p.label || 'Cash'}
+        onChange={e => onUpdate(p.id, { label: e.target.value })}
+        style={inputStyle} />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXISTING COMPONENTS (unchanged below)
+// ═══════════════════════════════════════════════════════════════════════════
 
 function AccordionCard({ T, brand, brandName, open, onToggle, rec, live }) {
   return (

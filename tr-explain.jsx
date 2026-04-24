@@ -51,6 +51,7 @@ window.TR_EXPLAIN = {
   'signals-lane-crypto':'Crypto Flows lane — on-chain cost basis, ETF flows, funding rates, halving cycle position, MSTR holdings. The core BTC fundamental stack.',
   'signals-lane-reg':   'Regulation lane — CLARITY Act progress, SEC ETF decisions, state BTC reserves, stablecoin bills, FASB accounting. Event-driven; single vote can move BTC 10%+.',
   'signals-lane-geo':   'Geopolitics lane — Iran talks, Ukraine ceasefire, Israel/Gaza, Red Sea attacks, Russia sanctions, Taiwan. Primarily oil-driver; SPX secondary via risk-off spillover.',
+  'irgc-control':       'Tracks Iran civilian vs military balance — when the IRGC (Revolutionary Guard) sidelines the elected civilian president, oil prices a direct risk premium and BTC catches a safe-haven bid. Watch indicators: media ban expansions, arrests of reformist figures, cabinet shuffles, and public IRGC-affiliated appointments. When the indicator flips BALANCED → ELEVATED → CRISIS, oil typically moves +$5-15 and BTC +3-6% intraday — precedent: April 2024 strike-escalation chain.',
   'signals-lane-china': 'China lane — GDP, PBoC policy, USD/CNH, tariffs, oil imports. CNH weakening = BTC bid (capital flight). Stronger China demand = oil bid.',
   'signals-lane-oil':   'Oil & Commodities lane — WTI, Brent, OPEC production, SPR refill, EIA inventories, gold. Primary oil-driver stack; gold doubles as BTC correlate (both safe-haven).',
 

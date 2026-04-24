@@ -289,6 +289,7 @@ function SignalsScreen({ onNav }) {
       explain: 'signals-lane-geo',
       accent: '#D96B6B',
       signals: [
+        { label: 'IRGC · Civilian Control Index', value: 'ELEVATED', delta: 'IRGC influence +7d', dir: 'down', impact: ['OIL', 'BTC', 'SPX'], spark: seededSpark(57, 28, -0.3), status: 'Watch IRGC-linked media ban scope', statusColor: T.bear, hot: true, explain: 'irgc-control' },
         { label: 'Iran Nuclear Talks', value: 'Stalling', delta: 'deadline Apr 27', dir: 'down', impact: ['OIL', 'SPX'], spark: seededSpark(51, 28, -0.4), status: 'Hormuz risk rising', statusColor: T.bear, hot: true },
         { label: 'Ukraine Ceasefire', value: 'Drafting', delta: 'Paris round 3', dir: 'up', impact: ['OIL', 'SPX'], spark: seededSpark(52, 28, 0.3), status: 'Energy price relief if signed' },
         { label: 'Israel–Gaza', value: 'Phase 2', delta: 'hostage deal stalled', dir: 'flat', impact: ['OIL'], spark: seededSpark(53, 28, -0.1), status: 'Tail risk to Hezbollah front' },
