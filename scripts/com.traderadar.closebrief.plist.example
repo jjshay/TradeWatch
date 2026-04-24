@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    TradeRadar EVENING Close Brief — macOS launchd agent.
+    Fires at 13:45 LOCAL time, Monday through Friday.
+    BRIEF_MODE=evening (post-close session recap). The matching morning
+    brief is com.traderadar.briefing.plist.example (06:00 PT, BRIEF_MODE=morning).
+
+    ── Why 13:45? ──────────────────────────────────────────────────────────
+        US equities close at 16:00 ET. 13:45 PT = 16:45 ET = 45 minutes after
+        the cash close, long enough for official print + ETF flow tape.
+
+    ── Time zone (PICK ONE based on your Mac's system clock) ───────────────
+        Target is 13:45 PACIFIC (PST/PDT). launchd's StartCalendarInterval
+        uses the Mac's LOCAL time, so the <Hour>/<Minute> you want depends
+        on your system TZ:
+
+            • Mac set to America/Los_Angeles (PT) → 13:45  (this file's default)
+            • Mac set to America/New_York    (ET) → 16:45
+            • Mac set to America/Chicago     (CT) → 15:45
+            • Mac set to America/Denver      (MT) → 14:45
+            • Mac set to UTC                      → 20:45 (PST) / 21:45 (PDT)
+
+        Check your TZ:    sudo systemsetup -gettimezone
+        If you change your Mac's TZ (travel), edit the <Hour>/<Minute> fields
+        below and `launchctl unload` + `load` to apply.
+
+    ── Cache dependency ────────────────────────────────────────────────────
+        Evening reads the morning cache at
+            ~/Library/Application Support/TradeRadar/morning_consensus_v1.json
+        If missing or dated to a prior day, the evening brief gracefully
+        renders with "no morning brief cache found today — showing current
+        state only." and skips the morning-to-now delta rows.
+
+    ── Install (one-time) ──────────────────────────────────────────────────
+        # 1. Create the log directory
+        mkdir -p /Users/johnshay/TradeWatch/logs
+
+        # 2. Copy to LaunchAgents, DROPPING the `.example` suffix
+        cp /Users/johnshay/TradeWatch/scripts/com.traderadar.closebrief.plist.example \
+           ~/Library/LaunchAgents/com.traderadar.closebrief.plist
+
+        # 3. Verify node binary path matches the <string> below
+        which node
+        #   /usr/local/bin/node       (Intel Homebrew)
+        #   /opt/homebrew/bin/node    (Apple Silicon Homebrew)
+
+        # 4. Load the agent
+        launchctl load ~/Library/LaunchAgents/com.traderadar.closebrief.plist
+
+        # 5. Smoke-test immediately (does NOT wait for 13:45)
+        launchctl start com.traderadar.closebrief
+        tail -f /Users/johnshay/TradeWatch/logs/closebrief.log
+
+    ── Reschedule / uninstall ──────────────────────────────────────────────
+        launchctl unload ~/Library/LaunchAgents/com.traderadar.closebrief.plist
+        # edit the plist, then:
+        launchctl load   ~/Library/LaunchAgents/com.traderadar.closebrief.plist
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.traderadar.closebrief</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/node</string>
+        <string>/Users/johnshay/TradeWatch/scripts/daily-briefing.js</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/johnshay/TradeWatch</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+        <key>BRIEF_MODE</key>
+        <string>evening</string>
+    </dict>
+
+    <!--
+        Schedule: 13:45 LOCAL (= 1:45 PM PT / 4:45 PM ET if your Mac is on
+        America/Los_Angeles). Weekday 1=Mon … 5=Fri.
+        StartCalendarInterval accepts an array of dicts — launchd ORs them.
+    -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Weekday</key><integer>1</integer>
+            <key>Hour</key><integer>13</integer>
+            <key>Minute</key><integer>45</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key><integer>2</integer>
+            <key>Hour</key><integer>13</integer>
+            <key>Minute</key><integer>45</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key><integer>3</integer>
+            <key>Hour</key><integer>13</integer>
+            <key>Minute</key><integer>45</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key><integer>4</integer>
+            <key>Hour</key><integer>13</integer>
+            <key>Minute</key><integer>45</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key><integer>5</integer>
+            <key>Hour</key><integer>13</integer>
+            <key>Minute</key><integer>45</integer>
+        </dict>
+    </array>
+
+    <!-- Don't fire on launchctl load — scheduled times only. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/johnshay/TradeWatch/logs/closebrief.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/johnshay/TradeWatch/logs/closebrief.err</string>
+</dict>
+</plist>

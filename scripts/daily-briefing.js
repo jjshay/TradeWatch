@@ -1,20 +1,29 @@
 #!/usr/bin/env node
 /**
- * daily-briefing.js — TradeRadar Morning Brief.
+ * daily-briefing.js — TradeRadar Daily Briefs (morning + evening).
  *
- * 7-section HTML morning digest emailed to jjshay@gmail.com every weekday at
- * 6:00 AM PST. Pulls overnight news, runs Claude + GPT + Gemini + Grok in
- * parallel for a BTC/WTI year-end re-read, maps the shift onto TradeRadar
- * drivers, and produces a personalized position-level action list.
+ * 7-section HTML digest emailed to jjshay@gmail.com every weekday. Runs in two
+ * modes controlled by BRIEF_MODE env var:
  *
- * Sections:
- *   1. Overnight Updates       — top 6 filtered news catalysts
- *   2. LLM Thought Shift       — 4-way consensus on BTC + WTI year-end targets
- *   3. Model Impact (Drivers)  — DXY / VIX / flow / Hormuz drivers prev → now
- *   4. Oil Impact              — 2-3 bullets + directional call
- *   5. Bitcoin Impact          — 2-3 bullets + directional call
- *   6. Overall Verdict         — bull/bear score + regime label
- *   7. Investment Profile      — personalized per-position HOLD / ADD / TRIM
+ *   • BRIEF_MODE=morning (default) — fires at 06:00 PT. Overnight catalysts,
+ *     4-way LLM YE consensus, forward-looking "Today's Play" TL;DR. Persists
+ *     consensus + driver state to disk for evening delta.
+ *   • BRIEF_MODE=evening           — fires at 13:45 PT (~45 min after US close).
+ *     Session recap: today's catalysts, LLM consensus delta vs morning,
+ *     driver flips, session OHLC for WTI + BTC, regime-score delta,
+ *     per-position day P&L + after-hours watch.
+ *
+ * Sections (labels vary by mode):
+ *   1. Overnight Updates / Today's Catalysts
+ *   2. LLM Thought Shift (vs yesterday / vs this morning)
+ *   3. Model Impact — Drivers (prev → now / morning → now)
+ *   4. Oil Impact (overnight / session recap)
+ *   5. Bitcoin Impact (overnight / session recap)
+ *   6. Overall Verdict (score / open → close delta)
+ *   7. Investment Profile (morning actions / day P&L + AH watch)
+ *
+ * Cross-brief cache (populated by morning, read by evening):
+ *   ~/Library/Application Support/TradeRadar/morning_consensus_v1.json
  *
  * Data sources:
  *   • News:       rss2json over CoinDesk / CoinTelegraph / Reuters / MarketWatch / ZeroHedge
@@ -27,9 +36,10 @@
  * Exit codes: 0 = sent, 1 = fatal error.
  */
 
-const path = require('path');
-const fs   = require('fs');
-const os   = require('os');
+const path    = require('path');
+const fs      = require('fs');
+const fsp     = require('fs').promises;
+const os      = require('os');
 
 // Repo-root .env (not scripts/.env).
 require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
@@ -41,6 +51,22 @@ const TO_EMAIL   = env.TO_EMAIL   || 'jjshay@gmail.com';
 const GMAIL_USER = env.GMAIL_USER;
 const GMAIL_PW   = env.GMAIL_APP_PW;
 const PUBLIC_URL = env.PUBLIC_URL || 'https://traderadar.ggauntlet.com/';
+
+// ─────────── BRIEF MODE ───────────
+// `morning` (default) = prep-for-open forward-looking brief, persists consensus
+// cache. `evening` = post-close recap, reads the cache and shows deltas.
+const BRIEF_MODE = String(env.BRIEF_MODE || 'morning').toLowerCase() === 'evening'
+    ? 'evening' : 'morning';
+
+// Cross-brief cache path — morning writes, evening reads.
+const MORNING_CACHE_DIR  = path.join(os.homedir(), 'Library', 'Application Support', 'TradeRadar');
+const MORNING_CACHE_FILE = path.join(MORNING_CACHE_DIR, 'morning_consensus_v1.json');
+const TODAY_YMD = (() => {
+    const d = new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${mm}-${dd}`;
+})();
 
 if (!GMAIL_USER || !GMAIL_PW) {
     console.error('ERROR: set GMAIL_USER + GMAIL_APP_PW in .env');
@@ -112,6 +138,72 @@ function loadPositions() {
         console.warn(`[briefing] positions override at ${candidate} invalid: ${e.message}`);
     }
     return USER_POSITIONS_DEFAULT;
+}
+
+// ─────────── MORNING CACHE (shared across AM + PM briefs) ───────────
+// Shape:
+//   {
+//     date: "YYYY-MM-DD",
+//     consensus: { btc_ye, wti_ye, regime },
+//     per_model: { claude: {...}, gpt: {...}, gemini: {...}, grok: {...} },
+//     drivers:   { "regime-dxy": "neutral", ... },
+//     market:    { btc: {price, change}, wti, vix, dxy, brent },
+//     verdict:   { score, label, regime }
+//   }
+// Morning writes it; evening reads it to compute deltas. Disk failures are
+// swallowed — never block the email send.
+async function writeMorningCache({ consensus, models, drivers, btc, macro, verdict }) {
+    try {
+        await fsp.mkdir(MORNING_CACHE_DIR, { recursive: true });
+        const driversMap = {};
+        if (Array.isArray(drivers)) for (const d of drivers) driversMap[d.id] = d.curr;
+        const perModel = {};
+        for (const [k, v] of Object.entries(models || {})) {
+            if (!v) continue;
+            perModel[k] = {
+                btc_year_end: v.btc_year_end,
+                wti_year_end: v.wti_year_end,
+                regime:       v.regime,
+                confidence:   v.confidence,
+            };
+        }
+        const payload = {
+            date: TODAY_YMD,
+            written_at: new Date().toISOString(),
+            consensus: consensus ? {
+                btc_ye: consensus.btc,
+                wti_ye: consensus.wti,
+                regime: consensus.regime,
+                n:      consensus.n,
+            } : null,
+            per_model: perModel,
+            drivers:   driversMap,
+            market: {
+                btc:   btc   ? { price: btc.price, change: btc.change } : null,
+                wti:   macro.wti   ? { latest: macro.wti.latest,   deltaPct: macro.wti.deltaPct } : null,
+                vix:   macro.vix   ? { latest: macro.vix.latest,   deltaPct: macro.vix.deltaPct } : null,
+                dxy:   macro.dxy   ? { latest: macro.dxy.latest,   deltaPct: macro.dxy.deltaPct } : null,
+                brent: macro.brent ? { latest: macro.brent.latest, deltaPct: macro.brent.deltaPct } : null,
+            },
+            verdict: verdict ? { score: verdict.score, label: verdict.label, regime: verdict.regime } : null,
+        };
+        await fsp.writeFile(MORNING_CACHE_FILE, JSON.stringify(payload, null, 2), 'utf8');
+        console.log(`[briefing] morning cache written → ${MORNING_CACHE_FILE}`);
+    } catch (e) {
+        console.warn(`[briefing] morning cache write failed (non-fatal): ${e.message}`);
+    }
+}
+
+async function readMorningCache() {
+    try {
+        const raw = await fsp.readFile(MORNING_CACHE_FILE, 'utf8');
+        const j = JSON.parse(raw);
+        if (!j || !j.date) return { ok: false, reason: 'empty or malformed cache' };
+        if (j.date !== TODAY_YMD) return { ok: false, reason: `cache date ${j.date} != today ${TODAY_YMD}` };
+        return { ok: true, data: j };
+    } catch (e) {
+        return { ok: false, reason: `cache read failed: ${e.message}` };
+    }
 }
 
 // ─────────── HELPERS ───────────
@@ -221,18 +313,22 @@ async function getOvernightNews() {
 
 // ─────────── LLM PROMPT + CALLS ───────────
 const YE = new Date().getFullYear();
-function buildPrompt(catalysts) {
-    return `You are a macro strategist. Given these overnight catalysts, has your year-end ${YE} BTC and WTI crude target shifted?
+function buildPrompt(catalysts, mode = 'morning') {
+    const window = mode === 'evening' ? "TODAY'S SESSION" : 'OVERNIGHT';
+    const shiftRef = mode === 'evening'
+        ? "what shifted vs this morning's read"
+        : "what shifted vs yesterday's read";
+    return `You are a macro strategist. Given these ${window.toLowerCase()} catalysts, has your year-end ${YE} BTC and WTI crude target shifted?
 
-OVERNIGHT CATALYSTS:
+${window} CATALYSTS:
 ${catalysts.map((c, i) => `${i + 1}. [${c.source}] ${c.title}`).join('\n')}
 
 Respond with RAW JSON only — no markdown, no code fences, no prose:
 {
   "btc_year_end": <number in USD, e.g. 145000>,
   "wti_year_end": <number in USD per barrel, e.g. 82>,
-  "btc_delta": "<1 sentence: what shifted vs yesterday's read>",
-  "wti_delta": "<1 sentence: what shifted vs yesterday's read>",
+  "btc_delta": "<1 sentence: ${shiftRef}>",
+  "wti_delta": "<1 sentence: ${shiftRef}>",
   "regime": "<RISK-ON | MIXED | RISK-OFF>",
   "confidence": <1-10>
 }`;
@@ -328,7 +424,7 @@ async function callGrok(prompt) {
 // ─────────── EXECUTIVE SUMMARY (TL;DR) ───────────
 // Builds a prompt combining regime, positions, catalysts, verdict — asks the
 // LLM for a one-sentence market read + top 3 ranked recs + risk level chip.
-function buildExecSummaryPrompt({ btc, macro, catalysts, userPositions, consensus, verdict, positionAnalysis }) {
+function buildExecSummaryPrompt({ btc, macro, catalysts, userPositions, consensus, verdict, positionAnalysis, mode = 'morning', morningCache = null }) {
     const regime = consensus ? consensus.regime : 'MIXED';
     const btcLine = btc ? `BTC $${Math.round(btc.price).toLocaleString()} (24h ${btc.change >= 0 ? '+' : ''}${btc.change?.toFixed(2)}%)` : 'BTC —';
     const wtiLine = macro.wti ? `WTI $${macro.wti.latest.toFixed(2)} (${macro.wti.deltaPct >= 0 ? '+' : ''}${macro.wti.deltaPct?.toFixed(2)}%)` : 'WTI —';
@@ -338,9 +434,37 @@ function buildExecSummaryPrompt({ btc, macro, catalysts, userPositions, consensu
         return `  - ${r.label} · mkt ${fmt$(r.currentValue)} · cost ${fmt$(r.costBasis)} · P&L ${fmt$(r.pnl)} (${fmtPct(r.pnlPct)}) · ${r.portfolioPct.toFixed(1)}% of book`;
     }).join('\n');
 
-    const catLines = catalysts.slice(0, 3).map((c, i) => `${i + 1}. [${c.source}] ${c.title}`).join('\n') || '(none high-relevance overnight)';
+    const catalystLabel = mode === 'evening' ? "TOP SESSION CATALYSTS" : "TOP OVERNIGHT CATALYSTS";
+    const emptyFallback = mode === 'evening' ? '(no high-relevance session catalysts)' : '(none high-relevance overnight)';
+    const catLines = catalysts.slice(0, 3).map((c, i) => `${i + 1}. [${c.source}] ${c.title}`).join('\n') || emptyFallback;
 
-    return `You are the lead portfolio strategist writing the TL;DR at the top of a daily briefing. A busy reader should know exactly what to do in the first 150 words.
+    const roleLine = mode === 'evening'
+        ? `You are the lead portfolio strategist writing the TL;DR at the top of a market-close recap. The US session just closed. A busy reader needs to know what happened today and what to do OVERNIGHT or TOMORROW at the open in the first 150 words.`
+        : `You are the lead portfolio strategist writing the TL;DR at the top of a daily briefing. A busy reader should know exactly what to do in the first 150 words.`;
+
+    let deltaBlock = '';
+    if (mode === 'evening' && morningCache && morningCache.ok && morningCache.data) {
+        const m = morningCache.data;
+        const mc = m.consensus || {};
+        const mv = m.verdict || {};
+        deltaBlock = `
+
+MORNING-TO-NOW DELTA (this is a recap — call out what shifted):
+  - Morning consensus regime: ${mc.regime || '—'} → Now: ${regime}
+  - Morning BTC YE: ${mc.btc_ye != null ? fmt$(mc.btc_ye) : '—'} → Now: ${consensus ? fmt$(consensus.btc) : '—'}
+  - Morning WTI YE: ${mc.wti_ye != null ? fmt$2(mc.wti_ye) : '—'} → Now: ${consensus ? fmt$2(consensus.wti) : '—'}
+  - Morning verdict: ${mv.label || '—'} ${mv.score != null ? mv.score + '/100' : ''} → Now: ${verdict.label} ${verdict.score}/100`;
+    } else if (mode === 'evening') {
+        deltaBlock = `
+
+MORNING CACHE: not available for today — treat this as a standalone session read.`;
+    }
+
+    const actionFocus = mode === 'evening'
+        ? `Actions should target OVERNIGHT (futures/after-hours) or TOMORROW'S OPEN, not intraday.`
+        : `Actions target today's session — prep for the open.`;
+
+    return `${roleLine}
 
 MARKET SNAPSHOT:
   ${btcLine}
@@ -349,14 +473,16 @@ MARKET SNAPSHOT:
   Regime (LLM consensus, ${consensus ? consensus.n : 0}/4 models): ${regime}
   Overall verdict: ${verdict.label} · score ${verdict.score}/100
   ${consensus ? `Model-implied YE: BTC ${fmt$(consensus.btc)} / WTI ${fmt$2(consensus.wti)}` : 'No live consensus'}
+${deltaBlock}
 
 USER POSITIONS (total book ${fmt$(positionAnalysis.totalMkt)}, cash ${positionAnalysis.cashPct.toFixed(0)}%):
 ${posLines}
 
-TOP OVERNIGHT CATALYSTS:
+${catalystLabel}:
 ${catLines}
 
 CONSTRAINTS:
+  - ${actionFocus}
   - Any ADD or BUY recommendation requires HIGH or MEDIUM conviction. If conviction is low across the board, the top rec should be "HOLD / STAND DOWN / PRESERVE CASH".
   - Recommendations must be concrete: ticker / instrument, action, size in $ or %, one-line rationale.
   - Actions must be one of: BUY, SELL, HOLD, ADD, TRIM, CUT.
@@ -365,7 +491,7 @@ CONSTRAINTS:
 
 Respond with RAW JSON only — no markdown, no code fences, no prose:
 {
-  "read": "<one-sentence market synthesis — the overall verdict in plain English>",
+  "read": "<one-sentence market synthesis — ${mode === 'evening' ? 'what happened today + verdict' : 'the overall verdict in plain English'}>",
   "risk_level": "<LOW|MODERATE|ELEVATED|HIGH>",
   "risk_rationale": "<one sentence: why this risk level right now>",
   "recommendations": [
@@ -546,8 +672,24 @@ function computeVerdict(consensus, btc, drivers) {
 
 // ─────────── HTML RENDER ───────────
 function renderHTML(ctx) {
-    const { btc, macro, catalysts, models, consensus, drivers, verdict, positionAnalysis, userPositions, execSummary } = ctx;
+    const { btc, macro, catalysts, models, consensus, drivers, verdict, positionAnalysis, userPositions, execSummary, mode, morningCache } = ctx;
+    const isEvening = mode === 'evening';
     const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+
+    // Labels that flip by mode.
+    const tldrLabel         = isEvening ? "\u{1F30C} Today's Verdict" : "\u26A1 Today's Play";
+    const briefTitle        = isEvening ? 'Market Close Recap'         : 'Morning Brief';
+    const runTimeLabel      = isEvening ? '1:45 PM PT · post-close'    : '6:00 AM PST';
+    const section1Title     = isEvening ? "Today's Catalysts"          : 'Overnight Updates';
+    const section2Title     = isEvening ? 'LLM Thought Shift · vs This Morning'
+                                        : 'LLM Thought Shift (4-way)';
+    const section3Title     = isEvening ? 'Model Impact · Drivers (morning → now)'
+                                        : 'Model Impact · Drivers';
+    const section4Title     = isEvening ? 'Oil Impact · Session Recap' : 'Oil Impact';
+    const section5Title     = isEvening ? 'Bitcoin Impact · Session Recap' : 'Bitcoin Impact';
+    const section6Title     = isEvening ? 'Session Verdict'            : 'Overall Verdict';
+    const section7Title     = isEvening ? 'Investment Profile · Day P&amp;L + After-Hours'
+                                        : 'Investment Profile · Personalized';
 
     // ── EXECUTIVE SUMMARY (TL;DR) card ──
     let execSummaryHTML = '';
@@ -587,7 +729,7 @@ function renderHTML(ctx) {
         execSummaryHTML = `
   <div style="background:${C.ink200};border:2px solid ${C.signal};border-radius:10px;padding:20px;margin-bottom:18px">
     <div style="font-size:11px;letter-spacing:1.4px;color:${C.signal};text-transform:uppercase;font-weight:700;margin-bottom:10px">
-        \u26A1 Today's Play
+        ${tldrLabel}
     </div>
     <div style="font-size:14px;line-height:1.45;color:${C.text};margin-bottom:14px">
         ${escHTML(execSummary.read)}
@@ -604,7 +746,7 @@ function renderHTML(ctx) {
         execSummaryHTML = `
   <div style="background:${C.ink200};border:2px solid ${C.signal};border-radius:10px;padding:20px;margin-bottom:18px">
     <div style="font-size:11px;letter-spacing:1.4px;color:${C.signal};text-transform:uppercase;font-weight:700;margin-bottom:10px">
-        \u26A1 Today's Play
+        ${tldrLabel}
     </div>
     <div style="font-size:13px;line-height:1.5;color:${C.muted}">
         Exec summary unavailable — see individual sections below.
@@ -648,16 +790,38 @@ function renderHTML(ctx) {
         <div style="margin-top:12px;padding:10px 12px;background:rgba(201,162,39,0.08);border:1px solid rgba(201,162,39,0.25);border-radius:6px;font-size:12px;font-family:Menlo,monospace">
             <b style="color:${C.signal}">CONSENSUS</b> · BTC YE ${fmt$(consensus.btc)} (spread ${fmt$(consensus.btcSpread)}) · WTI YE ${fmt$2(consensus.wti)} (spread ${fmt$2(consensus.wtiSpread)}) · ${escHTML(consensus.regime)} · ${consensus.n}/4 LLMs
         </div>` : ''}
+        ${isEvening && morningCache && morningCache.ok && consensus ? (() => {
+            const mc = morningCache.data.consensus || {};
+            const dBtc = mc.btc_ye != null ? consensus.btc - mc.btc_ye : null;
+            const dWti = mc.wti_ye != null ? consensus.wti - mc.wti_ye : null;
+            const regimeShift = mc.regime && mc.regime !== consensus.regime;
+            const arrow = (n) => n == null ? '—' : (n > 0 ? `▲ +${Math.abs(n).toFixed(n > 100 ? 0 : 2)}` : n < 0 ? `▼ -${Math.abs(n).toFixed(n > 100 ? 0 : 2)}` : 'flat');
+            return `
+        <div style="margin-top:10px;padding:10px 12px;background:rgba(201,162,39,0.04);border:1px dashed ${C.line};border-radius:6px;font-size:12px;font-family:Menlo,monospace;color:${C.text}">
+            <b style="color:${C.signal}">DELTA vs MORNING</b> · BTC YE ${mc.btc_ye != null ? fmt$(mc.btc_ye) : '—'} → ${fmt$(consensus.btc)} (${arrow(dBtc)}) · WTI YE ${mc.wti_ye != null ? fmt$2(mc.wti_ye) : '—'} → ${fmt$2(consensus.wti)} (${arrow(dWti)}) · Regime ${escHTML(mc.regime || '—')} → ${escHTML(consensus.regime)}${regimeShift ? ' <b style="color:'+C.signal+'">(FLIP)</b>' : ''}
+        </div>`;
+        })() : ''}
+        ${isEvening && (!morningCache || !morningCache.ok) ? `
+        <div style="margin-top:10px;padding:10px 12px;background:rgba(217,107,107,0.06);border:1px dashed ${C.bear};border-radius:6px;font-size:12px;color:${C.muted}">
+            No morning brief cache found today — showing current state only. (${escHTML(morningCache?.reason || 'cache missing')})
+        </div>` : ''}
     ` : `<div style="color:${C.muted};font-size:13px">No LLMs responded.</div>`;
 
     // Section 3 — Model Impact (Drivers)
+    // In evening mode, swap the `prev` column to the morning-cached driver
+    // state so the arrow reflects intraday flips (morning → now), not the
+    // baseline-hardcoded prev → curr.
+    const morningDrivers = (isEvening && morningCache && morningCache.ok && morningCache.data.drivers) || null;
     const driverHTML = drivers.map(d => {
-        const shifted = d.prev !== d.curr;
+        const prevVal  = morningDrivers && morningDrivers[d.id] != null
+            ? morningDrivers[d.id]
+            : d.prev;
+        const shifted = prevVal !== d.curr;
         return `<tr style="border-top:1px solid ${C.line}">
             <td style="padding:8px 8px 8px 0;color:${C.text};font-family:Menlo,monospace;font-size:11px">${escHTML(d.id)}</td>
             <td style="padding:8px;color:${C.muted};font-size:12px">${escHTML(d.label)}</td>
             <td style="padding:8px;text-align:right;font-family:Menlo,monospace;font-size:12px">
-                <span style="color:${C.muted}">${escHTML(d.prev)}</span>
+                <span style="color:${C.muted}">${escHTML(prevVal)}</span>
                 <span style="color:${shifted ? C.signal : C.muted};margin:0 6px">→</span>
                 <span style="color:${shifted ? C.signal : C.text};font-weight:${shifted ? '700' : '400'}">${escHTML(d.curr)}</span>
             </td>
@@ -698,8 +862,19 @@ function renderHTML(ctx) {
             <b style="color:${C.btc}">BTC: ${btcDir}</b> · ${btcTarget ? fmt$(btcTarget) : '—'} expected by YE${YE}
         </div>`;
 
-    // Section 6 — Overall Verdict
+    // Section 6 — Overall Verdict / Session Verdict
     const verdictColor = verdict.label === 'BULLISH' ? C.bull : verdict.label === 'BEARISH' ? C.bear : C.signal;
+    let sessionDeltaLine = '';
+    if (isEvening && morningCache && morningCache.ok && morningCache.data.verdict) {
+        const mv = morningCache.data.verdict;
+        const dScore = verdict.score - (mv.score || 0);
+        const arrow  = dScore > 0 ? `▲ +${dScore}` : dScore < 0 ? `▼ ${dScore}` : 'flat';
+        const regimeFlipped = mv.regime && mv.regime !== verdict.regime;
+        sessionDeltaLine = `
+        <div style="margin-top:10px;padding:8px 12px;background:rgba(201,162,39,0.06);border:1px dashed ${C.line};border-radius:6px;font-size:12px;font-family:Menlo,monospace;color:${C.text}">
+            Opened ${mv.score || '—'}/100 (${escHTML(mv.label || '—')}) → Closed ${verdict.score}/100 (${escHTML(verdict.label)}) · ${arrow}${regimeFlipped ? ' · <b style="color:'+C.signal+'">REGIME FLIP</b> ' + escHTML(mv.regime) + ' → ' + escHTML(verdict.regime) : ''}
+        </div>`;
+    }
     const verdictHTML = `
         <div style="display:inline-block;padding:12px 20px;background:${verdictColor}20;border:2px solid ${verdictColor};border-radius:8px;margin-bottom:12px">
             <span style="font-size:22px;font-weight:700;color:${verdictColor};letter-spacing:1.5px">${verdict.label}</span>
@@ -710,7 +885,8 @@ function renderHTML(ctx) {
                 ? `Oil and BTC both ${oilDir.toLowerCase()} — single-direction book warranted.`
                 : `Oil ${oilDir.toLowerCase()}, BTC ${btcDir.toLowerCase()} — play asymmetry, not correlation.`}
             ${consensus ? `Model-implied: BTC ${fmt$(consensus.btc)} / WTI ${fmt$2(consensus.wti)} by YE.` : ''}
-        </div>`;
+        </div>
+        ${sessionDeltaLine}`;
 
     // Section 7 — Investment Profile
     const posTable = positionAnalysis.rows.map(r => `
@@ -761,11 +937,11 @@ function renderHTML(ctx) {
         <span style="font-size:22px">\u{1F4E1}</span>
         <div>
             <div style="font-size:10px;letter-spacing:2px;color:${C.signal};text-transform:uppercase;font-weight:700">TradeRadar</div>
-            <div style="font-size:20px;font-weight:600;color:${C.text};margin-top:2px">Morning Brief</div>
+            <div style="font-size:20px;font-weight:600;color:${C.text};margin-top:2px">${briefTitle}</div>
         </div>
     </div>
     <div style="font-size:12px;color:${C.muted};margin-top:8px;font-family:Menlo,monospace">
-        ${dateStr} · 6:00 AM PST · <a href="${escHTML(PUBLIC_URL)}" style="color:${C.signal};text-decoration:none">traderadar</a>
+        ${dateStr} · ${runTimeLabel} · <a href="${escHTML(PUBLIC_URL)}" style="color:${C.signal};text-decoration:none">traderadar</a>
     </div>
   </div>
 
@@ -777,15 +953,15 @@ function renderHTML(ctx) {
   <!-- EXECUTIVE SUMMARY / TL;DR -->
   ${execSummaryHTML}
 
-  ${section(1, 'Overnight Updates', newsHTML)}
-  ${section(2, 'LLM Thought Shift (4-way)', thoughtShiftHTML)}
-  ${section(3, 'Model Impact · Drivers',
+  ${section(1, section1Title, newsHTML)}
+  ${section(2, section2Title, thoughtShiftHTML)}
+  ${section(3, section3Title,
     `<table style="width:100%;border-collapse:collapse">${driverHTML}</table>
      <div style="margin-top:12px;padding:10px 12px;background:rgba(201,162,39,0.08);border:1px solid rgba(201,162,39,0.25);border-radius:6px;font-size:12px;font-family:Menlo,monospace;color:${C.text}">${escHTML(verdictLine)}</div>`)}
-  ${section(4, 'Oil Impact', oilHTML)}
-  ${section(5, 'Bitcoin Impact', btcHTML)}
-  ${section(6, 'Overall Verdict', verdictHTML)}
-  ${section(7, 'Investment Profile · Personalized',
+  ${section(4, section4Title, oilHTML)}
+  ${section(5, section5Title, btcHTML)}
+  ${section(6, section6Title, verdictHTML)}
+  ${section(7, section7Title,
     `<table style="width:100%;border-collapse:collapse;margin-bottom:14px">
         <tr style="color:${C.muted};font-family:Menlo,monospace;font-size:10px;letter-spacing:0.5px;text-transform:uppercase">
             <td style="padding:4px 8px 4px 0">Position</td>
@@ -824,8 +1000,22 @@ function renderHTML(ctx) {
 
 // ─────────── MAIN ───────────
 (async () => {
-    console.log('[briefing] fetching overnight data…');
+    console.log(`[briefing] mode=${BRIEF_MODE}`);
+    console.log(`[briefing] fetching ${BRIEF_MODE === 'evening' ? "today's session" : 'overnight'} data…`);
     const userPositions = loadPositions();
+
+    // Evening reads the morning cache before anything else so we can pass it
+    // into the exec summary + render. Missing/stale cache → graceful fallback.
+    const morningCache = BRIEF_MODE === 'evening'
+        ? await readMorningCache()
+        : null;
+    if (BRIEF_MODE === 'evening') {
+        if (morningCache.ok) {
+            console.log(`[briefing] morning cache: OK (written ${morningCache.data.written_at || '?'})`);
+        } else {
+            console.log(`[briefing] morning cache: MISSING — ${morningCache.reason}`);
+        }
+    }
 
     const [btc, macro, catalysts] = await Promise.all([
         getBTC(),
@@ -835,7 +1025,7 @@ function renderHTML(ctx) {
     console.log(`[briefing] catalysts=${catalysts.length} · btc=${btc ? btc.price : 'null'} · wti=${macro.wti ? macro.wti.latest : 'null'}`);
 
     console.log('[briefing] firing 4 LLMs in parallel…');
-    const prompt = buildPrompt(catalysts);
+    const prompt = buildPrompt(catalysts, BRIEF_MODE);
     const [cl, op, ge, gr] = await Promise.all([
         callClaude(prompt), callOpenAI(prompt), callGemini(prompt), callGrok(prompt),
     ]);
@@ -851,22 +1041,43 @@ function renderHTML(ctx) {
     console.log('[briefing] synthesizing exec summary (Claude primary, GPT fallback)…');
     const execSummary = await buildExecSummary({
         btc, macro, catalysts, userPositions, consensus, verdict, positionAnalysis,
+        mode: BRIEF_MODE, morningCache,
     });
 
+    // Persist morning-run state so the evening brief can compute deltas.
+    // Disk failures are non-fatal.
+    if (BRIEF_MODE === 'morning') {
+        await writeMorningCache({ consensus, models, drivers, btc, macro, verdict });
+    }
+
     const html = renderHTML({
-        btc, macro, catalysts, models, consensus, drivers, verdict, positionAnalysis, userPositions, execSummary,
+        btc, macro, catalysts, models, consensus, drivers, verdict, positionAnalysis,
+        userPositions, execSummary, mode: BRIEF_MODE, morningCache,
     });
 
     const tx = nodemailer.createTransport({
         service: 'gmail',
         auth: { user: GMAIL_USER, pass: GMAIL_PW },
     });
-    const subjectBits = [
-        `TradeRadar AM · ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
-        verdict.label,
-        btc ? `BTC ${fmt$(btc.price)}` : null,
-        consensus ? `YE ${fmt$(consensus.btc)}` : null,
-    ].filter(Boolean);
+
+    // Subject varies by mode.
+    //   morning: ⚡ TradeRadar · <Date> · Prep for Open · <verdict> · BTC $…
+    //   evening: 🌆 TradeRadar · <Date> · Market Close Recap · <verdict> · BTC $…
+    const dateShort = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const subjectBits = BRIEF_MODE === 'evening'
+        ? [
+            `\u{1F306} TradeRadar · ${dateShort} · Market Close Recap`,
+            verdict.label,
+            btc       ? `BTC ${fmt$(btc.price)}`        : null,
+            consensus ? `YE ${fmt$(consensus.btc)}`      : null,
+          ].filter(Boolean)
+        : [
+            `\u26A1 TradeRadar · ${dateShort} · Prep for Open`,
+            verdict.label,
+            btc       ? `BTC ${fmt$(btc.price)}`        : null,
+            consensus ? `YE ${fmt$(consensus.btc)}`      : null,
+          ].filter(Boolean);
+
     const info = await tx.sendMail({
         from: `"TradeRadar" <${GMAIL_USER}>`,
         to: TO_EMAIL,

@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-    TradeRadar Morning Brief — macOS launchd agent.
+    TradeRadar MORNING Brief — macOS launchd agent.
     Fires at 06:00 LOCAL time, Monday through Friday.
+    BRIEF_MODE=morning (prep-for-open). The matching afternoon recap is
+    com.traderadar.closebrief.plist.example (BRIEF_MODE=evening, 13:45 PT).
 
     ── Time zone (PICK ONE based on your Mac's system clock) ───────────────
         JJ's target is 06:00 PACIFIC (PST/PDT). launchd's
@@ -79,6 +81,8 @@
     <dict>
         <key>PATH</key>
         <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+        <key>BRIEF_MODE</key>
+        <string>morning</string>
     </dict>
 
     <!--

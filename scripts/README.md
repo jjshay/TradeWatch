@@ -1,22 +1,104 @@
 # TradeRadar scripts
 
-## daily-briefing.js — Morning Brief (7-section HTML)
+## daily-briefing.js — Morning + Evening Briefs (7-section HTML, dual mode)
 
-Emails a structured morning digest to `jjshay@gmail.com` every weekday at
-**06:00 Pacific** (launchd) or via GitHub Actions cron (see below).
+Emails a structured digest to `jjshay@gmail.com` every weekday in **two runs**:
 
-### What's in the email
+| Run | Time (PT) | `BRIEF_MODE` | Flavor |
+|-----|-----------|-------------|--------|
+| Morning brief   | 06:00       | `morning` (default) | Prep for open — overnight catalysts, forward-looking "Today's Play" |
+| Close brief     | 13:45       | `evening`           | Session recap — "Today's Verdict", morning-to-now deltas |
 
-| # | Section | Contents |
-|---|---------|----------|
-| — | **Header** | Logo + date + 6:00 AM PST stamp; 3-tile bar (BTC, WTI, VIX) |
-| 1 | **Overnight Updates** | Top 6 relevance-scored news catalysts (keywords: fed, iran, hormuz, israel, crude, opec, bitcoin, etf, cpi, fomc, clarity, tariff, china, etc.) — headline · source · time · 1-line implication |
-| 2 | **LLM Thought Shift** | Claude + GPT + Gemini + Grok in parallel. Each returns year-end BTC + WTI targets + 1-sentence delta. Consensus = mean of the 4; spread = high − low. Regime = dominant label across responders. |
-| 3 | **Model Impact (Drivers)** | 6 TradeRadar driver IDs (regime-dxy, btc-ibit-flow, btc-funding, hormuz-mil, oil-opec, spx-10y) shown `prev → current`; shifted drivers highlighted gold. Verdict line: "Model-implied BTC $X · WTI $Y · Spread $Z." |
-| 4 | **Oil Impact** | WTI spot, Brent–WTI spread, overnight oil catalysts, Hormuz read. Directional chip: **Oil: BULLISH / BEARISH / NEUTRAL · $X expected by YE**. |
-| 5 | **Bitcoin Impact** | BTC spot, BTC-specific catalysts, ETF/MSTR/COIN notes. Directional chip: **BTC: BULLISH / BEARISH / NEUTRAL · $X expected by YE**. |
-| 6 | **Overall Verdict** | Big chip `BULLISH · 72/100` style, 0–100 score (heuristic on regime + 24h + drivers), regime label (RISK-ON / MIXED / RISK-OFF), 2-sentence rationale. |
-| 7 | **Investment Profile** (personalized) | Position table (BTC direct, COIN Dec $340C x2, cash). Per-position mkt value, P&L, % of book, and a `HOLD / ADD / TRIM / CLOSE` chip with reasoning. Ends with a cash-deployment suggestion conditioned on regime. |
+Morning is the default if `BRIEF_MODE` is unset (backward-compatible).
+
+## Dual Schedule
+
+- **06:00 PT · morning brief** — runs before US pre-market; overnight catalysts,
+  4-way LLM year-end consensus, forward-looking TL;DR. Persists consensus +
+  driver state to the shared cache so the afternoon run can compute deltas.
+- **13:45 PT · close brief** — runs 45 minutes after the 16:00 ET equities
+  close. Reads the morning cache and renders session deltas (YE shift,
+  driver flips, regime score open → close), plus position-level day P&L and
+  after-hours watch items.
+
+### Install BOTH agents
+
+```bash
+# Morning (prep for open, 06:00 PT Mon-Fri)
+cp scripts/com.traderadar.briefing.plist.example \
+   ~/Library/LaunchAgents/com.traderadar.briefing.plist
+
+# Evening (close recap, 13:45 PT Mon-Fri)
+cp scripts/com.traderadar.closebrief.plist.example \
+   ~/Library/LaunchAgents/com.traderadar.closebrief.plist
+
+launchctl load ~/Library/LaunchAgents/com.traderadar.briefing.plist
+launchctl load ~/Library/LaunchAgents/com.traderadar.closebrief.plist
+
+# Verify both are loaded
+launchctl list | grep traderadar
+# Expect:
+#   -   0   com.traderadar.briefing
+#   -   0   com.traderadar.closebrief
+```
+
+Each plist passes `BRIEF_MODE` via its `EnvironmentVariables` dict, so a
+single `daily-briefing.js` file drives both runs.
+
+### Manually test each mode
+
+```bash
+cd /Users/johnshay/TradeWatch
+BRIEF_MODE=morning node scripts/daily-briefing.js   # forces prep-for-open
+BRIEF_MODE=evening node scripts/daily-briefing.js   # forces close recap
+node scripts/daily-briefing.js                      # defaults to morning
+```
+
+### Shared cache (morning → evening delta)
+
+| Field | Value |
+|-------|-------|
+| Path  | `~/Library/Application Support/TradeRadar/morning_consensus_v1.json` |
+| Writer | morning run (after consensus + drivers + verdict are computed) |
+| Reader | evening run (compared to current state for Sections 2, 3, 6) |
+| Shape  | `{ date, written_at, consensus: { btc_ye, wti_ye, regime, n }, per_model: { claude/gpt/gemini/grok }, drivers: { id: state }, market: { btc/wti/vix/dxy/brent }, verdict: { score, label, regime } }` |
+
+**Missing cache on the evening run** (e.g. laptop asleep at 06:00, or the
+morning brief failed): the evening email still ships — Section 2 shows a
+dashed warning **"No morning brief cache found today — showing current
+state only."** and the morning-to-now delta lines are skipped. The
+`written_at` field is advisory only; date equality to today is the gate.
+
+Debug:
+
+```bash
+cat "$HOME/Library/Application Support/TradeRadar/morning_consensus_v1.json" | jq .
+ls -la "$HOME/Library/Application Support/TradeRadar/"
+```
+
+---
+
+### What's in the email (both modes)
+
+Both briefs share the same 7-section shape; labels + tone flip based on
+`BRIEF_MODE`.
+
+| # | Morning (`BRIEF_MODE=morning`) | Evening (`BRIEF_MODE=evening`) |
+|---|-------------------------------|-------------------------------|
+| — | Header: "Morning Brief" · 6:00 AM PST stamp · 3-tile bar (BTC, WTI, VIX) | Header: "Market Close Recap" · 1:45 PM PT · post-close stamp · same tile bar |
+| TL;DR | ⚡ **Today's Play** — forward-looking, 3 ranked recs for the day ahead | 🌆 **Today's Verdict** — backward-looking, what happened + overnight/tomorrow actions |
+| 1 | **Overnight Updates** — top 6 relevance-scored catalysts | **Today's Catalysts** — same sourcing, framed as session-driving headlines |
+| 2 | **LLM Thought Shift (4-way)** — Claude/GPT/Gemini/Grok YE consensus vs yesterday | **LLM Thought Shift · vs This Morning** — same 4 LLMs, dashed delta row vs morning cache (BTC YE / WTI YE / regime, with FLIP badge) |
+| 3 | **Model Impact · Drivers** — 6 drivers `prev → curr` (hardcoded prev baseline) | **Drivers · morning → now** — `morning → now` per driver, intraday flips highlighted gold |
+| 4 | **Oil Impact** — WTI + Brent-WTI spread + directional chip | **Oil Impact · Session Recap** — same fields, session framing |
+| 5 | **Bitcoin Impact** — BTC spot + ETF/MSTR notes + directional chip | **Bitcoin Impact · Session Recap** — same, session framing |
+| 6 | **Overall Verdict** — bull/bear score 0–100 | **Session Verdict** — same chip + dashed line "opened X/100 → closed Y/100 · ▲+N" with REGIME FLIP callout when applicable |
+| 7 | **Investment Profile · Personalized** — per-position HOLD/ADD/TRIM + cash deployment | **Investment Profile · Day P&L + After-Hours** — same layout; rationale shifts to today's mark + AH watch items |
+
+Subject line:
+
+- Morning: `⚡ TradeRadar · <Date> · Prep for Open · <VERDICT> · BTC $… · YE $…`
+- Evening: `🌆 TradeRadar · <Date> · Market Close Recap · <VERDICT> · BTC $… · YE $…`
 
 ### LLMs
 
@@ -160,6 +242,7 @@ JSON
 | `FRED_API_KEY` | Reserved; the script uses FRED's public CSV endpoint (no key needed). |
 | `PUBLIC_URL` | Link target in header/footer (default `https://traderadar.ggauntlet.com/`). |
 | `POSITIONS_JSON_PATH` | Override path for the positions file. |
+| `BRIEF_MODE` | `morning` (default) or `evening`. Controls subject line, TL;DR tone, section titles, and whether the shared consensus cache is written (morning) or read (evening). |
 
 ---
 
@@ -257,6 +340,7 @@ Cron does not inherit your shell PATH — pin the node binary absolutely.
 | Fires at wrong time after travel | Mac TZ changed | Edit `<Hour>` in the plist to match the new local time for 6 AM PT (see TZ table). |
 | `0/4 LLMs responded` | Keys absent / rate-limited / invalid | Email still ships; Section 2 is empty, consensus + verdict fall back to neutrals. |
 | Section 7 shows default positions | No `positions.json` override | Create `~/Library/Application Support/TradeRadar/positions.json` or set `POSITIONS_JSON_PATH`. |
+| Evening brief shows "No morning brief cache found" | Morning run didn't write the cache today (Mac asleep, brief failed, first install, or wrong `BRIEF_MODE`) | Check `~/Library/Application Support/TradeRadar/morning_consensus_v1.json` — date must match today's `YYYY-MM-DD`. Evening still ships gracefully without it. |
 | WTI / VIX tiles blank | FRED CSV endpoint timed out | Transient — retry. The script degrades gracefully. |
 | Email HTML looks broken in Outlook | Outlook doesn't render flexbox | Open in Gmail web; the email is tested there. |
 
@@ -275,6 +359,7 @@ Cron does not inherit your shell PATH — pin the node binary absolutely.
 | `daily-briefing.js` | The 7-section morning brief script. Node 20+. |
 | `.env.example` | Env template (mirrored at repo root). |
 | `package.json` | Local manifest (repo-root is source of truth for installs). |
-| `com.traderadar.briefing.plist.example` | launchd agent (06:00 local Mon–Fri). |
+| `com.traderadar.briefing.plist.example` | launchd agent — **morning** (06:00 local Mon–Fri, `BRIEF_MODE=morning`). |
+| `com.traderadar.closebrief.plist.example` | launchd agent — **evening** (13:45 local Mon–Fri, `BRIEF_MODE=evening`). |
 | `verify_fred.js` | Unrelated — FRED API smoke test. |
 | `README.md` | This file. |
