@@ -11,7 +11,7 @@ const suT = {
   text: '#ffffff', textMid: 'rgba(180,188,200,0.75)', textDim: 'rgba(130,138,150,0.55)',
   signal: '#c9a227', bull: '#6FCF8E', bear: '#D96B6B',
   btc: '#F7931A', oil: '#0077B5',
-  claude: '#D97757', gpt: '#0077B5', gemini: '#4285F4',
+  claude: '#D97757', gpt: '#0077B5', gemini: '#4285F4', grok: '#B07BE6',
   ui: 'InterTight, -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
   mono: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
 };
@@ -50,7 +50,7 @@ async function callModel(which, headlines) {
   // Returns parsed prediction obj on success, { _error, _detail } on failure.
   if (typeof AIAnalysis === 'undefined') return { _error: 'engine-missing' };
   const keys = AIAnalysis.getKeys();
-  const keyMap = { claude: keys.claude, gpt: keys.openai, gemini: keys.gemini };
+  const keyMap = { claude: keys.claude, gpt: keys.openai, gemini: keys.gemini, grok: keys.grok };
   if (!keyMap[which]) return { _error: 'nokey' };
   const prompt = buildPrompt(headlines);
   try {
@@ -59,7 +59,7 @@ async function callModel(which, headlines) {
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': keys.claude, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] }),
+        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2000, messages: [{ role: 'user', content: prompt }] }),
       });
       if (!r.ok) {
         const detail = await r.text().catch(() => '');
@@ -71,7 +71,7 @@ async function callModel(which, headlines) {
       const r = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${keys.openai}` },
-        body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], temperature: 0.4, max_tokens: 1000 }),
+        body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], temperature: 0.4, max_tokens: 2000 }),
       });
       if (!r.ok) {
         const detail = await r.text().catch(() => '');
@@ -80,9 +80,11 @@ async function callModel(which, headlines) {
       const j = await r.json();
       resp = j.choices?.[0]?.message?.content || '';
     } else if (which === 'gemini') {
+      // Gemini 2.5 Flash counts reasoning + output toward maxOutputTokens.
+      // 4000 gives structured JSON enough room (was 1000, truncated mid-string).
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${keys.gemini}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.4, maxOutputTokens: 1000 } }),
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.4, maxOutputTokens: 4000 } }),
       });
       if (!r.ok) {
         const detail = await r.text().catch(() => '');
@@ -90,6 +92,20 @@ async function callModel(which, headlines) {
       }
       const j = await r.json();
       resp = j.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    } else if (which === 'grok') {
+      // xAI Grok — OpenAI-compatible API at api.x.ai. Uses grok-3-mini-fast
+      // (same model the rest of the app calls for consistency).
+      const r = await fetch('https://api.x.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${keys.grok}` },
+        body: JSON.stringify({ model: 'grok-3-mini-fast', messages: [{ role: 'user', content: prompt }], temperature: 0.4, max_tokens: 2000 }),
+      });
+      if (!r.ok) {
+        const detail = await r.text().catch(() => '');
+        return { _error: `http-${r.status}`, _detail: detail.slice(0, 160) };
+      }
+      const j = await r.json();
+      resp = j.choices?.[0]?.message?.content || '';
     }
     const cleaned = resp.replace(/^```json\s*|\s*```$/g, '').replace(/```/g, '').trim();
     try { return JSON.parse(cleaned); }
@@ -251,7 +267,7 @@ function SummaryScreen({ onNav }) {
   const W = 1280, H = 820;
 
   const [headlines, setHeadlines] = React.useState([]);
-  const [preds, setPreds] = React.useState({ claude: null, gpt: null, gemini: null });
+  const [preds, setPreds] = React.useState({ claude: null, gpt: null, gemini: null, grok: null });
   const [prevPreds, setPrevPreds] = React.useState(() => loadLastPredictions());
   const [loading, setLoading] = React.useState(false);
   const [lastRefresh, setLastRefresh] = React.useState(null);
@@ -286,17 +302,18 @@ function SummaryScreen({ onNav }) {
       const top = (articles.filter(a => relKw.test(a.title)).slice(0, 5).concat(articles.slice(0, 3))).slice(0, 8);
       setHeadlines(top);
 
-      const [cl, gp, ge] = await Promise.all([
+      const [cl, gp, ge, gr] = await Promise.all([
         callModel('claude', top),
         callModel('gpt',    top),
         callModel('gemini', top),
+        callModel('grok',   top),
       ]);
-      const next = { claude: cl, gpt: gp, gemini: ge };
+      const next = { claude: cl, gpt: gp, gemini: ge, grok: gr };
       setPreds(next);
       setLastRefresh(new Date());
 
       // Save snapshot for next-time delta, only if we got at least one valid prediction
-      const anyValid = [cl, gp, ge].some(r => r && r.bitcoin_year_end_usd);
+      const anyValid = [cl, gp, ge, gr].some(r => r && r.bitcoin_year_end_usd);
       if (anyValid) saveLastPredictions({ ...next, ts: Date.now() });
 
       // Publish for TRAlertsManager's CONSENSUS_DIVERGENT rule
@@ -467,10 +484,11 @@ function SummaryScreen({ onNav }) {
 
           {/* RIGHT: three LLM predictions */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div data-walk="llm-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, flex: 1 }}>
+            <div data-walk="llm-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, flex: 1 }}>
               <PredictionCard brand={T.claude} brandName="Claude" rec={preds.claude} prev={prevPreds?.claude} T={T} />
               <PredictionCard brand={T.gpt}    brandName="ChatGPT" rec={preds.gpt}    prev={prevPreds?.gpt}    T={T} />
               <PredictionCard brand={T.gemini} brandName="Gemini" rec={preds.gemini} prev={prevPreds?.gemini} T={T} />
+              <PredictionCard brand={T.grok}   brandName="Grok"   rec={preds.grok}   prev={prevPreds?.grok}   T={T} />
             </div>
 
             {/* CONSENSUS */}
