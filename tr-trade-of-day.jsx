@@ -199,6 +199,203 @@
   }
 
   // --------------------------------------------------------------------
+  // Position-sizing logic (reads tr_positions_v1 from localStorage)
+  // --------------------------------------------------------------------
+  // Risk budget by conviction:
+  //   HIGH   → 3.5% portfolio at risk
+  //   MEDIUM → 2.0%
+  //   LOW    → 1.0%
+  //   PASS   → 0%
+  const RISK_BUDGET = { HIGH: 0.035, MEDIUM: 0.020, LOW: 0.010, PASS: 0 };
+  const CONTRACT_CAP = 5;
+
+  // Parse a dollar-ish value out of a string or number ("$320", "320.5", 320).
+  function parseDollar(v) {
+    if (v == null) return NaN;
+    if (typeof v === 'number') return isFinite(v) ? v : NaN;
+    const s = String(v).replace(/[\$,\s]/g, '').replace(/[^0-9.\-]/g, '');
+    const n = parseFloat(s);
+    return isFinite(n) ? n : NaN;
+  }
+
+  // Live price lookup — tries a few reasonable cache locations, else null.
+  function livePrice(sym) {
+    if (!sym) return null;
+    const S = String(sym).toUpperCase();
+    try {
+      if (window.TR_LIVE_PRICES && typeof window.TR_LIVE_PRICES[S] === 'number') {
+        return window.TR_LIVE_PRICES[S];
+      }
+    } catch {}
+    try {
+      const raw = localStorage.getItem('tr_live_prices');
+      if (raw) {
+        const p = JSON.parse(raw);
+        if (p && typeof p[S] === 'number') return p[S];
+      }
+    } catch {}
+    return null;
+  }
+
+  // Compute total portfolio value from tr_positions_v1 positions array.
+  // Falls back to $10k if storage is missing / unreadable / empty.
+  function loadPortfolioValue() {
+    const DEFAULT_PV = 10000;
+    let list = null;
+    try {
+      const raw = localStorage.getItem('tr_positions_v1');
+      if (raw) list = JSON.parse(raw);
+    } catch {}
+    if (!Array.isArray(list) || list.length === 0) return DEFAULT_PV;
+
+    let total = 0;
+    for (const p of list) {
+      if (!p || typeof p !== 'object') continue;
+      if (p.type === 'cash') {
+        total += Number(p.amount) || 0;
+      } else if (p.type === 'crypto') {
+        const qty   = Number(p.qty)   || 0;
+        const basis = Number(p.basis) || 0;
+        const live  = livePrice(p.sym);
+        const px    = (live && live > 0) ? live : basis;
+        total += qty * px;
+      } else if (p.type === 'option') {
+        const n    = Number(p.contracts) || 0;
+        const prem = Number(p.premium)   || 0;
+        // Market value proxy: contracts × premium (premium already per-contract $).
+        total += n * prem;
+      } else if (p.type === 'stock' || p.type === 'equity') {
+        const sh    = Number(p.shares || p.qty) || 0;
+        const basis = Number(p.basis || p.cost) || 0;
+        const live  = livePrice(p.sym || p.ticker);
+        const px    = (live && live > 0) ? live : basis;
+        total += sh * px;
+      }
+    }
+    return total > 0 ? total : DEFAULT_PV;
+  }
+
+  // Classify an instrument string into one of:
+  //   'spread' | 'option' | 'crypto' | 'equity' | 'unknown'
+  function classifyInstrument(str) {
+    const raw = String(str || '');
+    const s = raw.toLowerCase();
+    if (!s || s === 'n/a' || s === '—') return 'unknown';
+    // Spread patterns take precedence — max_loss is per spread.
+    if (/\b(spread|condor|butterfly|vertical|iron|debit|credit)\b/.test(s)) return 'spread';
+    // Options: "145c", "145p", "call", "put"
+    if (/\b(call|put)\b/.test(s) || /\b\d+(\.\d+)?\s*[cp]\b/.test(s)) return 'option';
+    // Crypto
+    if (/\b(btc|eth|sol|xrp|doge|bitcoin|ethereum)\b/.test(s)) return 'crypto';
+    // Bare ticker (1-5 uppercase letters)
+    if (/\b[A-Z]{1,5}\b/.test(raw)) return 'equity';
+    return 'unknown';
+  }
+
+  // Core sizing. Returns a { mode, ... } descriptor for the UI row.
+  function computeSize(trade, portfolioValue) {
+    const conviction = String((trade && trade.conviction) || 'LOW').toUpperCase();
+    const budget = RISK_BUDGET[conviction];
+    if (budget == null || budget <= 0) {
+      return {
+        mode: 'standDown', standDown: true,
+        note: 'STAND DOWN — conviction insufficient',
+        budgetPct: 0, portfolioValue,
+      };
+    }
+
+    const maxLossPerUnit = parseDollar(trade && trade.max_loss && (trade.max_loss.dollars || trade.max_loss.usd));
+    const premMid        = parseDollar(trade && trade.entry_premium && (trade.entry_premium.mid || trade.entry_premium.last));
+    const maxRiskDollars = portfolioValue * budget;
+    const kind = classifyInstrument(trade && trade.instrument);
+
+    // If we can't parse max_loss cleanly, fall back to "% of portfolio" allocation.
+    if (!isFinite(maxLossPerUnit) || maxLossPerUnit <= 0) {
+      return {
+        mode: 'fallback',
+        dollars: maxRiskDollars,
+        pct: budget * 100,
+        atRisk: maxRiskDollars,
+        budgetPct: budget * 100,
+        note: 'Estimated allocation (couldn\'t parse max-loss per unit)',
+        portfolioValue,
+        kind,
+      };
+    }
+
+    let units = Math.floor(maxRiskDollars / maxLossPerUnit);
+    let capped = false;
+    if (units > CONTRACT_CAP && (kind === 'option' || kind === 'spread')) {
+      units = CONTRACT_CAP;
+      capped = true;
+    }
+
+    if (units <= 0) {
+      return {
+        mode: 'standDown', standDown: true,
+        note: 'STAND DOWN — risk budget too small for 1 unit',
+        budgetPct: budget * 100, portfolioValue,
+      };
+    }
+
+    // Cost per unit depends on instrument type.
+    //   option / spread: premium is per-contract $, but LLMs often quote per-share
+    //     (e.g. "$3.20"); if premium < $50 assume per-share and × 100.
+    //   equity: premium is per-share.
+    //   crypto: premium treated as $ allocation already.
+    let costPerUnit = 0;
+    let unitLabel = 'units';
+    if (kind === 'option' || kind === 'spread') {
+      if (isFinite(premMid) && premMid > 0) {
+        costPerUnit = premMid < 50 ? premMid * 100 : premMid;
+      } else {
+        // Fallback: for long debits, cost ≈ max loss.
+        costPerUnit = maxLossPerUnit;
+      }
+      unitLabel = units === 1 ? 'contract' : 'contracts';
+    } else if (kind === 'equity') {
+      costPerUnit = isFinite(premMid) && premMid > 0 ? premMid : maxLossPerUnit;
+      unitLabel = units === 1 ? 'share' : 'shares';
+    } else if (kind === 'crypto') {
+      costPerUnit = isFinite(premMid) && premMid > 0 ? premMid : maxLossPerUnit;
+      unitLabel = units === 1 ? 'unit' : 'units';
+    } else {
+      costPerUnit = isFinite(premMid) && premMid > 0 ? premMid : maxLossPerUnit;
+      unitLabel = units === 1 ? 'unit' : 'units';
+    }
+
+    const cost   = units * costPerUnit;
+    const pct    = (cost / portfolioValue) * 100;
+    const atRisk = units * maxLossPerUnit;
+
+    return {
+      mode: 'sized',
+      units, unitLabel,
+      cost, pct,
+      atRisk,
+      budgetPct: budget * 100,
+      capped,
+      note: capped ? 'Cap: 5 contracts max · don\'t over-concentrate' : null,
+      portfolioValue,
+      kind,
+    };
+  }
+
+  function sizeRowColor(T, pct) {
+    if (!isFinite(pct)) return T.textMid;
+    if (pct < 5)  return T.bull;
+    if (pct < 10) return T.signal;
+    return T.bear;
+  }
+
+  function fmtMoney(n) {
+    if (!isFinite(n)) return '—';
+    const abs = Math.abs(n);
+    if (abs >= 1000) return '$' + Math.round(n).toLocaleString();
+    return '$' + n.toFixed(abs < 10 ? 2 : 0);
+  }
+
+  // --------------------------------------------------------------------
   // TRTradeOfDay component
   // --------------------------------------------------------------------
   function TRTradeOfDay(props) {
@@ -215,7 +412,60 @@
     const [cache, setCache]     = React.useState(() => loadCache());
     const [loading, setLoading] = React.useState(false);
     const [error, setError]     = React.useState(null);
+    const [toast, setToast]     = React.useState(null); // { msg, key }
+    const [pngBusy, setPngBusy] = React.useState(false);
+    const [pngError, setPngError] = React.useState(false);
     const autoRef = React.useRef(false);
+    const h2cRef  = React.useRef(null); // promise cache for html2canvas loader
+
+    // --- toast helper (200ms fade in, 2s show, fade out) ------------------
+    const showToast = React.useCallback((msg) => {
+      setToast({ msg, key: Date.now() });
+    }, []);
+    React.useEffect(() => {
+      if (!toast) return;
+      const t = setTimeout(() => setToast(null), 2400);
+      return () => clearTimeout(t);
+    }, [toast]);
+
+    // --- clipboard helper (with execCommand fallback) ---------------------
+    const copyText = React.useCallback(async (text) => {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      } catch {}
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch { return false; }
+    }, []);
+
+    // --- html2canvas lazy loader ------------------------------------------
+    const loadHtml2Canvas = React.useCallback(() => {
+      if (window.html2canvas) return Promise.resolve(window.html2canvas);
+      if (h2cRef.current) return h2cRef.current;
+      h2cRef.current = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+        s.async = true;
+        s.onload = () => {
+          if (window.html2canvas) resolve(window.html2canvas);
+          else reject(new Error('html2canvas loaded but not on window'));
+        };
+        s.onerror = () => { h2cRef.current = null; reject(new Error('html2canvas CDN blocked')); };
+        document.head.appendChild(s);
+      });
+      return h2cRef.current;
+    }, []);
 
     const hasKey = hasAnyLLMKey();
 
@@ -390,6 +640,238 @@
     const lossD   = (t.max_loss && (t.max_loss.dollars || t.max_loss.usd)) || '—';
     const lossP   = (t.max_loss && (t.max_loss.pct || t.max_loss.percent)) || '';
 
+    // ----------------------------------------------------------------
+    // Recommended sizing (computed each render from live localStorage)
+    // ----------------------------------------------------------------
+    const portfolioValue = (() => {
+      try { return loadPortfolioValue(); } catch { return 10000; }
+    })();
+    const sizing = (() => {
+      try { return computeSize(t, portfolioValue); } catch { return null; }
+    })();
+
+    // ----------------------------------------------------------------
+    // share helpers
+    // ----------------------------------------------------------------
+    const shareDate = (() => {
+      try {
+        const d = new Date(cache.generatedAt || Date.now());
+        return isFinite(d.getTime()) ? d : new Date();
+      } catch { return new Date(); }
+    })();
+    const shareDateISO = shareDate.toISOString().slice(0, 10); // YYYY-MM-DD
+    const shareDateHuman = shareDate.toLocaleDateString(undefined, {
+      weekday: 'short', month: 'short', day: 'numeric',
+    });
+    const publicURL = (typeof window !== 'undefined' && window.TR_PUBLIC_URL) || 'https://traderadar.ggauntlet.com';
+
+    function buildLinkedInText() {
+      const premStr = premMid + (premBid || premAsk ? ` (bid ${premBid || '—'} / ask ${premAsk || '—'})` : '');
+      const lossStr = lossD + (lossP ? ` (${lossP})` : '');
+      const regime  = (t.reasoning && String(t.reasoning).trim()) || 'Multi-LLM consensus read.';
+      return [
+        `⚡ Today's Trade · ${shareDateHuman}`,
+        '',
+        `📊 ${t.conviction} conviction · ${regime}`,
+        '',
+        `🎯 The play: ${t.instrument || '—'}`,
+        `Entry: ${premStr} · Max loss: ${lossStr}`,
+        `Target: ${t.target_exit || '—'} · Stop: ${t.stop_rule || '—'}`,
+        '',
+        `💡 Thesis: ${t.thesis || '—'}`,
+        '',
+        'Built with TradeRadar — multi-LLM consensus + macro drivers + military flight data fused into one view.',
+        '',
+        `Demo: ${publicURL}`,
+        '',
+        '#options #trading #macro #AItrading',
+      ].join('\n');
+    }
+
+    const onCopyText = React.useCallback(async () => {
+      const ok = await copyText(buildLinkedInText());
+      showToast(ok ? '✓ Copied' : 'Copy failed');
+    }, [copyText, showToast, t, cache, publicURL]);
+
+    const onCopyLink = React.useCallback(async () => {
+      const url = `${publicURL}/?share=trade-${shareDateISO}`;
+      const ok = await copyText(url);
+      showToast(ok ? '✓ Link copied' : 'Copy failed');
+    }, [copyText, showToast, publicURL, shareDateISO]);
+
+    // Build the enlarged share card DOM off-screen, capture, trigger download
+    const onDownloadPNG = React.useCallback(async () => {
+      if (pngBusy) return;
+      setPngBusy(true); setPngError(false);
+      let mount = null;
+      try {
+        const h2c = await loadHtml2Canvas();
+        // Build share-card node (1080x1080)
+        mount = document.createElement('div');
+        mount.style.position = 'fixed';
+        mount.style.left = '-10000px';
+        mount.style.top = '0';
+        mount.style.width = '1080px';
+        mount.style.height = '1080px';
+        mount.style.zIndex = '-1';
+        mount.style.pointerEvents = 'none';
+        const navy = '#0b0f1a';
+        const gold = '#c9a227';
+        const ink2 = '#10141B';
+        const textMuted = 'rgba(180,188,200,0.75)';
+        const textDim = 'rgba(130,138,150,0.65)';
+        const mono = '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+        const convColor = t.conviction === 'HIGH'   ? '#6FCF8E'
+                        : t.conviction === 'MEDIUM' ? gold
+                        : t.conviction === 'PASS'   ? textDim
+                        : '#ffffff';
+        const esc = (s) => String(s == null ? '—' : s)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const premLine = esc(premMid) + (premBid || premAsk
+          ? ` <span style="color:${textDim};font-weight:400">· bid ${esc(premBid || '—')} / ask ${esc(premAsk || '—')}</span>`
+          : '');
+        const lossLine = esc(lossD) + (lossP
+          ? ` <span style="color:${textMuted};font-weight:400">· ${esc(lossP)}</span>`
+          : '');
+        mount.innerHTML = `
+          <div style="
+            width:1080px;height:1080px;box-sizing:border-box;
+            background:linear-gradient(145deg, ${navy} 0%, #070a12 100%);
+            padding:28px;
+            font-family:InterTight,-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;
+            color:#fff;
+          ">
+            <div style="
+              width:100%;height:100%;box-sizing:border-box;
+              border-radius:24px;padding:56px 60px;
+              background:${navy};
+              border:3px solid transparent;
+              background-image:
+                linear-gradient(${navy}, ${navy}),
+                linear-gradient(135deg, ${gold} 0%, #f0cd5a 50%, ${gold} 100%);
+              background-origin:border-box;
+              background-clip:padding-box,border-box;
+              display:flex;flex-direction:column;
+            ">
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;">
+                <div style="
+                  width:46px;height:46px;border-radius:50%;
+                  background:linear-gradient(135deg,${gold},#8c6d1a);
+                  display:flex;align-items:center;justify-content:center;
+                  font-family:${mono};font-weight:800;font-size:20px;color:${navy};
+                  letter-spacing:1px;
+                ">TR</div>
+                <div style="
+                  font-family:${mono};font-size:14px;letter-spacing:3px;
+                  color:${gold};font-weight:700;text-transform:uppercase;
+                ">TradeRadar</div>
+                <div style="
+                  margin-left:auto;font-family:${mono};font-size:14px;
+                  color:${textMuted};letter-spacing:1.5px;
+                ">${esc(shareDateHuman.toUpperCase())}</div>
+              </div>
+
+              <div style="
+                font-family:${mono};font-size:56px;font-weight:800;
+                color:#fff;letter-spacing:2px;line-height:1.02;margin-top:10px;
+              ">TRADE OF<br/>THE DAY</div>
+
+              <div style="
+                margin-top:22px;display:flex;align-items:flex-start;gap:18px;
+              ">
+                <div style="
+                  flex:1;font-size:22px;line-height:1.4;color:#e8ecf2;font-weight:500;
+                ">${esc(t.thesis || '—')}</div>
+                <div style="
+                  padding:10px 18px;font-family:${mono};font-size:16px;font-weight:800;
+                  letter-spacing:2px;color:${navy};background:${convColor};
+                  border-radius:8px;white-space:nowrap;
+                ">${esc(t.conviction)}</div>
+              </div>
+
+              <div style="
+                margin-top:26px;padding:22px 26px;background:${ink2};
+                border:1px solid rgba(255,255,255,0.08);border-radius:14px;
+                font-family:${mono};font-size:32px;font-weight:700;letter-spacing:1px;color:#fff;
+              ">${esc(t.instrument || '—')}</div>
+
+              <div style="
+                margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:22px;
+              ">
+                <div>
+                  <div style="font-family:${mono};font-size:12px;letter-spacing:2px;color:${textDim};font-weight:700;text-transform:uppercase;margin-bottom:8px;">Entry premium</div>
+                  <div style="font-family:${mono};font-size:22px;font-weight:700;color:${gold};">${premLine}</div>
+                </div>
+                <div>
+                  <div style="font-family:${mono};font-size:12px;letter-spacing:2px;color:${textDim};font-weight:700;text-transform:uppercase;margin-bottom:8px;">Max loss</div>
+                  <div style="font-family:${mono};font-size:22px;font-weight:700;color:#D96B6B;">${lossLine}</div>
+                </div>
+                <div>
+                  <div style="font-family:${mono};font-size:12px;letter-spacing:2px;color:${textDim};font-weight:700;text-transform:uppercase;margin-bottom:8px;">Target exit</div>
+                  <div style="font-family:${mono};font-size:20px;font-weight:700;color:#6FCF8E;line-height:1.3;">${esc(t.target_exit || '—')}</div>
+                </div>
+                <div>
+                  <div style="font-family:${mono};font-size:12px;letter-spacing:2px;color:${textDim};font-weight:700;text-transform:uppercase;margin-bottom:8px;">Stop / kill rule</div>
+                  <div style="font-family:${mono};font-size:20px;font-weight:700;color:#D96B6B;line-height:1.3;">${esc(t.stop_rule || '—')}</div>
+                </div>
+              </div>
+
+              <div style="flex:1;"></div>
+
+              <div style="
+                margin-top:22px;padding-top:22px;border-top:1px solid rgba(201,162,39,0.28);
+                display:flex;align-items:center;gap:14px;
+              ">
+                <div style="
+                  font-family:${mono};font-size:14px;color:${textMuted};letter-spacing:1.5px;
+                ">Multi-LLM consensus · Macro drivers · Flight data</div>
+                <div style="
+                  margin-left:auto;font-family:${mono};font-size:14px;
+                  color:${gold};font-weight:700;letter-spacing:1.5px;
+                ">${esc(publicURL.replace(/^https?:\/\//, ''))}</div>
+              </div>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(mount);
+        // give layout a tick
+        await new Promise(r => setTimeout(r, 40));
+        const canvas = await h2c(mount.firstElementChild, {
+          width: 1080, height: 1080,
+          backgroundColor: navy,
+          scale: 1,
+          useCORS: true,
+          logging: false,
+        });
+        const url = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `traderadar-trade-${shareDateISO}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        showToast('✓ PNG downloaded');
+      } catch (e) {
+        setPngError(true);
+        showToast('Error — try Copy text');
+      } finally {
+        if (mount && mount.parentNode) mount.parentNode.removeChild(mount);
+        setPngBusy(false);
+      }
+    }, [pngBusy, loadHtml2Canvas, showToast, t, premMid, premBid, premAsk, lossD, lossP, shareDateISO, shareDateHuman, publicURL]);
+
+    const shareBtnStyle = {
+      padding: '6px 12px',
+      fontFamily: MONO, fontSize: 11, fontWeight: 600,
+      background: T.ink200, color: T.textMid,
+      border: `1px solid ${T.edge || 'rgba(255,255,255,0.06)'}`,
+      borderRadius: 5, cursor: 'pointer', letterSpacing: 0.4,
+      whiteSpace: 'nowrap',
+      transition: 'background 140ms ease, color 140ms ease',
+    };
+    const onBtnHoverIn  = (e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = T.text; };
+    const onBtnHoverOut = (e) => { e.currentTarget.style.background = T.ink200; e.currentTarget.style.color = T.textMid; };
+
     const fieldLabel = {
       fontFamily: MONO, fontSize: 9, letterSpacing: 1.0,
       color: T.textDim, fontWeight: 600, textTransform: 'uppercase',
@@ -493,6 +975,90 @@
           </div>
         )}
 
+        {/* Recommended size — portfolio-aware position sizing */}
+        {sizing && (() => {
+          const pctColor = sizing.mode === 'sized'
+            ? sizeRowColor(T, sizing.pct)
+            : (sizing.mode === 'fallback' ? T.signal : T.textDim);
+          const bigNumber =
+            sizing.mode === 'sized'
+              ? `${sizing.units} ${sizing.unitLabel}`
+              : sizing.mode === 'fallback'
+                ? fmtMoney(sizing.dollars)
+                : '—';
+          const subtext =
+            sizing.mode === 'sized'
+              ? [
+                  `${fmtMoney(sizing.cost)} cost`,
+                  `${sizing.pct.toFixed(1)}% of portfolio`,
+                  `${fmtMoney(sizing.atRisk)} at risk (${sizing.budgetPct.toFixed(1)}% budget)`,
+                ].join(' · ')
+              : sizing.mode === 'fallback'
+                ? `Estimated allocation · ${sizing.budgetPct.toFixed(1)}% of ${fmtMoney(portfolioValue)} portfolio`
+                : sizing.note || '—';
+          return (
+            <div style={{
+              marginTop: 12,
+              padding: '10px 12px',
+              background: T.ink200,
+              borderLeft: `3px solid ${T.signal}`,
+              borderTop: `1px solid ${T.edge || 'rgba(255,255,255,0.06)'}`,
+              borderRight: `1px solid ${T.edge || 'rgba(255,255,255,0.06)'}`,
+              borderBottom: `1px solid ${T.edge || 'rgba(255,255,255,0.06)'}`,
+              borderRadius: 6,
+            }}>
+              <div style={{
+                fontFamily: MONO, fontSize: 9, letterSpacing: 1.0,
+                color: T.textDim, fontWeight: 600, textTransform: 'uppercase',
+                marginBottom: 6,
+              }}>
+                💰 Recommended size
+              </div>
+              <div style={{
+                display: 'flex', alignItems: 'baseline', gap: 12,
+                flexWrap: 'wrap',
+              }}>
+                <div style={{
+                  fontFamily: MONO,
+                  fontSize: sizing.mode === 'standDown' ? 14 : 22,
+                  fontWeight: 700,
+                  letterSpacing: 0.4,
+                  color: sizing.mode === 'standDown' ? T.textDim : pctColor,
+                  lineHeight: 1.1,
+                }}>
+                  {sizing.mode === 'standDown' ? (sizing.note || 'STAND DOWN') : bigNumber}
+                </div>
+                {sizing.mode !== 'standDown' && (
+                  <div style={{
+                    fontFamily: MONO, fontSize: 10.5, color: T.textMid,
+                    letterSpacing: 0.2,
+                  }}>
+                    {subtext}
+                  </div>
+                )}
+              </div>
+              {sizing.mode === 'sized' && sizing.note && (
+                <div style={{
+                  marginTop: 6,
+                  fontFamily: MONO, fontSize: 9.5,
+                  color: T.bear, letterSpacing: 0.3,
+                }}>
+                  ⚠ {sizing.note}
+                </div>
+              )}
+              {sizing.mode === 'fallback' && (
+                <div style={{
+                  marginTop: 6,
+                  fontFamily: MONO, fontSize: 9.5,
+                  color: T.textDim, letterSpacing: 0.3,
+                }}>
+                  {sizing.note}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Footer */}
         <div style={{
           marginTop: 12, paddingTop: 10,
@@ -520,6 +1086,78 @@
             }}
           >
             Open in Trade Ticket →
+          </div>
+        </div>
+
+        {/* Share row — divider + three buttons */}
+        <div style={{
+          marginTop: 10, paddingTop: 10,
+          borderTop: `1px solid ${T.edge || 'rgba(255,255,255,0.06)'}`,
+          display: 'flex', alignItems: 'center', gap: 8,
+          position: 'relative',
+        }}>
+          <div style={{
+            fontFamily: MONO, fontSize: 9.5, color: T.textDim, letterSpacing: 1.0,
+            textTransform: 'uppercase', fontWeight: 700,
+          }}>
+            Share
+          </div>
+
+          {/* toast */}
+          {toast && (
+            <div
+              key={toast.key}
+              style={{
+                fontFamily: MONO, fontSize: 10.5, fontWeight: 600,
+                color: T.bull || '#6FCF8E', letterSpacing: 0.4,
+                marginLeft: 8,
+                animation: 'tr-toast-fade 2.4s ease forwards',
+              }}
+            >
+              {toast.msg}
+            </div>
+          )}
+          <style>{`@keyframes tr-toast-fade {
+            0%   { opacity: 0; transform: translateY(2px); }
+            8%   { opacity: 1; transform: translateY(0); }
+            92%  { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-2px); }
+          }`}</style>
+
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <div
+              title="Copy a LinkedIn-ready post to clipboard"
+              onClick={onCopyText}
+              onMouseEnter={onBtnHoverIn}
+              onMouseLeave={onBtnHoverOut}
+              style={shareBtnStyle}
+            >
+              📋 Copy text
+            </div>
+            <div
+              title={pngError ? 'html2canvas failed to load — Copy text instead' : 'Download a 1080×1080 PNG for LinkedIn'}
+              onClick={pngBusy ? undefined : onDownloadPNG}
+              onMouseEnter={onBtnHoverIn}
+              onMouseLeave={onBtnHoverOut}
+              style={{
+                ...shareBtnStyle,
+                cursor: pngBusy ? 'wait' : 'pointer',
+                opacity: pngBusy ? 0.6 : 1,
+                color: pngError ? (T.bear || '#D96B6B') : T.textMid,
+                borderColor: pngError ? (T.bear || '#D96B6B') : (T.edge || 'rgba(255,255,255,0.06)'),
+              }}
+            >
+              {pngError ? '⚠ Error — try Copy text' : (pngBusy ? '🖼 Rendering…' : '🖼 Download PNG')}
+            </div>
+            <div
+              title="Copy a permalink for today's trade"
+              onClick={onCopyLink}
+              onMouseEnter={onBtnHoverIn}
+              onMouseLeave={onBtnHoverOut}
+              style={shareBtnStyle}
+            >
+              🔗 Copy link
+            </div>
           </div>
         </div>
       </div>

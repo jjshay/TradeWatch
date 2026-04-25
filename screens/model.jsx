@@ -177,6 +177,56 @@ const OIL_TO_BTC = { claude: -340, gpt: -280 };
 const OIL_TO_BTC_CONSENSUS = (OIL_TO_BTC.claude + OIL_TO_BTC.gpt) / 2;
 
 // ============================================================================
+// AUTO-WIRE: Polymarket / Kalshi → Driver sliders
+// ============================================================================
+// Off by default. When ON, pulls relevant contracts from
+// window.PredictionMarkets.fetchRelevant() and maps each contract to a driver
+// slider via contractRegex. Slider values are derived from yesPrice (0..1):
+//   formula 'direct'  → slider = round(prob * 100)
+//   formula 'inverse' → slider = round(100 - prob * 100)
+// US Shale and SPR/Reserves have no clean prediction-market analog → stay manual.
+const MODEL_AUTOWIRE_MAP = {
+  'Iran / Strait': {
+    contractRegex: /iran.*deal|hormuz.*close|iran.*strike|iran.*nuclear/i,
+    formula: 'inverse',
+    rationale: 'higher deal probability → lower oil tension',
+  },
+  'OPEC+ Policy': {
+    contractRegex: /opec.*cut|opec.*production|saudi.*output/i,
+    formula: 'direct',
+    rationale: 'higher cut probability → higher slider (bullish oil)',
+  },
+  'Fed / Dollar': {
+    contractRegex: /fed.*cut|fomc.*cut|rate.*cut/i,
+    formula: 'inverse',
+    rationale: 'rate cut probability → weaker dollar → bullish risk',
+  },
+  'China Demand': {
+    contractRegex: /china.*gdp|china.*recession|china.*stimulus/i,
+    formula: 'direct',
+    rationale: 'higher growth probability → higher demand',
+  },
+  'Russia / Ukraine': {
+    contractRegex: /russia.*ukraine|ukraine.*ceasefire|russia.*sanction/i,
+    formula: 'inverse',
+    rationale: 'higher ceasefire probability → less oil supply risk',
+  },
+  // 'US Shale' and 'SPR / Reserves' intentionally absent — no clean analog.
+};
+const MODEL_AUTOWIRE_STORAGE_KEY = 'tr_model_autowire_v1';
+function modelAutowireMatch(driverName, markets) {
+  const cfg = MODEL_AUTOWIRE_MAP[driverName];
+  if (!cfg || !Array.isArray(markets) || !markets.length) return null;
+  const hit = markets.find(m => cfg.contractRegex.test(m.title || ''));
+  if (!hit) return null;
+  const prob = Math.max(0, Math.min(1, Number(hit.yesPrice) || 0));
+  const sliderVal = cfg.formula === 'inverse'
+    ? Math.round(100 - prob * 100)
+    : Math.round(prob * 100);
+  return { market: hit, prob, sliderVal, formula: cfg.formula, rationale: cfg.rationale };
+}
+
+// ============================================================================
 // Component
 // ============================================================================
 
@@ -239,6 +289,76 @@ function ModelScreen({ onNav }) {
 
   const MAX_WEIGHT = 0.28;
   const OIL_MAX_WEIGHT = 0.25;
+
+  // ---- AUTO-WIRE state (Polymarket / Kalshi → Oil driver sliders) ----
+  const autowireEngineAvailable = (typeof window !== 'undefined'
+    && window.PredictionMarkets
+    && typeof window.PredictionMarkets.fetchRelevant === 'function');
+  const [autowireOn, setAutowireOn] = React.useState(() => {
+    try {
+      if (typeof localStorage === 'undefined') return false;
+      return localStorage.getItem(MODEL_AUTOWIRE_STORAGE_KEY) === 'true';
+    } catch (_e) { return false; }
+  });
+  // Map<driverName, { market, prob, sliderVal, formula, rationale }>
+  const [autowireMatches, setAutowireMatches] = React.useState({});
+  const [autowireLastTs, setAutowireLastTs] = React.useState(null);
+  const [autowireFetching, setAutowireFetching] = React.useState(false);
+
+  React.useEffect(() => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(MODEL_AUTOWIRE_STORAGE_KEY, autowireOn ? 'true' : 'false');
+      }
+    } catch (_e) {}
+  }, [autowireOn]);
+
+  const runAutowirePull = React.useCallback(async () => {
+    if (!autowireEngineAvailable) return;
+    setAutowireFetching(true);
+    try {
+      const markets = await window.PredictionMarkets.fetchRelevant();
+      const next = {};
+      Object.keys(MODEL_AUTOWIRE_MAP).forEach(name => {
+        const m = modelAutowireMatch(name, markets);
+        if (m) next[name] = m;
+      });
+      setAutowireMatches(next);
+      setAutowireLastTs(new Date());
+    } catch (_e) {
+      // graceful degrade — keep previous matches
+    } finally {
+      setAutowireFetching(false);
+    }
+  }, [autowireEngineAvailable]);
+
+  // Pull on toggle-ON + refresh every 5 minutes while ON.
+  React.useEffect(() => {
+    if (!autowireOn || !autowireEngineAvailable) return;
+    runAutowirePull();
+    const id = setInterval(() => { runAutowirePull(); }, 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [autowireOn, autowireEngineAvailable, runAutowirePull]);
+
+  // When new matches arrive (or toggle flips), push values into the relevant
+  // oil driver sliders. (BTC driver "Iran / Strait" is intentionally left
+  // manual — auto-wire operates on the oil driver surface only.)
+  React.useEffect(() => {
+    if (!autowireOn) return;
+    setOilDrivers(prev => prev.map(d => {
+      const m = autowireMatches[d.name];
+      if (!m) return d;
+      if (d.val === m.sliderVal) return d;
+      return { ...d, val: m.sliderVal };
+    }));
+  }, [autowireOn, autowireMatches]);
+
+  const autowireAgo = (() => {
+    if (!autowireLastTs) return null;
+    const s = Math.max(0, Math.round((Date.now() - autowireLastTs.getTime()) / 1000));
+    if (s < 60) return `${s}s ago`;
+    return `${Math.round(s / 60)}m ago`;
+  })();
 
   // BTC Projection math
   const projection = React.useMemo(() => {
@@ -417,7 +537,16 @@ function ModelScreen({ onNav }) {
     const r = el.getBoundingClientRect();
     return Math.max(0, Math.min(100, ((e.clientX - r.left) / r.width) * 100));
   };
+  // A driver is locked (read-only) when auto-wire is ON AND we have a matched
+  // contract for that driver. Sliders without a matched contract (e.g. US Shale,
+  // SPR/Reserves, or any mapped driver whose regex didn't hit today) stay manual.
+  const isOilDriverLocked = (idx) => {
+    if (!autowireOn) return false;
+    const name = oilDrivers[idx] && oilDrivers[idx].name;
+    return !!(name && autowireMatches[name]);
+  };
   const oilHandlePointerDown = (idx) => (e) => {
+    if (isOilDriverLocked(idx)) { e.preventDefault(); setOilActiveIdx(idx); return; }
     e.preventDefault();
     setOilDragIdx(idx); setOilActiveIdx(idx);
     setOilDriverVal(idx, oilValFromEvent(idx, e));
@@ -433,6 +562,7 @@ function ModelScreen({ onNav }) {
     window.addEventListener('pointercancel', up);
   };
   const oilHandleKeyDown = (idx) => (e) => {
+    if (isOilDriverLocked(idx)) return;
     if (e.key === 'ArrowRight' || e.key === 'ArrowUp')   { e.preventDefault(); setOilDriverVal(idx, oilDrivers[idx].val + (e.shiftKey ? 10 : 1)); setOilActiveIdx(idx); }
     if (e.key === 'ArrowLeft'  || e.key === 'ArrowDown') { e.preventDefault(); setOilDriverVal(idx, oilDrivers[idx].val - (e.shiftKey ? 10 : 1)); setOilActiveIdx(idx); }
     if (e.key === 'Home') { e.preventDefault(); setOilDriverVal(idx, 0); }
@@ -464,6 +594,45 @@ function ModelScreen({ onNav }) {
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 16, alignItems: 'center' }}>
           <TRLiveStripInline />
           <TRGearInline />
+
+          {/* AUTO-WIRE toggle — Polymarket/Kalshi → oil driver sliders */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+            <button
+              type="button"
+              disabled={!autowireEngineAvailable}
+              onClick={() => { if (autowireEngineAvailable) setAutowireOn(v => !v); }}
+              title={
+                !autowireEngineAvailable
+                  ? 'Prediction Markets engine not available'
+                  : autowireOn
+                    ? 'LIVE FROM MARKETS — sliders driven by Polymarket/Kalshi probabilities. Click to disable.'
+                    : 'Click to drive sliders from Polymarket/Kalshi probabilities.'
+              }
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '4px 10px', borderRadius: 999,
+                background: autowireOn ? 'rgba(201,162,39,0.14)' : T.ink200,
+                border: `1px solid ${autowireOn ? T.signal : T.edge}`,
+                color: autowireOn ? T.signal : (autowireEngineAvailable ? T.textMid : T.textDim),
+                fontFamily: T.mono, fontSize: 10, fontWeight: 600, letterSpacing: 0.5,
+                cursor: autowireEngineAvailable ? 'pointer' : 'not-allowed',
+                opacity: autowireEngineAvailable ? 1 : 0.55,
+                boxShadow: autowireOn ? '0 0 0 2px rgba(201,162,39,0.08)' : 'none',
+                transition: 'background 160ms ease, border-color 160ms ease, color 160ms ease',
+              }}>
+              <span style={{ fontSize: 11 }}>🔗</span>
+              <span>{autowireOn ? 'LIVE FROM MARKETS' : 'LIVE FROM MARKETS · OFF'}</span>
+              {autowireFetching && (
+                <span style={{ width: 5, height: 5, borderRadius: 3, background: T.signal, animation: 'tw-pulse 1s ease-in-out infinite' }} />
+              )}
+            </button>
+            <div style={{ fontFamily: T.mono, fontSize: 9, color: T.textDim, letterSpacing: 0.3 }}>
+              {autowireOn
+                ? (autowireAgo ? `Updated ${autowireAgo}` : (autowireFetching ? 'Updating…' : 'Updating…'))
+                : (autowireEngineAvailable ? 'Manual driver mode' : 'Markets engine offline')}
+            </div>
+          </div>
+
           <div style={{ fontFamily: T.mono, fontSize: 11, color: T.textMid, letterSpacing: 0.4 }}>
             <span style={{ color: T.signal }}>●</span>&nbsp; MODEL · BTC + OIL CROSS-ASSET
           </div>
@@ -962,6 +1131,15 @@ function ModelScreen({ onNav }) {
                   const barW = (weight / OIL_MAX_WEIGHT) * 100;
                   const implied = oilDriverImpliedDollar(d.name);
                   const contrib = oilMath.contribs[idx].contrib;
+                  const autowireCfg = MODEL_AUTOWIRE_MAP[d.name];
+                  const autowireHit = autowireOn ? autowireMatches[d.name] : null;
+                  const isLocked = !!autowireHit;
+                  const autowireOffButMappable = autowireOn && autowireCfg && !autowireHit;
+                  const linkTooltip = autowireHit
+                    ? `from ${autowireHit.market.source || 'market'}: ${autowireHit.market.title} · ${Math.round(autowireHit.prob * 100)}% · ${autowireHit.formula === 'inverse' ? 'inverse' : 'direct'} formula → slider ${autowireHit.sliderVal}`
+                    : autowireOffButMappable
+                      ? 'Auto-wire ON but no matching contract found — slider remains manual'
+                      : (autowireCfg ? 'Auto-wireable — enable LIVE FROM MARKETS to drive from probabilities' : 'No prediction-market analog — manual only');
                   return (
                     <div key={d.name} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       <div
@@ -971,14 +1149,39 @@ function ModelScreen({ onNav }) {
                         }}
                         style={{
                           background: isOpen ? T.ink200 : T.ink100,
-                          border: `1px solid ${isOpen ? T.signal + '55' : T.edge}`,
+                          border: isLocked
+                            ? `1px dashed ${T.signal}`
+                            : `1px solid ${isOpen ? T.signal + '55' : T.edge}`,
                           borderRadius: 8, padding: '10px 14px',
-                          boxShadow: isOpen ? `0 0 0 1px rgba(201,162,39,0.12), inset 0 0.5px 0 rgba(255,255,255,0.06)` : 'none',
+                          boxShadow: isLocked
+                            ? `0 0 0 1px rgba(201,162,39,0.14), inset 0 0.5px 0 rgba(255,255,255,0.04)`
+                            : (isOpen ? `0 0 0 1px rgba(201,162,39,0.12), inset 0 0.5px 0 rgba(255,255,255,0.06)` : 'none'),
                           cursor: 'pointer',
                           transition: 'background 160ms cubic-bezier(0.2,0.7,0.2,1), border-color 160ms cubic-bezier(0.2,0.7,0.2,1)',
                         }}>
                         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
                           <div style={{ fontSize: 12.5, fontWeight: 500, color: T.text }}>{d.name}</div>
+                          {isLocked && (
+                            <span
+                              title={linkTooltip}
+                              style={{
+                                marginLeft: 6, padding: '1px 5px', borderRadius: 4,
+                                fontFamily: T.mono, fontSize: 9, letterSpacing: 0.3,
+                                background: 'rgba(201,162,39,0.14)', color: T.signal,
+                                border: `0.5px solid rgba(201,162,39,0.4)`,
+                                display: 'inline-flex', alignItems: 'center', gap: 3,
+                              }}>🔗 {Math.round(autowireHit.prob * 100)}%</span>
+                          )}
+                          {autowireOffButMappable && (
+                            <span
+                              title={linkTooltip}
+                              style={{
+                                marginLeft: 6, padding: '1px 5px', borderRadius: 4,
+                                fontFamily: T.mono, fontSize: 9, letterSpacing: 0.3,
+                                background: T.ink200, color: T.textDim,
+                                border: `0.5px dashed ${T.edge}`,
+                              }}>🔗 OFF</span>
+                          )}
                           <div style={{
                             marginLeft: 8, fontFamily: T.mono, fontSize: 8.5, fontWeight: 600,
                             letterSpacing: 0.8, color: tier.color,
@@ -1023,24 +1226,30 @@ function ModelScreen({ onNav }) {
                           onKeyDown={oilHandleKeyDown(idx)}
                           role="slider" aria-valuemin={0} aria-valuemax={100}
                           aria-valuenow={d.val} aria-label={d.name}
-                          style={{ position: 'relative', height: 18, marginBottom: 4, cursor: 'pointer', touchAction: 'none', outline: 'none' }}>
+                          aria-readonly={isLocked}
+                          title={isLocked ? linkTooltip : undefined}
+                          style={{ position: 'relative', height: 18, marginBottom: 4, cursor: isLocked ? 'not-allowed' : 'pointer', touchAction: 'none', outline: 'none' }}>
                           <div style={{
                             position: 'absolute', top: 8, left: 0, right: 0, height: 2,
                             background: 'rgba(255,255,255,0.06)', borderRadius: 1,
                           }} />
                           <div style={{
                             position: 'absolute', top: 8, left: 0, width: `${d.val}%`, height: 2,
-                            background: tier.color,
-                            opacity: active ? 1 : 0.55,
+                            background: isLocked
+                              ? `linear-gradient(90deg, rgba(201,162,39,0.5) 0%, ${T.signal} 100%)`
+                              : tier.color,
+                            opacity: isLocked ? 1 : (active ? 1 : 0.55),
                             borderRadius: 1,
                           }} />
                           <div style={{
                             position: 'absolute', top: 2, left: `calc(${d.val}% - 7px)`,
                             width: 14, height: 14, borderRadius: 7,
-                            background: tier.color,
-                            boxShadow: active
-                              ? `0 0 0 4px ${tier.color}26, 0 2px 4px rgba(0,0,0,0.5), inset 0 0.5px 0 rgba(255,255,255,0.3)`
-                              : '0 2px 4px rgba(0,0,0,0.5), inset 0 0.5px 0 rgba(255,255,255,0.3)',
+                            background: isLocked ? T.signal : tier.color,
+                            boxShadow: isLocked
+                              ? `0 0 0 3px rgba(201,162,39,0.22), 0 2px 4px rgba(0,0,0,0.5), inset 0 0.5px 0 rgba(255,255,255,0.3)`
+                              : (active
+                                ? `0 0 0 4px ${tier.color}26, 0 2px 4px rgba(0,0,0,0.5), inset 0 0.5px 0 rgba(255,255,255,0.3)`
+                                : '0 2px 4px rgba(0,0,0,0.5), inset 0 0.5px 0 rgba(255,255,255,0.3)'),
                           }} />
                         </div>
 
@@ -1050,7 +1259,11 @@ function ModelScreen({ onNav }) {
                           pointerEvents: 'none',
                         }}>
                           <span>{d.low.toUpperCase()}</span>
-                          <span>NEWS {fmtDollar2(implied)}/bbl</span>
+                          <span>
+                            {isLocked
+                              ? <span style={{ color: T.signal }}>LIVE {Math.round(autowireHit.prob * 100)}% · slider {autowireHit.sliderVal}</span>
+                              : `NEWS ${fmtDollar2(implied)}/bbl`}
+                          </span>
                           <span>{d.high.toUpperCase()}</span>
                         </div>
                       </div>

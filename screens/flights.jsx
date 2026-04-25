@@ -39,15 +39,119 @@ function callsignHint(cs) {
 
 // Color-coded aircraft categories — trader-friendly buckets so you can
 // tell at a glance what the posture is. Colors match the on-map legend.
+// `type` is a coarser rollup used by the activity summary panel:
+//   Military | Cargo | Intelligence
 function aircraftCategory(cs) {
   const c = (cs || '').toUpperCase();
-  if (/^HAVEN|^KC|^PACK|^QID/.test(c))                    return { cat: 'REFUELER',  color: '#E85D75', label: 'Refueler · strike-ops prep' };
-  if (/^BAT|^SLAM|^BONE|^DOOM|^NOBLE|^STEEL/.test(c))     return { cat: 'BOMBER',    color: '#D96B6B', label: 'Bomber / strategic' };
-  if (/^CNV|^RYDR|^POSEIDON|^NAVY/.test(c))               return { cat: 'PATROL',    color: '#5FC9C2', label: 'Navy patrol · P-8 ASW' };
-  if (/^RCH|^BOXR|^MOOSE|^PEACH/.test(c))                 return { cat: 'TRANSPORT', color: '#c9a227', label: 'Transport · C-17/C-5' };
-  if (/^SPAR|^BLUE|^GOLD|^MAGMA/.test(c))                 return { cat: 'EXEC',      color: '#B07BE6', label: 'Exec / VIP transport' };
-  if (/^DRAGON|^OLIVE|^SEMPRA|^HAWK|^HAMMER/.test(c))     return { cat: 'ISR',       color: '#6FCF8E', label: 'ISR / recon' };
-  return                                                     { cat: 'OTHER',     color: '#9AA3B2', label: 'Other US military' };
+  if (/^HAVEN|^KC|^PACK|^QID/.test(c))                    return { cat: 'REFUELER',  color: '#E85D75', label: 'Refueler · strike-ops prep', type: 'Military' };
+  if (/^BAT|^SLAM|^BONE|^DOOM|^NOBLE|^STEEL/.test(c))     return { cat: 'BOMBER',    color: '#D96B6B', label: 'Bomber / strategic',         type: 'Military' };
+  if (/^CNV|^RYDR|^POSEIDON|^NAVY/.test(c))               return { cat: 'PATROL',    color: '#5FC9C2', label: 'Navy patrol · P-8 ASW',       type: 'Military' };
+  if (/^RCH|^BOXR|^MOOSE|^PEACH/.test(c))                 return { cat: 'TRANSPORT', color: '#c9a227', label: 'Transport · C-17/C-5',        type: 'Cargo' };
+  if (/^SPAR|^BLUE|^GOLD|^MAGMA/.test(c))                 return { cat: 'EXEC',      color: '#B07BE6', label: 'Exec / VIP transport',        type: 'Military' };
+  if (/^DRAGON|^OLIVE|^SEMPRA|^HAWK|^HAMMER/.test(c))     return { cat: 'ISR',       color: '#6FCF8E', label: 'ISR / recon',                 type: 'Intelligence' };
+  // International buckets used for China / Russia attribution in the summary.
+  if (/^AFL|^CES|^CKK|^CCA/.test(c))                      return { cat: 'TRANSPORT', color: '#c9a227', label: 'Intl cargo / airline',        type: 'Cargo' };
+  if (/^SDM|^RSD|^RFF|^Y20/.test(c))                      return { cat: 'OTHER',     color: '#9AA3B2', label: 'Foreign military',            type: 'Military' };
+  if (/^ELP|^P-?8|^RC-?135/.test(c))                      return { cat: 'ISR',       color: '#6FCF8E', label: 'ISR / recon',                 type: 'Intelligence' };
+  return                                                     { cat: 'OTHER',     color: '#9AA3B2', label: 'Other US military',               type: 'Military' };
+}
+
+// ---------- Iran-only summary helpers ------------------------------------
+// Attribute an aircraft to a country based on its callsign prefix.
+// Defensive: if no match, return 'OTHER' (counted in ALL, not in the
+// per-country tabs). ICAO 24-bit hex prefix lookups fall through to OTHER
+// since our history rows store callsigns, not ICAO countries.
+const COUNTRY_CALLSIGNS = {
+  USA:    /^(RCH|HAVEN|BAT|SPAR|CNV|RYDR|BLUE|GOLD|MOOSE|PEACH|SLAM|BONE|DOOM|BOXR|DRAGON|OLIVE|SEMPRA|HAWK|HAMMER|NOBLE|STEEL|MAGMA|PACK|QID|KC|POSEIDON|NAVY)/,
+  China:  /^(CCA|CES|CKK|Y20)/,
+  Russia: /^(AFL|SDM|RSD|RFF)/,
+};
+function callsignCountry(cs) {
+  const c = (cs || '').toUpperCase();
+  if (COUNTRY_CALLSIGNS.USA.test(c))    return 'USA';
+  if (COUNTRY_CALLSIGNS.China.test(c))  return 'China';
+  if (COUNTRY_CALLSIGNS.Russia.test(c)) return 'Russia';
+  return 'OTHER';
+}
+
+// Iran-only bbox — tighter than the CENTCOM bbox the history polls with.
+const IRAN_BBOX = { latMin: 25, latMax: 40, lonMin: 44, lonMax: 64 };
+function insideIran(lat, lon) {
+  return lat != null && lon != null
+    && lat >= IRAN_BBOX.latMin && lat <= IRAN_BBOX.latMax
+    && lon >= IRAN_BBOX.lonMin && lon <= IRAN_BBOX.lonMax;
+}
+
+// Time-bucket builder. Returns { label, t0, t1 } ranges in unix seconds,
+// oldest → newest so the table reads top-down chronologically.
+function buildBuckets(mode) {
+  const now = Date.now();
+  const out = [];
+  if (mode === 'Hour') {
+    const hourMs = 3_600_000;
+    const top = Math.floor(now / hourMs) * hourMs + hourMs;
+    for (let i = 23; i >= 0; i--) {
+      const t1 = top - i * hourMs;
+      const t0 = t1 - hourMs;
+      const d = new Date(t0);
+      const hrLabel = d.getHours().toString().padStart(2, '0') + ':00';
+      const relH = Math.round((now - t1) / hourMs);
+      const label = i === 0 ? 'Last hour' : relH === 0 ? hrLabel : `${hrLabel} · -${relH}h`;
+      out.push({ label, t0: t0 / 1000, t1: t1 / 1000 });
+    }
+  } else if (mode === 'Day') {
+    const dayMs = 86_400_000;
+    const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+    for (let i = 6; i >= 0; i--) {
+      const t0 = startOfToday.getTime() - i * dayMs;
+      const t1 = t0 + dayMs;
+      const d = new Date(t0);
+      const dow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
+      const mo  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+      const label = i === 0 ? 'Today' : i === 1 ? 'Yesterday' : `${dow} ${mo} ${d.getDate()}`;
+      out.push({ label, t0: t0 / 1000, t1: t1 / 1000 });
+    }
+  } else { // Week
+    const dayMs = 86_400_000;
+    const now2 = new Date();
+    // Anchor to Monday of the current week (ISO: Mon=1 … Sun=0).
+    const dow = now2.getDay(); // 0=Sun
+    const daysSinceMon = (dow + 6) % 7;
+    const mondayThisWeek = new Date(now2); mondayThisWeek.setHours(0,0,0,0);
+    mondayThisWeek.setDate(mondayThisWeek.getDate() - daysSinceMon);
+    for (let i = 3; i >= 0; i--) {
+      const t0 = mondayThisWeek.getTime() - i * 7 * dayMs;
+      const t1 = t0 + 7 * dayMs;
+      const d = new Date(t0);
+      const mo  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+      const label = i === 0 ? 'This week' : i === 1 ? 'Last week' : `Wk ${mo} ${d.getDate()}`;
+      out.push({ label, t0: t0 / 1000, t1: t1 / 1000 });
+    }
+  }
+  return out;
+}
+
+// Count unique icao24s inside Iran bbox, by (country, type), for a bucket.
+function countBucket(history, country, bucket) {
+  const seen = {}; // icao24 → type
+  for (const s of history) {
+    if (s.t < bucket.t0 || s.t >= bucket.t1) continue;
+    if (!insideIran(s.lat, s.lon)) continue;
+    const ctry = callsignCountry(s.callsign);
+    if (country !== 'ALL' && ctry !== country) continue;
+    if (country === 'ALL' && ctry === 'OTHER') {
+      // In ALL we keep OTHER; logic below will include it in total.
+    }
+    const typ = aircraftCategory(s.callsign).type;
+    seen[s.icao24] = typ;
+  }
+  const counts = { Military: 0, Cargo: 0, Intelligence: 0 };
+  for (const icao of Object.keys(seen)) {
+    const t = seen[icao];
+    if (counts[t] != null) counts[t]++;
+  }
+  const total = counts.Military + counts.Cargo + counts.Intelligence;
+  return { counts, total };
 }
 
 // Legend definitions — single source of truth for the on-map key
@@ -85,6 +189,10 @@ function FlightsScreen({ onNav }) {
   const [history, setHistory] = React.useState(loadFlightHistory());
   const [insight, setInsight] = React.useState(null);
   const [insightLoading, setInsightLoading] = React.useState(false);
+  // Activity-summary controls (new section at bottom of page).
+  const [summaryOpen, setSummaryOpen]       = React.useState(true);
+  const [summaryBucket, setSummaryBucket]   = React.useState('Day');   // Hour | Day | Week
+  const [summaryCountry, setSummaryCountry] = React.useState('ALL');   // USA | China | Russia | ALL
 
   // Initialize Leaflet map once
   React.useEffect(() => {
@@ -303,8 +411,8 @@ function FlightsScreen({ onNav }) {
 
   return (
     <div style={{
-      width: W, height: H, background: T.ink000, color: T.text,
-      fontFamily: T.ui, position: 'relative', overflow: 'hidden',
+      width: W, minHeight: H, background: T.ink000, color: T.text,
+      fontFamily: T.ui, position: 'relative', overflowX: 'hidden', overflowY: 'auto',
     }}>
       {/* Header */}
       <div style={{
@@ -585,6 +693,259 @@ function FlightsScreen({ onNav }) {
           )}
         </div>
       </div>
+
+      {/* ================================================================
+           OVER IRAN · ACTIVITY SUMMARY
+           Collapsible bottom panel — tracks unique aircraft inside the
+           Iran bbox, bucketed by Hour / Day / Week and attributed to
+           USA / China / Russia / ALL by callsign prefix. Uses the same
+           localStorage history the rest of the screen already accumulates.
+           ================================================================ */}
+      {(() => {
+        const buckets = buildBuckets(summaryBucket);
+        const bucketRows = buckets.map(b => ({ b, r: countBucket(history, summaryCountry, b) }));
+        // 24h totals for the big-number cards — always computed off Hour buckets.
+        const hourBuckets = summaryBucket === 'Hour' ? buckets : buildBuckets('Hour');
+        const last24 = hourBuckets.reduce((acc, b) => {
+          const r = countBucket(history, summaryCountry, b);
+          acc.total += r.total;
+          acc.Military += r.counts.Military;
+          acc.Cargo += r.counts.Cargo;
+          acc.Intelligence += r.counts.Intelligence;
+          return acc;
+        }, { total: 0, Military: 0, Cargo: 0, Intelligence: 0 });
+        // Prior 24h (24-48h ago) for delta.
+        const dayMs = 86_400_000;
+        const priorBuckets = Array.from({ length: 24 }, (_, i) => {
+          const t1 = Date.now() - (i) * 3_600_000 - dayMs;
+          const t0 = t1 - 3_600_000;
+          return { label: '', t0: t0 / 1000, t1: t1 / 1000 };
+        });
+        const prior24 = priorBuckets.reduce((acc, b) => acc + countBucket(history, summaryCountry, b).total, 0);
+        const delta24 = last24.total - prior24;
+        const pct24 = prior24 > 0 ? Math.round((delta24 / prior24) * 100) : null;
+        // Refueler sustained-ops signal — unique refuelers (inside Iran) last 24h.
+        const refuelerSet = new Set();
+        const now24Cut = Date.now() / 1000 - 86400;
+        for (const s of history) {
+          if (s.t < now24Cut) continue;
+          if (!insideIran(s.lat, s.lon)) continue;
+          if (summaryCountry !== 'ALL' && callsignCountry(s.callsign) !== summaryCountry) continue;
+          if (aircraftCategory(s.callsign).cat === 'REFUELER') refuelerSet.add(s.icao24);
+        }
+        const refuelerCount = refuelerSet.size;
+        const sustained = refuelerCount > 8;
+
+        const hasHistory = (history || []).length > 0;
+        const TYPE_COLORS = { Military: T.bear, Cargo: T.signal, Intelligence: '#5FC9C2' };
+        const maxRowTotal = Math.max(1, ...bucketRows.map(r => r.r.total));
+
+        return (
+          <div style={{
+            borderTop: `3px solid ${T.signal}`,
+            background: T.ink100,
+            padding: '0 0 24px 0',
+          }}>
+            {/* Section title bar */}
+            <div
+              onClick={() => setSummaryOpen(!summaryOpen)}
+              style={{
+                height: 46, display: 'flex', alignItems: 'center',
+                padding: '0 24px', cursor: 'pointer',
+                borderBottom: summaryOpen ? `1px solid ${T.edge}` : 'none',
+              }}>
+              <div style={{
+                fontSize: 11, letterSpacing: 1.4, color: T.signal,
+                textTransform: 'uppercase', fontWeight: 700, fontFamily: T.mono,
+              }}>Over Iran · Activity Summary</div>
+              <div style={{ marginLeft: 12, fontFamily: T.mono, fontSize: 10, color: T.textDim, letterSpacing: 0.4 }}>
+                bbox {IRAN_BBOX.latMin}-{IRAN_BBOX.latMax}°N · {IRAN_BBOX.lonMin}-{IRAN_BBOX.lonMax}°E
+              </div>
+              <div style={{ marginLeft: 'auto', fontFamily: T.mono, fontSize: 11, color: T.textMid }}>
+                {summaryOpen ? '▾' : '▸'}
+              </div>
+            </div>
+
+            {summaryOpen && (
+              <div style={{ padding: '16px 24px 4px' }}>
+                {!hasHistory ? (
+                  <div style={{
+                    padding: '18px 20px', background: T.ink200,
+                    border: `1px solid ${T.edgeHi}`, borderRadius: 8,
+                    fontSize: 12, color: T.textMid, lineHeight: 1.6,
+                  }}>
+                    No flight history yet — accumulating from OpenSky polling. Check back in a few minutes.
+                  </div>
+                ) : (
+                  <>
+                    {/* Tabs: time bucket */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                      <div style={{ fontSize: 10, letterSpacing: 1.2, color: T.textDim, textTransform: 'uppercase', fontWeight: 600 }}>Bucket</div>
+                      <div style={{
+                        display: 'flex', padding: 3, background: T.ink200,
+                        border: `1px solid ${T.edge}`, borderRadius: 9,
+                      }}>
+                        {['Hour','Day','Week'].map(m => {
+                          const on = summaryBucket === m;
+                          return (
+                            <div key={m} onClick={() => setSummaryBucket(m)} style={{
+                              padding: '0 14px', height: 26, display: 'flex', alignItems: 'center',
+                              fontSize: 11, fontWeight: 500, color: on ? T.ink000 : T.textMid,
+                              background: on ? T.signal : 'transparent',
+                              borderRadius: 6, cursor: on ? 'default' : 'pointer',
+                              fontFamily: T.mono, letterSpacing: 0.3,
+                            }}>{m}</div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Country tabs */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                      <div style={{ fontSize: 10, letterSpacing: 1.2, color: T.textDim, textTransform: 'uppercase', fontWeight: 600 }}>Country</div>
+                      <div style={{
+                        display: 'flex', padding: 3, background: T.ink200,
+                        border: `1px solid ${T.edge}`, borderRadius: 9,
+                      }}>
+                        {[
+                          { k: 'USA',    label: '🇺🇸 USA' },
+                          { k: 'China',  label: '🇨🇳 China' },
+                          { k: 'Russia', label: '🇷🇺 Russia' },
+                          { k: 'ALL',    label: 'ALL' },
+                        ].map(o => {
+                          const on = summaryCountry === o.k;
+                          return (
+                            <div key={o.k} onClick={() => setSummaryCountry(o.k)} style={{
+                              padding: '0 14px', height: 26, display: 'flex', alignItems: 'center',
+                              fontSize: 11, fontWeight: 500, color: on ? T.ink000 : T.textMid,
+                              background: on ? T.signal : 'transparent',
+                              borderRadius: 6, cursor: on ? 'default' : 'pointer',
+                              fontFamily: T.mono, letterSpacing: 0.3,
+                            }}>{o.label}</div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Big-number cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+                      {/* Last 24h Total */}
+                      <div style={{
+                        background: T.ink200, border: `1px solid ${T.edgeHi}`,
+                        borderRadius: 8, padding: '12px 14px',
+                      }}>
+                        <div style={{ fontSize: 9.5, letterSpacing: 1.2, color: T.textDim, textTransform: 'uppercase', fontWeight: 600, marginBottom: 6 }}>Last 24h Total</div>
+                        <div style={{ fontFamily: T.mono, fontSize: 26, color: T.text, fontWeight: 600, letterSpacing: 0.3 }}>{last24.total}</div>
+                        <div style={{ display: 'flex', gap: 10, marginTop: 6, fontFamily: T.mono, fontSize: 10, color: T.textMid }}>
+                          <span style={{ color: T.bear }}>M {last24.Military}</span>
+                          <span style={{ color: T.signal }}>C {last24.Cargo}</span>
+                          <span style={{ color: '#5FC9C2' }}>I {last24.Intelligence}</span>
+                        </div>
+                      </div>
+                      {/* vs 24h prior */}
+                      <div style={{
+                        background: T.ink200, border: `1px solid ${T.edgeHi}`,
+                        borderRadius: 8, padding: '12px 14px',
+                      }}>
+                        <div style={{ fontSize: 9.5, letterSpacing: 1.2, color: T.textDim, textTransform: 'uppercase', fontWeight: 600, marginBottom: 6 }}>vs 24h Prior</div>
+                        <div style={{
+                          fontFamily: T.mono, fontSize: 26, fontWeight: 600, letterSpacing: 0.3,
+                          color: delta24 > 0 ? T.bear : delta24 < 0 ? T.bull : T.textMid,
+                        }}>
+                          {delta24 > 0 ? '▲' : delta24 < 0 ? '▼' : '—'} {pct24 == null ? '—' : (pct24 > 0 ? '+' : '') + pct24 + '%'}
+                        </div>
+                        <div style={{ marginTop: 6, fontFamily: T.mono, fontSize: 10, color: T.textMid }}>
+                          prior {prior24} → now {last24.total}
+                        </div>
+                      </div>
+                      {/* Sustained ops */}
+                      <div style={{
+                        background: T.ink200,
+                        border: `1px solid ${sustained ? T.bear : T.edgeHi}`,
+                        borderRadius: 8, padding: '12px 14px',
+                      }}>
+                        <div style={{ fontSize: 9.5, letterSpacing: 1.2, color: T.textDim, textTransform: 'uppercase', fontWeight: 600, marginBottom: 6 }}>Sustained Ops</div>
+                        <div style={{
+                          fontFamily: T.mono, fontSize: 22, fontWeight: 600, letterSpacing: 0.5,
+                          color: sustained ? T.bear : T.bull,
+                        }}>
+                          {sustained ? 'HIGH' : 'NORMAL'}
+                        </div>
+                        <div style={{ marginTop: 6, fontFamily: T.mono, fontSize: 10, color: T.textMid }}>
+                          24h refuelers: {refuelerCount} · trigger &gt; 8
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Main table */}
+                    <div style={{
+                      background: T.ink100, border: `1px solid ${T.edge}`,
+                      borderRadius: 8, overflow: 'hidden',
+                    }}>
+                      {/* Header row */}
+                      <div style={{
+                        display: 'grid', gridTemplateColumns: '160px 1fr 160px',
+                        gap: 12, padding: '10px 14px',
+                        background: T.ink200, borderBottom: `1px solid ${T.edgeHi}`,
+                        fontFamily: T.mono, fontSize: 9.5, letterSpacing: 1.2,
+                        color: T.textDim, textTransform: 'uppercase', fontWeight: 600,
+                      }}>
+                        <div>Bucket</div>
+                        <div>Military · Cargo · Intel</div>
+                        <div style={{ textAlign: 'right' }}>Total · Δ vs prev</div>
+                      </div>
+                      {/* Data rows */}
+                      {bucketRows.map((row, i) => {
+                        const prev = i > 0 ? bucketRows[i - 1].r.total : null;
+                        const d = prev == null ? null : row.r.total - prev;
+                        const widthMil = (row.r.counts.Military      / maxRowTotal) * 100;
+                        const widthCar = (row.r.counts.Cargo         / maxRowTotal) * 100;
+                        const widthInt = (row.r.counts.Intelligence  / maxRowTotal) * 100;
+                        const unit = summaryBucket === 'Hour' ? 'hr' : summaryBucket === 'Day' ? 'd' : 'wk';
+                        return (
+                          <div key={i} style={{
+                            display: 'grid', gridTemplateColumns: '160px 1fr 160px',
+                            gap: 12, padding: '10px 14px', alignItems: 'center',
+                            background: i % 2 === 0 ? T.ink200 : 'transparent',
+                            borderBottom: i < bucketRows.length - 1 ? `1px solid ${T.edge}` : 'none',
+                            fontFamily: T.mono, fontSize: 11,
+                          }}>
+                            <div style={{ color: T.textMid, letterSpacing: 0.2 }}>{row.b.label}</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                              {[
+                                { k: 'Military',     w: widthMil, n: row.r.counts.Military,     c: TYPE_COLORS.Military },
+                                { k: 'Cargo',        w: widthCar, n: row.r.counts.Cargo,        c: TYPE_COLORS.Cargo },
+                                { k: 'Intelligence', w: widthInt, n: row.r.counts.Intelligence, c: TYPE_COLORS.Intelligence },
+                              ].map(seg => (
+                                <div key={seg.k} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <div style={{ width: 58, color: T.textDim, fontSize: 9.5, letterSpacing: 0.3 }}>{seg.k}</div>
+                                  <div style={{ flex: 1, height: 8, background: T.ink300, borderRadius: 2, overflow: 'hidden' }}>
+                                    <div style={{
+                                      width: `${seg.w}%`, height: '100%', background: seg.c,
+                                      boxShadow: seg.n > 0 ? `0 0 4px ${seg.c}66` : 'none',
+                                    }} />
+                                  </div>
+                                  <div style={{ width: 24, textAlign: 'right', color: seg.n > 0 ? T.text : T.textDim, fontSize: 10 }}>{seg.n}</div>
+                                </div>
+                              ))}
+                            </div>
+                            <div style={{ textAlign: 'right', color: T.text, fontSize: 12 }}>
+                              <span style={{ fontWeight: 600 }}>{row.r.total}</span>
+                              <span style={{ marginLeft: 6, color: d == null ? T.textDim : d > 0 ? T.bear : d < 0 ? T.bull : T.textDim, fontSize: 10 }}>
+                                {d == null ? '· —' : `· ${d > 0 ? '+' : ''}${d} vs prev ${unit}`}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -59,7 +59,7 @@ async function fredLatest(seriesId) {
 }
 
 // Driver tile — self-contained cell. `loader` returns { value, delta, signal, note }.
-function DriverTile({ label, kicker, loader, onClick, T, bgAccent, explainKey, tileId, onReport }) {
+function DriverTile({ label, kicker, loader, onClick, T, bgAccent, explainKey, tileId, onReport, kickerAccent }) {
   const [state, setState] = React.useState({ loading: true });
   React.useEffect(() => {
     let active = true;
@@ -134,7 +134,12 @@ function DriverTile({ label, kicker, loader, onClick, T, bgAccent, explainKey, t
         )}
       </div>
       {kicker && (
-        <div style={{ fontSize: 9, color: T.textDim, letterSpacing: 0.3, lineHeight: 1.3 }}>
+        <div style={{
+          fontSize: 9,
+          color: kickerAccent || T.textDim,
+          letterSpacing: 0.3, lineHeight: 1.3,
+          fontWeight: kickerAccent ? 600 : 400,
+        }}>
           {kicker}
         </div>
       )}
@@ -261,6 +266,48 @@ function DriversScreen({ onNav }) {
         } catch { return {}; }
       },
     },
+    {
+      id: 'pm-fed-cut-may', explain: 'pm-fed-cut', group: 'regime',
+      label: 'PM · Fed Cuts in May', kicker: 'Prediction-market consensus',
+      kickerAccent: '#B07BE6',
+      onOpen: () => window.openTRPrediction && window.openTRPrediction(),
+      load: async () => {
+        if (typeof PredictionMarkets === 'undefined') return { value: '—', note: 'no live market' };
+        try {
+          const rows = await PredictionMarkets.fetchRelevant?.();
+          const m = (rows || []).find(r => /may.*cut|fomc.*may|fed.*may.*cut|cut.*may/i.test(r.title));
+          if (!m) return { value: '—', note: 'no live market' };
+          const pct = Math.round((m.yesPrice || 0) * 100);
+          return {
+            value: pct + '%',
+            delta: m.source,
+            signal: pct > 60 ? 'long' : pct < 30 ? 'short' : 'neutral',
+            note: 'Rate-cut odds for May FOMC · ' + m.source,
+          };
+        } catch { return { value: '—', note: 'no live market' }; }
+      },
+    },
+    {
+      id: 'pm-recession-2026', explain: 'pm-recession', group: 'regime',
+      label: 'PM · Recession Odds 2026', kicker: 'Prediction-market consensus',
+      kickerAccent: '#B07BE6',
+      onOpen: () => window.openTRPrediction && window.openTRPrediction(),
+      load: async () => {
+        if (typeof PredictionMarkets === 'undefined') return { value: '—', note: 'no live market' };
+        try {
+          const rows = await PredictionMarkets.fetchRelevant?.();
+          const m = (rows || []).find(r => /recession.*2026|nber.*recession|2026.*recession|us.*recession/i.test(r.title));
+          if (!m) return { value: '—', note: 'no live market' };
+          const pct = Math.round((m.yesPrice || 0) * 100);
+          return {
+            value: pct + '%',
+            delta: m.source,
+            signal: pct > 40 ? 'short' : pct < 20 ? 'long' : 'neutral',
+            note: 'Crowd-pricing of 2026 US recession · ' + m.source,
+          };
+        } catch { return { value: '—', note: 'no live market' }; }
+      },
+    },
 
     // ═══ BTC ═══
     {
@@ -353,6 +400,27 @@ function DriversScreen({ onNav }) {
             note: 'Passage = structural BTC bid via Strategic Reserve path',
           };
         } catch { return {}; }
+      },
+    },
+    {
+      id: 'pm-btc-100k-eoy', explain: 'pm-btc-100k', group: 'btc',
+      label: 'PM · BTC > $100k EOY', kicker: 'Prediction-market consensus',
+      kickerAccent: '#B07BE6',
+      onOpen: () => window.openTRPrediction && window.openTRPrediction(),
+      load: async () => {
+        if (typeof PredictionMarkets === 'undefined') return { value: '—', note: 'no live market' };
+        try {
+          const rows = await PredictionMarkets.fetchRelevant?.();
+          const m = (rows || []).find(r => /bitcoin.*100|btc.*100k.*december|btc.*reach|bitcoin.*reach.*\$?100/i.test(r.title));
+          if (!m) return { value: '—', note: 'no live market' };
+          const pct = Math.round((m.yesPrice || 0) * 100);
+          return {
+            value: pct + '%',
+            delta: m.source,
+            signal: pct > 55 ? 'long' : pct < 30 ? 'short' : 'neutral',
+            note: 'Crowd-pricing of BTC breaking $100k by year-end · ' + m.source,
+          };
+        } catch { return { value: '—', note: 'no live market' }; }
       },
     },
 
@@ -448,6 +516,30 @@ function DriversScreen({ onNav }) {
           signal: days > 0 && days <= 7 ? 'long' : 'neutral', // near deadline = risk premium
           note: 'Near-deadline = escalation premium in oil',
         };
+      },
+    },
+    {
+      id: 'pm-iran-strike', explain: 'pm-iran-strike', group: 'wti',
+      label: 'PM · Iran Strike · Q2', kicker: 'Prediction-market consensus',
+      kickerAccent: '#B07BE6',
+      onOpen: () => window.openTRPrediction && window.openTRPrediction(),
+      load: async () => {
+        if (typeof PredictionMarkets === 'undefined') return { value: '—', note: 'no live market' };
+        try {
+          const rows = await PredictionMarkets.fetchRelevant?.();
+          const m = (rows || []).find(r => /iran.*strike|israel.*iran|hormuz.*close|strike.*iran|iran.*attack/i.test(r.title));
+          if (!m) return { value: '—', note: 'no live market' };
+          const pct = Math.round((m.yesPrice || 0) * 100);
+          const hot = pct > 20;
+          return {
+            value: pct + '%',
+            delta: (hot ? 'HOT · ' : '') + m.source,
+            hot,
+            // >25% = already priced in (neutral), <10% = risk-on tailwind (long)
+            signal: pct > 25 ? 'neutral' : pct < 10 ? 'long' : 'neutral',
+            note: (hot ? 'HOT — elevated geopolitical risk priced in · ' : '') + 'Strike-probability contract · ' + m.source,
+          };
+        } catch { return { value: '—', note: 'no live market' }; }
       },
     },
 
@@ -563,6 +655,7 @@ function DriversScreen({ onNav }) {
       T={T}
       label={d.label}
       kicker={d.kicker}
+      kickerAccent={d.kickerAccent}
       explainKey={d.explain}
       onClick={d.onOpen}
       bgAccent
@@ -619,7 +712,7 @@ function DriversScreen({ onNav }) {
             fontSize: 9, letterSpacing: 1.2, color: T.signal,
             textTransform: 'uppercase', fontWeight: 600, marginBottom: 8,
           }}>Regime · top-of-book</div>
-          <div data-walk="regime-strip" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+          <div data-walk="regime-strip" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
             {groupTiles('regime').map(ReportingTile)}
           </div>
         </div>

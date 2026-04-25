@@ -32,6 +32,12 @@ window.TR_EXPLAIN = {
   'spx-vix':     'Same VIX as Regime tile — included here because it directly drives equity risk appetite. Sustained VIX < 15 = dip-buying works. Spikes above 25 = de-risk.',
   'spx-recession':'NY Fed 12-month-ahead recession probability from the yield-curve model (RECPROUSM156N). Above 30% historically precedes recessions within 12 months. Rising probability = de-risk equities.',
 
+  // ─── Prediction-market tiles (Polymarket + Kalshi) ───
+  'pm-fed-cut':    'Kalshi/Polymarket consensus odds of a Fed rate cut at the May FOMC. Above 60% = the crowd expects a cut (risk-on tailwind for BTC/SPX; short DXY). Below 30% = crowd pricing hawkish hold (risk-off). Read alongside the CME FedWatch print as a confidence check.',
+  'pm-recession':  'Prediction-market odds of a 2026 US recession (Kalshi/Polymarket). Rising probability above 40% is a leading risk-off signal — de-risk equities, add duration. Below 20% = crowd expects soft landing. Tends to move 4-8 weeks ahead of NBER/NY Fed prints.',
+  'pm-iran-strike':'Crowd-implied probability of an Iran military strike or Hormuz-closure event in Q2 (Kalshi/Polymarket). Above 25% = geopolitical risk already priced into oil (HOT flag). Below 10% = complacent market, asymmetric long setup for risk assets. Primary read for the oil risk-premium channel.',
+  'pm-btc-100k':   'Prediction-market odds BTC closes above $100k by year-end. Above 55% = institutional + retail aligned bullish (confirm with ETF flows). Below 30% = crowd capitulation. Useful as a consensus check — divergence from spot price action flags sentiment vs price dislocation.',
+
   // ─── Summary / LLMs ───
   'llm-claude':   'Anthropic Claude Sonnet 4.6 — strong reasoning and forecasting. Tends to weight institutional flows + regulatory events. Independently generates a BTC year-end target from current news.',
   'llm-gpt':      'OpenAI GPT-4o-mini — broadest training data. Tends to weight macro + sentiment signals. Generated target often differs from Claude by $3-8k, making the consensus useful.',
