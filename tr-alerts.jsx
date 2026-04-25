@@ -27,7 +27,17 @@
   const RULES_KEY = 'tr_alert_rules';
   const STATE_KEY = 'tr_alert_state';
   const SEEDED_KEY = 'tr_alert_seeded';
+  const LAST_SENT_KEY = 'tr_alert_last_sent_v1';   // { [ruleId]: ts } — 6h de-dup
+  const SEND_LOG_KEY  = 'tr_alert_send_log_v1';    // last 50 send events
   const DEFAULT_COOLDOWN_MIN = 60;
+  const DEDUP_MS = 6 * 60 * 60 * 1000;             // 6 hours
+  const ARMED_WATCH_INTERVAL_MS = 5 * 60 * 1000;   // 5 min
+  const ARMED_NEWS_WINDOW_MS = 30 * 60 * 1000;     // 30 min
+  const TAB_BASE_URL = 'https://traderadar.ggauntlet.com/';
+  const TAB_FOR_GROUP = {
+    Crypto: 'signals', Equities: 'prices', Sentiment: 'signals',
+    Geopolitics: 'flights', Flow: 'signals', Other: 'signals',
+  };
 
   // ---------- storage helpers ----------
   function loadRules() {
@@ -64,6 +74,111 @@
   }
   function saveState(state) {
     try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch (_) {}
+  }
+
+  // ---------- de-dup + send-log storage ----------
+  function loadLastSent() {
+    try {
+      const raw = localStorage.getItem(LAST_SENT_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return (parsed && typeof parsed === 'object') ? parsed : {};
+    } catch (_) { return {}; }
+  }
+  function saveLastSent(map) {
+    try { localStorage.setItem(LAST_SENT_KEY, JSON.stringify(map)); } catch (_) {}
+  }
+  function markSent(ruleId) {
+    const m = loadLastSent();
+    m[ruleId] = Date.now();
+    saveLastSent(m);
+  }
+  function isDupedWithin6h(ruleId) {
+    const m = loadLastSent();
+    const ts = m[ruleId];
+    if (!ts) return false;
+    return (Date.now() - ts) < DEDUP_MS;
+  }
+
+  function loadSendLog() {
+    try {
+      const raw = localStorage.getItem(SEND_LOG_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) { return []; }
+  }
+  function appendSendLog(entry) {
+    try {
+      const log = loadSendLog();
+      log.unshift(Object.assign({ ts: Date.now() }, entry));
+      const trimmed = log.slice(0, 50);
+      localStorage.setItem(SEND_LOG_KEY, JSON.stringify(trimmed));
+    } catch (_) {}
+  }
+
+  // ---------- per-session error throttle ----------
+  // If Telegram API returns non-200, log once; don't retry until next fire.
+  let _lastApiErrorAt = 0;
+  function logApiErrorOnce(err, context) {
+    const now = Date.now();
+    if (now - _lastApiErrorAt < 60_000) return; // rate-limit console spam
+    _lastApiErrorAt = now;
+    try { console.warn('[TRAlerts] Telegram send failed', context || '', err); } catch (_) {}
+  }
+
+  // ---------- Telegram send (direct to Bot API via window.TR_SETTINGS) ----------
+  async function sendTelegram(message) {
+    let botToken = '';
+    let chatId = '';
+    try {
+      const keys = (window.TR_SETTINGS && window.TR_SETTINGS.keys) || {};
+      botToken = keys.telegramBot || '';
+      chatId   = keys.telegramChatId || '';
+    } catch (_) { /* silent */ }
+    if (!botToken || !chatId) {
+      return false;
+    }
+    try {
+      const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'HTML',
+          disable_web_page_preview: true,
+        }),
+      });
+      if (!r.ok) {
+        logApiErrorOnce({ status: r.status }, 'non-200');
+        appendSendLog({ ok: false, status: r.status, len: message.length });
+        return false;
+      }
+      const j = await r.json().catch(() => null);
+      const ok = !!(j && j.ok === true);
+      if (!ok) {
+        logApiErrorOnce(j, 'api.ok=false');
+        appendSendLog({ ok: false, len: message.length, api: j && j.description });
+      } else {
+        appendSendLog({ ok: true, len: message.length });
+      }
+      return ok;
+    } catch (e) {
+      logApiErrorOnce(e, 'exception');
+      appendSendLog({ ok: false, len: message.length, err: String(e && e.message || e) });
+      return false;
+    }
+  }
+
+  // Count of successful sends today (local day)
+  function sentTodayCount() {
+    const log = loadSendLog();
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const t0 = startOfDay.getTime();
+    return log.filter(e => e && e.ok && e.ts >= t0).length;
   }
 
   function seedDefaults() {
@@ -221,6 +336,36 @@
     return '$' + Math.round(n).toLocaleString('en-US');
   }
 
+  // Used by per-rule TEST button so we can show "current X vs threshold Y"
+  // even when the rule isn't actually firing.
+  function currentValueForRule(rule, state) {
+    if (!rule || !state) return null;
+    switch (rule.type) {
+      case 'BTC_ABOVE': case 'BTC_BELOW':
+        return state.btc && isFinite(state.btc.price) ? fmtUsd(state.btc.price) : null;
+      case 'ETH_ABOVE': case 'ETH_BELOW':
+        return state.eth && isFinite(state.eth.price) ? fmtUsd(state.eth.price) : null;
+      case 'FG_ABOVE': case 'FG_BELOW':
+        return state.fng && isFinite(state.fng.value) ? state.fng.value : null;
+      case 'VIX_ABOVE':
+        return state.vix && isFinite(state.vix.value) ? state.vix.value.toFixed(2) : null;
+      case 'DXY_ABOVE':
+        return state.dxy && isFinite(state.dxy.value) ? state.dxy.value.toFixed(2) : null;
+      case 'FUNDING_ABOVE':
+        return state.funding && isFinite(state.funding.bps) ? state.funding.bps.toFixed(2) + ' bps' : null;
+      case 'MIL_FLIGHTS_ABOVE':
+        return state.mil && isFinite(state.mil.count) ? state.mil.count : null;
+      case 'INSIDER_BUY':
+        return state.insider && isFinite(state.insider.largestUsd) ? fmtUsd(state.insider.largestUsd) : null;
+      case 'CONGRESS_BUY':
+        return state.congress && isFinite(state.congress.largestUsd) ? fmtUsd(state.congress.largestUsd) : null;
+      case 'CONSENSUS_DIVERGENT':
+        return state.consensus ? (state.consensus.aligned ? 'aligned' : 'divergent') : null;
+      default:
+        return null;
+    }
+  }
+
   // ---------- state collection ----------
   async function collectState() {
     const out = {
@@ -308,36 +453,64 @@
   }
 
   // ---------- Telegram formatter ----------
-  function formatMessage(rule, reason, state) {
+  function tabUrlForRule(rule) {
+    const tab = TAB_FOR_GROUP[groupForType(rule.type)] || 'signals';
+    return `${TAB_BASE_URL}?tab=${tab}`;
+  }
+
+  function formatMessage(rule, reason, state, opts) {
+    const isTest = !!(opts && opts.test);
     const lines = [];
-    lines.push(`<b>TR alert · ${escapeHtml(labelForType(rule.type))}</b>`);
+    const alertName = (rule && rule.note) ? rule.note : labelForType(rule.type);
+    const headerEmoji = isTest ? '\u{1F9EA}' : '\u{1F6A8}'; // test tube vs siren
+    const prefix = isTest ? 'TEST' : 'TR alert';
+    lines.push(`${headerEmoji} <b>${prefix} \u00b7 ${escapeHtml(alertName)}</b>`);
     lines.push(escapeHtml(reason));
-    if (rule.note) lines.push('<i>' + escapeHtml(rule.note) + '</i>');
+    if (rule.note && rule.note !== alertName) {
+      lines.push('<i>' + escapeHtml(rule.note) + '</i>');
+    }
+    // Threshold reference line (skip for CONSENSUS_DIVERGENT — no threshold)
+    if (rule.type !== 'CONSENSUS_DIVERGENT' && isFinite(rule.threshold)) {
+      lines.push(`<i>threshold: ${escapeHtml(String(rule.threshold))}</i>`);
+    }
+    // Context strip from live snapshot
     const ctx = [];
-    if (state.btc) ctx.push(`BTC ${fmtUsd(state.btc.price)}`);
-    if (state.eth) ctx.push(`ETH ${fmtUsd(state.eth.price)}`);
-    if (state.fng) ctx.push(`F&amp;G ${state.fng.value}`);
-    if (state.vix) ctx.push(`VIX ${state.vix.value.toFixed(1)}`);
-    if (state.dxy) ctx.push(`DXY ${state.dxy.value.toFixed(1)}`);
-    if (state.mil) ctx.push(`MIL ${state.mil.count}`);
-    if (ctx.length) lines.push('<i>' + ctx.join(' · ') + '</i>');
+    if (state) {
+      if (state.btc) ctx.push(`BTC ${fmtUsd(state.btc.price)}`);
+      if (state.eth) ctx.push(`ETH ${fmtUsd(state.eth.price)}`);
+      if (state.fng) ctx.push(`F&amp;G ${state.fng.value}`);
+      if (state.vix) ctx.push(`VIX ${state.vix.value.toFixed(1)}`);
+      if (state.dxy) ctx.push(`DXY ${state.dxy.value.toFixed(1)}`);
+      if (state.mil) ctx.push(`MIL ${state.mil.count}`);
+    }
+    if (ctx.length) lines.push('<i>' + ctx.join(' \u00b7 ') + '</i>');
+    // Timestamp
     lines.push('<code>' + new Date().toISOString() + '</code>');
+    // Direct tab link
+    const url = tabUrlForRule(rule);
+    lines.push(`<a href="${escapeAttr(url)}">Open ${escapeHtml(groupForType(rule.type))} tab</a>`);
     return lines.join('\n');
   }
   function escapeHtml(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
+  function escapeAttr(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
 
   // ---------- Telegram config detection ----------
   function telegramConfigured() {
     try {
-      if (typeof TelegramAlert === 'undefined') return false;
-      if (typeof TelegramAlert.isConfigured === 'function') return !!TelegramAlert.isConfigured();
-      // Fallback: check localStorage keys some integrations commonly use.
-      const tok = localStorage.getItem('tg_bot_token') || localStorage.getItem('telegram_bot_token');
-      const chat = localStorage.getItem('tg_chat_id') || localStorage.getItem('telegram_chat_id');
-      return !!(tok && chat);
+      const keys = (window.TR_SETTINGS && window.TR_SETTINGS.keys) || {};
+      if (keys.telegramBot && keys.telegramChatId) return true;
+      // Back-compat: also accept TelegramAlert.isConfigured if present.
+      if (typeof TelegramAlert !== 'undefined'
+          && typeof TelegramAlert.isConfigured === 'function') {
+        return !!TelegramAlert.isConfigured();
+      }
+      return false;
     } catch (_) { return false; }
   }
 
@@ -356,6 +529,10 @@
     getLastSnapshot() { return this._lastState; },
     getLastTickAt() { return this._lastTickAt; },
     telegramConfigured() { return telegramConfigured(); },
+    sendTelegram(message) { return sendTelegram(message); },
+    sentTodayCount() { return sentTodayCount(); },
+    getSendLog() { return loadSendLog(); },
+    getLastSent() { return loadLastSent(); },
 
     onChange(cb) {
       this._listeners.add(cb);
@@ -400,20 +577,41 @@
     },
 
     async testSend() {
-      if (typeof TelegramAlert === 'undefined') return { ok: false, error: 'TelegramAlert missing' };
+      if (!telegramConfigured()) return { ok: false, error: 'telegram not configured' };
       const ts = new Date().toISOString();
-      const msg = `<b>TR test alert</b>\nTelegram connection OK.\n<code>${ts}</code>`;
-      return TelegramAlert.send(msg, { parseMode: 'HTML' });
+      const msg = `\u{1F9EA} <b>TR test alert</b>\nTelegram connection OK.\n<code>${ts}</code>\n<a href="${escapeAttr(TAB_BASE_URL)}">Open TradeRadar</a>`;
+      const ok = await sendTelegram(msg);
+      return { ok, result: { test: true } };
     },
 
     async testSendRule(id) {
       const rule = loadRules().find(r => r.id === id);
       if (!rule) return { ok: false, error: 'rule not found' };
-      if (typeof TelegramAlert === 'undefined') return { ok: false, error: 'TelegramAlert missing' };
+      if (!telegramConfigured()) return { ok: false, error: 'telegram not configured' };
       const state = this._lastState || await collectState();
-      const reason = `[TEST] ${labelForType(rule.type)} — threshold ${rule.threshold}`;
-      const msg = formatMessage(rule, reason, state);
-      return TelegramAlert.send(msg, { parseMode: 'HTML' });
+      // Use current evaluator output if rule actually matches; otherwise show
+      // a synthetic "current value vs threshold" line so the user can verify.
+      const evalReason = evaluateRule(Object.assign({}, rule, { enabled: true }), state);
+      let reason;
+      if (evalReason) {
+        reason = evalReason;
+      } else {
+        const cur = currentValueForRule(rule, state);
+        reason = `current ${cur === null ? 'n/a' : cur} vs threshold ${rule.threshold}`;
+      }
+      const msg = formatMessage(rule, reason, state, { test: true });
+      const ok = await sendTelegram(msg);
+      // testSendRule already writes via sendTelegram → appendSendLog, but
+      // tag the entry as a test for visibility in the debug log.
+      try {
+        const log = loadSendLog();
+        if (log[0]) {
+          log[0].test = true;
+          log[0].ruleId = rule.id;
+          localStorage.setItem(SEND_LOG_KEY, JSON.stringify(log));
+        }
+      } catch (_) {}
+      return { ok };
     },
 
     async tick() {
@@ -431,14 +629,30 @@
         const cooldownMs = Math.max(0, Number(rule.cooldownMin) || DEFAULT_COOLDOWN_MIN) * 60_000;
         const last = runState[rule.id] || 0;
         if (now - last < cooldownMs) continue;
-        // Fire — only call Telegram if configured; otherwise mark state so we
-        // don't hammer the check on every tick.
-        if (typeof TelegramAlert !== 'undefined') {
-          try {
-            const msg = formatMessage(rule, reason, state);
-            await TelegramAlert.send(msg, { parseMode: 'HTML' });
-          } catch (_) { /* silent */ }
+        // 6h global de-dup per rule (in addition to user-set cooldown)
+        if (isDupedWithin6h(rule.id)) {
+          // Still mark cooldown so we don't keep re-evaluating on every tick.
+          runState[rule.id] = now;
+          continue;
         }
+        // Fire via direct Bot API (sendTelegram) — silently no-ops if not
+        // configured. Returns true on success.
+        try {
+          const msg = formatMessage(rule, reason, state);
+          const ok = await sendTelegram(msg);
+          if (ok) {
+            markSent(rule.id);
+            // Tag latest log entry with the rule that fired
+            try {
+              const log = loadSendLog();
+              if (log[0]) {
+                log[0].ruleId = rule.id;
+                log[0].kind = 'rule';
+                localStorage.setItem(SEND_LOG_KEY, JSON.stringify(log));
+              }
+            } catch (_) {}
+          }
+        } catch (_) { /* silent — sendTelegram already logged */ }
         runState[rule.id] = now;
         fired++;
       }
@@ -454,13 +668,159 @@
       // First tick after a small delay so the engine has time to boot.
       setTimeout(() => { this.tick(); }, 2_000);
       this._timer = setInterval(() => { this.tick(); }, this._intervalMs);
+      // Kick off the ARMED-scenarios watcher (independent cadence, 5min).
+      try { this.setupARMEDWatch(); } catch (_) {}
     },
     stop() {
       this._running = false;
       if (this._timer) { clearInterval(this._timer); this._timer = null; }
+      if (this._armedTimer) { clearInterval(this._armedTimer); this._armedTimer = null; }
     },
     isRunning() { return this._running; },
+
+    // ---------- ARMED-scenarios watcher ----------
+    // Reads window.tr_scenarios_v1 (via localStorage), filters status==='ARMED',
+    // pulls last 30 min of news via window.NewsFeed.fetchAll(), and fires a
+    // Telegram with a TRIGGERED upgrade chip + impact table on first match.
+    // Uses the same 6h de-dup keyed on `scenario:<title>`.
+    _armedTimer: null,
+    _armedRunning: false,
+
+    setupARMEDWatch() {
+      if (this._armedTimer) return;
+      // First run after short delay so news engine can boot
+      setTimeout(() => { this._armedTick(); }, 8_000);
+      this._armedTimer = setInterval(() => { this._armedTick(); }, ARMED_WATCH_INTERVAL_MS);
+    },
+
+    async _armedTick() {
+      if (this._armedRunning) return;
+      this._armedRunning = true;
+      try {
+        const armed = loadARMEDScenarios();
+        if (!armed.length) return;
+        const news = await fetchRecentNews(ARMED_NEWS_WINDOW_MS);
+        if (!news || !news.length) return;
+        for (const sc of armed) {
+          const ruleId = 'scenario:' + (sc.title || 'untitled');
+          if (isDupedWithin6h(ruleId)) continue;
+          const matched = matchScenarioToNews(sc, news);
+          if (!matched) continue;
+          const msg = formatScenarioMessage(sc, matched);
+          if (!telegramConfigured()) {
+            // Mark dedup anyway so we don't busy-loop matching.
+            markSent(ruleId);
+            continue;
+          }
+          const ok = await sendTelegram(msg);
+          if (ok) {
+            markSent(ruleId);
+            try {
+              const log = loadSendLog();
+              if (log[0]) {
+                log[0].ruleId = ruleId;
+                log[0].kind = 'armed-scenario';
+                log[0].scenario = sc.title;
+                localStorage.setItem(SEND_LOG_KEY, JSON.stringify(log));
+              }
+            } catch (_) {}
+          }
+        }
+      } catch (_) { /* silent */ }
+      finally { this._armedRunning = false; }
+    },
   };
+
+  // ---------- ARMED helpers ----------
+  function loadARMEDScenarios() {
+    try {
+      const raw = localStorage.getItem('tr_scenarios_v1');
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      const list = Array.isArray(parsed) ? parsed
+                 : (parsed && Array.isArray(parsed.scenarios) ? parsed.scenarios : []);
+      return list.filter(s => s && s.status === 'ARMED' && s.title);
+    } catch (_) { return []; }
+  }
+
+  async function fetchRecentNews(windowMs) {
+    try {
+      if (!window.NewsFeed || typeof window.NewsFeed.fetchAll !== 'function') return [];
+      const all = await window.NewsFeed.fetchAll();
+      if (!Array.isArray(all)) return [];
+      const cutoff = Date.now() - windowMs;
+      return all.filter(item => {
+        if (!item) return false;
+        const t = item.publishedAt || item.published || item.timestamp || item.ts || item.date;
+        const ms = typeof t === 'number' ? t : (t ? Date.parse(t) : NaN);
+        if (!isFinite(ms)) return true; // keep if no timestamp — let keyword filter decide
+        return ms >= cutoff;
+      });
+    } catch (_) { return []; }
+  }
+
+  // Lightweight keyword extraction from a scenario title — strip stop words,
+  // keep tokens >= 4 chars or known proper nouns. e.g.
+  // "Iran closes Strait of Hormuz" → ['iran', 'closes', 'strait', 'hormuz']
+  const STOPWORDS = new Set([
+    'the','a','an','of','in','on','at','to','for','and','or','vs','with','by',
+    'from','is','are','be','been','that','this','it','its','as','if','then',
+    'next','meeting','expected','than','plus','adds','fails','closes',
+  ]);
+  function scenarioKeywords(scenario) {
+    const t = String(scenario.title || '').toLowerCase();
+    const tokens = t.split(/[^a-z0-9+]+/).filter(Boolean);
+    return tokens.filter(tok => !STOPWORDS.has(tok) && tok.length >= 4);
+  }
+  function matchScenarioToNews(scenario, news) {
+    const kws = scenarioKeywords(scenario);
+    if (!kws.length) return null;
+    for (const item of news) {
+      const hay = ((item.title || '') + ' ' + (item.summary || item.description || '')).toLowerCase();
+      // Require at least 1 strong keyword hit. Hormuz/Taiwan/CLARITY etc. are
+      // already specific enough that one match is meaningful.
+      const hit = kws.find(k => hay.includes(k));
+      if (hit) return { item, keyword: hit };
+    }
+    return null;
+  }
+  function formatScenarioMessage(scenario, matched) {
+    const lines = [];
+    lines.push(`\u{1F6A8} <b>SCENARIO TRIGGERED</b> \u00b7 <i>upgrade chip</i>`);
+    lines.push('<b>' + escapeHtml(scenario.title) + '</b>');
+    if (scenario.probability) {
+      lines.push(`<i>probability: ${escapeHtml(scenario.probability)} \u2192 TRIGGERED</i>`);
+    }
+    if (matched && matched.item) {
+      const it = matched.item;
+      const headline = it.title || it.headline || '';
+      const url = it.url || it.link || '';
+      if (headline && url) {
+        lines.push(`Match: <a href="${escapeAttr(url)}">${escapeHtml(headline)}</a>`);
+      } else if (headline) {
+        lines.push(`Match: ${escapeHtml(headline)}`);
+      }
+      if (matched.keyword) lines.push(`<i>keyword: ${escapeHtml(matched.keyword)}</i>`);
+    }
+    // Impact table
+    if (Array.isArray(scenario.impacts) && scenario.impacts.length) {
+      lines.push('');
+      lines.push('<b>Expected impact</b>');
+      for (const imp of scenario.impacts) {
+        const arrow = imp.bias === 'bull' ? '\u25B2'
+                    : imp.bias === 'bear' ? '\u25BC'
+                    : '\u25C6';
+        const asset = escapeHtml(imp.asset || '');
+        const move  = escapeHtml(imp.move || '');
+        const conf  = escapeHtml(imp.confidence || '');
+        lines.push(`${arrow} <code>${asset}</code> ${move}${conf ? ' \u00b7 ' + conf : ''}`);
+      }
+    }
+    lines.push('');
+    lines.push('<code>' + new Date().toISOString() + '</code>');
+    lines.push(`<a href="${escapeAttr(TAB_BASE_URL + '?tab=scenarios')}">Open Scenarios tab</a>`);
+    return lines.join('\n');
+  }
 
   window.TRAlertsManager = Manager;
 
@@ -490,6 +850,7 @@
     const [newCooldown, setNewCooldown] = React.useState(60);
     const [newNote, setNewNote] = React.useState('');
     const [tgConfigured, setTgConfigured] = React.useState(Manager.telegramConfigured());
+    const [sentToday, setSentToday] = React.useState(Manager.sentTodayCount ? Manager.sentTodayCount() : 0);
 
     React.useEffect(() => {
       const off = Manager.onChange(() => {
@@ -497,8 +858,12 @@
         setRunState(Manager.getState());
         setSnapshot(Manager.getLastSnapshot());
         setTgConfigured(Manager.telegramConfigured());
+        if (Manager.sentTodayCount) setSentToday(Manager.sentTodayCount());
       });
-      const int = setInterval(() => setTgConfigured(Manager.telegramConfigured()), 4000);
+      const int = setInterval(() => {
+        setTgConfigured(Manager.telegramConfigured());
+        if (Manager.sentTodayCount) setSentToday(Manager.sentTodayCount());
+      }, 4000);
       return () => { off(); clearInterval(int); };
     }, []);
 
@@ -567,8 +932,10 @@
 
     // Hero banner — telegram status
     const tgBadge = tgConfigured
-      ? { color: T.bull, bg: 'rgba(111,207,142,0.10)', border: 'rgba(111,207,142,0.4)', label: 'TELEGRAM CONNECTED' }
-      : { color: T.amber, bg: 'rgba(232,169,75,0.10)', border: 'rgba(232,169,75,0.4)', label: 'TELEGRAM NOT CONFIGURED' };
+      ? { color: T.bull, bg: 'rgba(111,207,142,0.10)', border: 'rgba(111,207,142,0.4)',
+          label: `TELEGRAM: ON \u00b7 ${sentToday} sent today` }
+      : { color: T.amber, bg: 'rgba(232,169,75,0.10)', border: 'rgba(232,169,75,0.4)',
+          label: 'TELEGRAM: NOT CONFIGURED \u00b7 add bot token in \u2699 Settings' };
 
     return (
       <div onClick={onClose} style={{
@@ -635,11 +1002,20 @@
                 Three defaults are pre-configured and ON. Add crypto, equity, macro, insider, and congress triggers below.
               </div>
             </div>
-            <div style={{
-              padding: '6px 12px', fontFamily: T.mono, fontSize: 10, fontWeight: 700, letterSpacing: 0.6,
-              color: tgBadge.color, background: tgBadge.bg, border: `1px solid ${tgBadge.border}`,
-              borderRadius: 5, whiteSpace: 'nowrap',
-            }}>
+            <div
+              onClick={() => {
+                if (!tgConfigured) {
+                  try { window.dispatchEvent(new CustomEvent('tr:open-settings')); } catch (_) {}
+                }
+              }}
+              title={tgConfigured ? 'Telegram alerts active' : 'Click to open Settings'}
+              style={{
+                padding: '6px 12px', fontFamily: T.mono, fontSize: 10, fontWeight: 700, letterSpacing: 0.6,
+                color: tgBadge.color, background: tgBadge.bg, border: `1px solid ${tgBadge.border}`,
+                borderRadius: 5, whiteSpace: 'nowrap',
+                cursor: tgConfigured ? 'default' : 'pointer',
+              }}
+            >
               ● {tgBadge.label}
             </div>
           </div>

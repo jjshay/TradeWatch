@@ -165,10 +165,10 @@ function SignalsScreen({ onNav }) {
   const [openRationale, setOpenRationale] = React.useState(null); // { scope, name, score, label, tiles, loading, text, model }
   const [metaTab, setMetaTab] = React.useState('macro'); // 'macro' | 'flow' | 'geo'
 
-  // Meta-tab → lane-id mapping. Controls which of the 7 lanes render at once.
+  // Meta-tab → lane-id mapping. Controls which of the 8 lanes render at once.
   const metaTabLanes = {
     macro: ['fed', 'equity'],
-    flow:  ['crypto', 'reg'],
+    flow:  ['crypto', 'reg', 'pred'],
     geo:   ['geo', 'china', 'oil'],
   };
 
@@ -207,6 +207,96 @@ function SignalsScreen({ onNav }) {
     },
     { refreshKey: 'signals' }
   );
+
+  // LIVE — Prediction Markets (Polymarket + Kalshi) for the `pred` lane
+  // Refreshes every 60s via useAutoUpdate. Snapshots stored in localStorage
+  // (`tr_pred_snapshots_v1`) so we can compute a 7d momentum delta.
+  const { data: predRows } = (window.useAutoUpdate || (() => ({})))(
+    'signals-pred',
+    async () => {
+      if (!window.PredictionMarkets) return null;
+      const PM = window.PredictionMarkets;
+      // Configured slugs: iran-deal, btc-100k, fed-cut-jun, clarity. Map → friendly key.
+      const configured = await PM.fetchConfiguredSlugs();
+      const byKey = {};
+      const POLY_SLUGS = PM.POLY_SLUGS || {};
+      for (const row of (configured || [])) {
+        const fk = POLY_SLUGS[row.slug];
+        if (fk) byKey[fk] = row;
+      }
+      // Oil >$100 — try Polymarket slug, then Kalshi-style fallback via findByTitle.
+      try {
+        const oilRow = await PM.fetchPolymarketSlug('oil-above-100-by-december-31-2026');
+        if (oilRow) byKey['oil-100'] = oilRow;
+      } catch (_) { /* fallthrough */ }
+      if (!byKey['oil-100']) {
+        try {
+          const m = await PM.findByTitle('oil 100');
+          if (m) byKey['oil-100'] = {
+            slug: m.ticker, question: m.title, source: m.source,
+            yesPrice: m.yesPrice, noPrice: m.noPrice, probability: m.yesPrice,
+            volume: m.volume, endDate: m.closeDate,
+          };
+        } catch (_) { /* tile will show tracking */ }
+      }
+      return byKey;
+    },
+    { manualMs: 60_000 }
+  );
+
+  // Snapshot/delta tracking — push current probabilities, prune > 30 days,
+  // compute 7d delta as `current - probAt(closest to 7d ago)`.
+  const PRED_SNAP_KEY = 'tr_pred_snapshots_v1';
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+  function readPredSnapshots() {
+    try {
+      const raw = localStorage.getItem(PRED_SNAP_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return (parsed && typeof parsed === 'object') ? parsed : {};
+    } catch (_) { return {}; }
+  }
+  function writePredSnapshots(s) {
+    try { localStorage.setItem(PRED_SNAP_KEY, JSON.stringify(s)); } catch (_) {}
+  }
+  // On each predRows update, append a snapshot per key + prune.
+  React.useEffect(() => {
+    if (!predRows) return;
+    const now = Date.now();
+    const store = readPredSnapshots();
+    let changed = false;
+    for (const [key, row] of Object.entries(predRows)) {
+      if (!row || typeof row.probability !== 'number') continue;
+      const arr = Array.isArray(store[key]) ? store[key] : [];
+      // Avoid spam — only push if >5min since last entry
+      const last = arr[arr.length - 1];
+      if (!last || (now - last.ts) > 5 * 60 * 1000) {
+        arr.push({ ts: now, prob: row.probability });
+        changed = true;
+      }
+      // Prune older than 30 days
+      const pruned = arr.filter(e => (now - e.ts) <= THIRTY_DAYS_MS);
+      if (pruned.length !== arr.length) changed = true;
+      store[key] = pruned;
+    }
+    if (changed) writePredSnapshots(store);
+  }, [predRows]);
+  // Compute 7d delta in pp for a given key. Returns null if <2 snapshots.
+  function pred7dDelta(key, currentProb) {
+    const store = readPredSnapshots();
+    const arr = store[key];
+    if (!arr || arr.length < 2 || typeof currentProb !== 'number') return null;
+    const target = Date.now() - SEVEN_DAYS_MS;
+    let best = arr[0];
+    let bestDist = Math.abs(arr[0].ts - target);
+    for (const e of arr) {
+      const d = Math.abs(e.ts - target);
+      if (d < bestDist) { best = e; bestDist = d; }
+    }
+    if (typeof best.prob !== 'number') return null;
+    return (currentProb - best.prob) * 100; // in percentage points
+  }
 
   const toggleLane = (id) => setCollapsedLanes(prev => {
     const next = new Set(prev);
@@ -328,6 +418,84 @@ function SignalsScreen({ onNav }) {
         { label: 'Gold', value: '$3,418', delta: '+0.8% · today', dir: 'up', impact: ['BTC'], spark: seededSpark(76, 28, 0.4), status: 'Safe-haven bid alongside BTC' },
       ],
     },
+    (() => {
+      // 8th lane — Prediction Markets (Polymarket + Kalshi). Tiles built from
+      // window.PredictionMarkets via useAutoUpdate above. If engine is missing,
+      // render a single graceful "engine not loaded" tile.
+      const lane = {
+        id: 'pred',
+        label: 'Prediction Markets',
+        desc: 'Polymarket · Kalshi · real-money probabilities',
+        explain: 'signals-lane-pred',
+        accent: '#B07BE6',
+        signals: [],
+      };
+      if (!window.PredictionMarkets) {
+        lane.signals = [{
+          label: 'Prediction engine not loaded',
+          value: '—', delta: 'unavailable', dir: 'flat',
+          impact: [], spark: seededSpark(80, 28, 0),
+          status: 'engine/prediction-markets.js not found',
+          statusColor: T.textDim,
+        }];
+        return lane;
+      }
+      // Tile config — label, key (matches predRows), threshold for long signal, impact tags.
+      const tileDefs = [
+        { i: 0, label: 'Iran Deal Probability',  key: 'iran-deal',   threshold: 50, impact: ['BTC', 'OIL'], explain: 'pm-iran-deal' },
+        { i: 1, label: 'BTC > $100K by Jan 2027', key: 'btc-100k',    threshold: 50, impact: ['BTC'],        explain: 'pm-btc-100k' },
+        { i: 2, label: 'Fed Cut June',            key: 'fed-cut-jun', threshold: 60, impact: ['BTC', 'SPX'], explain: 'pm-fed-cut-jun' },
+        { i: 3, label: 'CLARITY Act 2026',        key: 'clarity',     threshold: 60, impact: ['BTC'],        explain: 'pm-clarity' },
+        { i: 4, label: 'Oil > $100 by EOY',       key: 'oil-100',     threshold: 50, impact: ['OIL'],        explain: 'pm-oil-100' },
+      ];
+      lane.signals = tileDefs.map(def => {
+        const row = predRows && predRows[def.key];
+        if (!row || typeof row.probability !== 'number') {
+          // Tracking placeholder — engine loaded, tile not yet populated.
+          return {
+            label: def.label,
+            value: '—',
+            delta: 'tracking',
+            dir: 'flat',
+            impact: def.impact,
+            spark: seededSpark(80 + def.i, 28, 0),
+            status: 'Loading…',
+            statusColor: T.textDim,
+            explain: def.explain,
+          };
+        }
+        const prob = row.probability;
+        const pct = Math.round(prob * 100);
+        const delta7d = pred7dDelta(def.key, prob); // pp or null
+        const tracking = delta7d == null;
+        // Direction: above threshold = long (up). Below complementary = short (down). Else flat.
+        let dir = 'flat';
+        if (pct > def.threshold) dir = 'up';
+        else if (pct < (100 - def.threshold)) dir = 'down';
+        // Trend bias for sparkline drawn from delta sign/magnitude
+        const trendBias = tracking ? 0 : Math.max(-0.5, Math.min(0.5, delta7d / 30));
+        const hot = pct > 75 || pct < 25 || (!tracking && Math.abs(delta7d) > 10);
+        // Status — `${source}: ${question}` truncated to 80 chars.
+        const rawStatus = `${row.source || 'Polymarket'}: ${row.question || def.label}`;
+        const status = rawStatus.length > 80 ? rawStatus.slice(0, 77) + '…' : rawStatus;
+        const deltaStr = tracking
+          ? 'tracking'
+          : `${delta7d >= 0 ? '+' : ''}${delta7d.toFixed(1)}pp · 7d`;
+        return {
+          label: def.label,
+          value: `${pct}%`,
+          delta: deltaStr,
+          dir,
+          impact: def.impact,
+          spark: seededSpark(80 + def.i, 28, trendBias),
+          status,
+          statusColor: tracking ? T.textDim : (pct > 50 ? T.signal : T.textMid),
+          hot,
+          explain: def.explain,
+        };
+      });
+      return lane;
+    })(),
   ];
 
   // LIVE overlay — merge live prices onto the matching lane cards if data arrived.

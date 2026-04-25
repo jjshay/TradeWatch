@@ -76,6 +76,106 @@
     return null;
   }
 
+  // ---------- LLM model calibration ----------
+  var LLMS = [
+    { id: 'claude', label: 'Claude',  color: '#D97757' },
+    { id: 'gpt',    label: 'GPT',     color: '#10A37F' },
+    { id: 'gemini', label: 'Gemini',  color: '#4285F4' },
+    { id: 'grok',   label: 'Grok',    color: '#E5E7EB' },
+  ];
+
+  // Read per-LLM predictions snapshot (if available) to capture conviction the
+  // day a trade was opened. Shape (flexible):
+  //   { claude: { direction: 'bull'|'bear'|'neutral', conviction: 'HIGH'|'MED'|'LOW' }, ... }
+  function readLastPredictions() {
+    try {
+      var raw = localStorage.getItem('tr_last_predictions');
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (_) { return null; }
+  }
+
+  // Turn a conviction string or number into a 0..1 probability.
+  function convictionToProb(c) {
+    if (c == null) return 0.5;
+    if (typeof c === 'number' && isFinite(c)) {
+      if (c > 1) return Math.min(1, c / 100);
+      return Math.max(0, Math.min(1, c));
+    }
+    var s = String(c).toLowerCase();
+    if (s.indexOf('high') >= 0) return 0.8;
+    if (s.indexOf('med')  >= 0) return 0.6;
+    if (s.indexOf('low')  >= 0) return 0.4;
+    return 0.5;
+  }
+
+  // Per-LLM stats built from closed, attributed journal entries.
+  function computeModelStats(entries) {
+    var out = {};
+    LLMS.forEach(function (m) {
+      out[m.id] = {
+        id: m.id, label: m.label, color: m.color,
+        total: 0, wins: 0, losses: 0,
+        winPcts: [], lossPcts: [],
+        brierNum: 0, brierDen: 0,
+      };
+    });
+    (entries || []).forEach(function (e) {
+      if (!e || e.status !== 'closed') return;
+      var attr = Array.isArray(e.attributedModels) ? e.attributedModels : [];
+      if (!attr.length) return;
+      var pct = pnlPct(e);
+      if (pct == null) return;
+      var win = pct > 0;
+      attr.forEach(function (mid) {
+        var slot = out[mid];
+        if (!slot) return;
+        slot.total++;
+        if (win) { slot.wins++; slot.winPcts.push(pct); }
+        else     { slot.losses++; slot.lossPcts.push(pct); }
+        // Brier: use snapshot conviction if present on the entry, else 0.5
+        var snap = e.modelSnapshot && e.modelSnapshot[mid];
+        var p = convictionToProb(snap && (snap.conviction || snap.prob));
+        var outcome = win ? 1 : 0;
+        slot.brierNum += (p - outcome) * (p - outcome);
+        slot.brierDen += 1;
+      });
+    });
+    function avg(a) {
+      if (!a.length) return null;
+      var s = 0; for (var i = 0; i < a.length; i++) s += a[i];
+      return s / a.length;
+    }
+    Object.keys(out).forEach(function (k) {
+      var r = out[k];
+      r.accuracy  = r.total ? r.wins / r.total : null;
+      r.avgWin    = avg(r.winPcts);
+      r.avgLoss   = avg(r.lossPcts);
+      r.brier     = r.brierDen ? (r.brierNum / r.brierDen) : null;
+      r.trust = (r.total >= 10 && r.accuracy > 0.60) ? 'TRUSTED'
+              : (r.total >= 3  && r.accuracy != null && r.accuracy < 0.45) ? 'WEAK'
+              : 'NEUTRAL';
+    });
+    return out;
+  }
+
+  // Expose getModelWeights() for tr-trade-of-day and other consumers.
+  function installModelWeights() {
+    if (!window.TRJournal) return;
+    if (window.TRJournal.getModelWeights) return; // already installed
+    window.TRJournal.getModelWeights = function () {
+      var entries = [];
+      try { entries = window.TRJournal.getEntries() || []; } catch (_) {}
+      var stats = computeModelStats(entries);
+      var w = {};
+      LLMS.forEach(function (m) {
+        var r = stats[m.id];
+        w[m.id] = (r && r.accuracy != null && r.total >= 3) ? r.accuracy : 0.5;
+      });
+      return w;
+    };
+  }
+
   // ---------- stat card ----------
   function StatCard(props) {
     var color = props.color || T.text;
@@ -179,6 +279,8 @@
       ? String(initial.entryDate).slice(0, 10)
       : new Date().toISOString().slice(0, 10);
 
+    var initialAttr = Array.isArray(initial.attributedModels)
+      ? initial.attributedModels.slice() : [];
     var st = React.useState({
       symbol: init('symbol', ''),
       side: init('side', 'long'),
@@ -190,8 +292,17 @@
       tags: initialTags,
       thesis: init('thesis', ''),
       notes: init('notes', ''),
+      attributedModels: initialAttr,
     });
     var form = st[0], setForm = st[1];
+    function toggleModel(mid) {
+      setForm(function (f) {
+        var cur = Array.isArray(f.attributedModels) ? f.attributedModels.slice() : [];
+        var i = cur.indexOf(mid);
+        if (i >= 0) cur.splice(i, 1); else cur.push(mid);
+        return Object.assign({}, f, { attributedModels: cur });
+      });
+    }
     function onChange(k) {
       return function (e) {
         var v = e && e.target ? e.target.value : e;
@@ -203,6 +314,26 @@
       if (!form.symbol || !form.qty || form.entryPrice === '') {
         alert('Symbol, qty, and entry price are required.');
         return;
+      }
+      var attributed = (form.attributedModels || []).filter(function (m) {
+        return ['claude','gpt','gemini','grok'].indexOf(m) >= 0;
+      });
+      // Snapshot per-model conviction at log time (if available) for Brier scoring later.
+      var snap = null;
+      if (attributed.length) {
+        var preds = readLastPredictions();
+        if (preds && typeof preds === 'object') {
+          snap = {};
+          attributed.forEach(function (mid) {
+            if (preds[mid]) snap[mid] = preds[mid];
+          });
+        }
+        // Preserve any prior snapshot already on the entry when editing.
+        if (editing && editing.modelSnapshot) {
+          snap = Object.assign({}, editing.modelSnapshot, snap || {});
+        }
+      } else if (editing && editing.modelSnapshot) {
+        snap = editing.modelSnapshot;
       }
       var payload = {
         symbol: form.symbol.trim().toUpperCase(),
@@ -216,6 +347,8 @@
         thesis: form.thesis,
         notes: form.notes,
         source: editing && editing.source ? editing.source : 'manual',
+        attributedModels: attributed,
+        modelSnapshot: snap,
       };
       if (editing && editing.id) {
         window.TRJournal.updateEntry(editing.id, payload);
@@ -297,6 +430,34 @@
           <textarea style={Object.assign({}, inputStyle, { minHeight: 60, fontFamily: T.ui })}
             value={form.notes} onChange={onChange('notes')}
             placeholder="Setup, adjustments, post-mortem..." />
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <div style={labelStyle}>Inspired By (leave blank for own thesis)</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {LLMS.map(function (m) {
+              var on = (form.attributedModels || []).indexOf(m.id) >= 0;
+              return (
+                <label key={m.id} onClick={function (e) { e.preventDefault(); toggleModel(m.id); }}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '5px 10px', cursor: 'pointer',
+                    background: on ? T.ink100 : T.ink200,
+                    border: '1px solid ' + (on ? m.color : T.edge),
+                    borderRadius: 5, fontFamily: T.mono, fontSize: 11,
+                    color: on ? T.text : T.textMid, letterSpacing: 0.4,
+                    userSelect: 'none',
+                }}>
+                  <span style={{
+                    width: 8, height: 8, borderRadius: '50%',
+                    background: m.color, display: 'inline-block',
+                  }} />
+                  <input type="checkbox" readOnly checked={on}
+                    style={{ accentColor: m.color, margin: 0 }} />
+                  {m.label}
+                </label>
+              );
+            })}
+          </div>
         </div>
         <div style={{ marginTop: 14, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={props.onCancel} style={{
@@ -442,6 +603,129 @@
     }
   }
 
+  // ---------- model calibration dashboard ----------
+  function ModelCalibration(props) {
+    var entries = props.entries || [];
+    var stats = computeModelStats(entries);
+    // Find best (highest accuracy with at least 3 trades)
+    var bestId = null, bestAcc = -1;
+    LLMS.forEach(function (m) {
+      var r = stats[m.id];
+      if (r.total >= 3 && r.accuracy != null && r.accuracy > bestAcc) {
+        bestAcc = r.accuracy; bestId = m.id;
+      }
+    });
+    var anyAttributed = LLMS.some(function (m) { return stats[m.id].total > 0; });
+
+    var headerLabel = (
+      <div style={{
+        fontFamily: T.mono, fontSize: 9.5, letterSpacing: 0.8,
+        color: T.signal, textTransform: 'uppercase',
+        marginBottom: 8, fontWeight: 700,
+      }}>MODEL CALIBRATION · LLM accuracy on YOUR closed trades</div>
+    );
+
+    if (!anyAttributed) {
+      return (
+        <div style={{ marginBottom: 16 }}>
+          {headerLabel}
+          <div style={{
+            padding: '14px 16px', background: T.ink200,
+            border: '1px solid ' + T.edge, borderRadius: 8,
+            color: T.textDim, fontSize: 11.5, fontFamily: T.mono,
+            letterSpacing: 0.4, textAlign: 'center',
+          }}>NO ATTRIBUTED CLOSED TRADES YET — TAG TRADES "INSPIRED BY" TO BUILD MODEL CALIBRATION</div>
+        </div>
+      );
+    }
+
+    function trustColor(t) {
+      if (t === 'TRUSTED') return T.bull;
+      if (t === 'WEAK')    return T.bear;
+      return T.textMid;
+    }
+
+    var bestLabel = bestId ? LLMS.filter(function (m) { return m.id === bestId; })[0].label : null;
+
+    return (
+      <div style={{ marginBottom: 16 }}>
+        {headerLabel}
+        {bestId && (
+          <div style={{
+            padding: '8px 12px', marginBottom: 10,
+            background: 'rgba(201,162,39,0.08)',
+            border: '1px solid ' + T.signal, borderRadius: 6,
+            fontFamily: T.mono, fontSize: 11, color: T.signal, letterSpacing: 0.4,
+          }}>MOST RELIABLE ON YOUR SETUPS · {bestLabel.toUpperCase()} · {(bestAcc * 100).toFixed(0)}% accuracy</div>
+        )}
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10,
+        }}>
+          {LLMS.map(function (m) {
+            var r = stats[m.id];
+            var isBest = m.id === bestId;
+            var hasData = r.total > 0;
+            var accStr = r.accuracy != null
+              ? (r.accuracy * 100).toFixed(0) + '%'
+              : '—';
+            var brierStr = r.brier != null ? r.brier.toFixed(2) : '—';
+            return (
+              <div key={m.id} style={{
+                padding: '12px 14px', background: T.ink200,
+                border: '1px solid ' + (isBest ? T.signal : T.edge),
+                borderRadius: 8, position: 'relative',
+                boxShadow: isBest ? '0 0 0 1px ' + T.signal + ' inset' : 'none',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <span style={{
+                    width: 8, height: 8, borderRadius: '50%',
+                    background: m.color, display: 'inline-block',
+                  }} />
+                  <span style={{
+                    fontFamily: T.mono, fontSize: 11, fontWeight: 700,
+                    color: T.text, letterSpacing: 0.6, textTransform: 'uppercase',
+                  }}>{m.label}</span>
+                  <span style={{ flex: 1 }} />
+                  <span style={{
+                    padding: '1px 6px', fontSize: 8.5, letterSpacing: 0.6,
+                    color: trustColor(r.trust),
+                    border: '1px solid ' + trustColor(r.trust),
+                    borderRadius: 3, fontFamily: T.mono, fontWeight: 600,
+                  }}>{r.trust}</span>
+                </div>
+                <div style={{
+                  fontSize: 22, fontWeight: 600,
+                  color: hasData
+                    ? (r.accuracy >= 0.6 ? T.bull : r.accuracy < 0.45 ? T.bear : T.text)
+                    : T.textDim,
+                  fontFamily: T.mono, letterSpacing: -0.5,
+                }}>{accStr}</div>
+                <div style={{
+                  fontSize: 10, color: T.textMid, marginTop: 4, fontFamily: T.mono,
+                }}>{r.wins}W / {r.losses}L · {r.total} trades</div>
+                <div style={{
+                  fontSize: 9.5, color: T.textDim, marginTop: 6, fontFamily: T.mono,
+                  display: 'flex', justifyContent: 'space-between', gap: 6,
+                }}>
+                  <span>avg W {r.avgWin != null ? fmtPct(r.avgWin) : '—'}</span>
+                  <span>avg L {r.avgLoss != null ? fmtPct(r.avgLoss) : '—'}</span>
+                </div>
+                <div style={{ marginTop: 6 }}>
+                  <span style={{
+                    display: 'inline-block', padding: '1px 6px',
+                    fontSize: 9, fontFamily: T.mono, letterSpacing: 0.4,
+                    color: T.textMid, background: T.ink300,
+                    border: '1px solid ' + T.edge, borderRadius: 3,
+                  }}>calibration: {brierStr}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   // ---------- main panel ----------
   function TRJournalPanel(props) {
     var open = props.open, onClose = props.onClose;
@@ -454,6 +738,7 @@
 
     var data = React.useMemo(function () {
       if (!window.TRJournal) return { entries: [], stats: null, curve: [] };
+      installModelWeights();
       return {
         entries: window.TRJournal.getEntries(),
         stats: window.TRJournal.getStats(),
@@ -577,6 +862,9 @@
 
           {/* Body */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
+
+            {/* MODEL CALIBRATION */}
+            <ModelCalibration entries={entries} />
 
             {/* STAT STRIP */}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -705,4 +993,19 @@
   }
 
   window.TRJournalPanel = TRJournalPanel;
+
+  // Try to install getModelWeights immediately; if TRJournal isn't ready yet,
+  // poll briefly so other panels (tr-trade-of-day) can call it.
+  try {
+    if (window.TRJournal) {
+      installModelWeights();
+    } else {
+      var _wTries = 0;
+      var _wTimer = setInterval(function () {
+        _wTries++;
+        if (window.TRJournal) { installModelWeights(); clearInterval(_wTimer); }
+        else if (_wTries > 40) { clearInterval(_wTimer); }
+      }, 250);
+    }
+  } catch (_) {}
 })();

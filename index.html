@@ -181,6 +181,7 @@
 <script type="text/babel" src="tr-prep-for-open.jsx"></script>
 <script type="text/babel" src="tr-keyboard-shortcuts.jsx"></script>
 <script type="text/babel" src="tr-calibration-panel.jsx"></script>
+<script type="text/babel" src="tr-backtest-panel.jsx"></script>
 <script type="text/babel" src="tr-ui.jsx"></script>
 <script type="text/babel" src="tr-mobile.jsx"></script>
 <script type="text/babel" src="tr-panel-launcher.jsx"></script>
@@ -439,6 +440,7 @@ function TradeRadarApp() {
       ['correlation','openTRCorrelation',   'tr:open-correlation'],
       ['scenarios',  'openTRScenarios',     'tr:open-scenarios'],
       ['calibration','openTRCalibration',   'tr:open-calibration'],
+      ['backtest',   'openTRBacktest',      'tr:open-backtest'],
     ];
     PANEL_REG.forEach(([k, globalName]) => { window[globalName] = () => openPanel(k); });
 
@@ -560,6 +562,7 @@ function TradeRadarApp() {
         ['correlation','TRCorrelationPanel'],
         ['scenarios',  'TRScenariosPanel'],
         ['calibration','TRCalibrationPanel'],
+        ['backtest',   'TRBacktestPanel'],
       ].map(([k, Cmp]) => {
         const C = window[Cmp];
         return C ? <C key={k} open={panels[k]} onClose={() => closePanel(k)} /> : null;

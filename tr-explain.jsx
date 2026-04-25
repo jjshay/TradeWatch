@@ -60,6 +60,13 @@ window.TR_EXPLAIN = {
   'irgc-control':       'Tracks Iran civilian vs military balance — when the IRGC (Revolutionary Guard) sidelines the elected civilian president, oil prices a direct risk premium and BTC catches a safe-haven bid. Watch indicators: media ban expansions, arrests of reformist figures, cabinet shuffles, and public IRGC-affiliated appointments. When the indicator flips BALANCED → ELEVATED → CRISIS, oil typically moves +$5-15 and BTC +3-6% intraday — precedent: April 2024 strike-escalation chain.',
   'signals-lane-china': 'China lane — GDP, PBoC policy, USD/CNH, tariffs, oil imports. CNH weakening = BTC bid (capital flight). Stronger China demand = oil bid.',
   'signals-lane-oil':   'Oil & Commodities lane — WTI, Brent, OPEC production, SPR refill, EIA inventories, gold. Primary oil-driver stack; gold doubles as BTC correlate (both safe-haven).',
+  'signals-lane-pred':  'Prediction Markets lane — real-money crowd-implied probabilities from Polymarket and Kalshi on the events that move BTC, oil, and SPX (Iran deal, BTC $100k, Fed cut, CLARITY Act, oil >$100). Threshold logic: a probability >50% (or >60% for Fed/CLARITY) is a directional signal because real dollars are backing that view. The 7-day delta column is the momentum read — a big jump (±10pp) is usually earlier and more honest than the spot news cycle, which is why this lane is grouped under FLOW.',
+
+  // ─── Prediction Markets lane tiles (Signals page) ───
+  'pm-iran-deal':     'Polymarket YES odds for a US-Iran nuclear deal in 2026. Above 50% flips bullish BTC + oil (sanctions relief releases ~1Mbd of Iranian crude — bearish oil price but bullish risk appetite; capital rotates out of safe-haven gold into BTC).',
+  'pm-fed-cut-jun':   'Polymarket YES odds of a Fed cut at the June 2026 FOMC. Above 60% = risk-on tailwind for BTC + SPX (cheaper cost of capital, weaker DXY). Below 40% means the market is repricing hawkish — de-risk.',
+  'pm-clarity':       'Polymarket YES odds the CLARITY Act passes in 2026. Above 60% = structural regulatory win priced in + Strategic BTC Reserve pathway clears. A single vote on this can move BTC ±10% intraday, so watch the 7d delta for early tells.',
+  'pm-oil-100':       'Kalshi/Polymarket YES odds that oil (WTI or Brent) trades above $100/bbl by year-end. Above 50% = crowd expects supply shock or geopolitical escalation — confirm against the Geo and Oil lanes. Below 25% = complacent market, asymmetric long setup if Hormuz risk reignites.',
 
   // ─── News page ───
   'news-risk-high':   'HIGH risk — article contains keywords suggesting imminent market impact (Fed decision, war, major data surprise, regulatory action). Expect near-term volatility; size down or wait.',
